@@ -7,6 +7,7 @@ import type {
   DraftRule,
 } from "@/features/builder/model";
 import { amountLamports, FULL } from "@/features/builder/model";
+import { checkFact } from "@/lib/checks";
 import { formatShare, formatWhen } from "@/lib/format";
 import {
   type ConditionRole,
@@ -31,21 +32,27 @@ export const checkName = (draft: Draft, id: string) => {
 
 export const quorum = (check: DraftCheck) => {
   const total = check.reviewers.length;
+  const who = check.kind === "manual" ? "reviewer" : "node";
   if (total === 1) {
-    return "the reviewer";
+    return `the ${who}`;
   }
-  return `${check.threshold} of ${total} reviewers`;
+  return `${check.threshold} of ${total} ${who}s`;
 };
 
 const attestedLabel = (check: DraftCheck | undefined) => {
   if (!check) {
     return "a check that was removed";
   }
+  const { verb } = checkFact({
+    binds: check.binds === null ? null : 0,
+    expect: check.expect,
+    kind: check.kind,
+    target: check.target,
+    threshold: check.threshold,
+    witnesses: [],
+  });
   const single = check.reviewers.length === 1;
-  if (check.binds !== null) {
-    return `${quorum(check)} ${single ? "names" : "name"} the winner`;
-  }
-  return `${quorum(check)} ${single ? "says" : "say"} yes`;
+  return `${quorum(check)} ${single ? verb.one : verb.many}`;
 };
 
 export const conditionRoleOf = (condition: DraftCondition): ConditionRole => {

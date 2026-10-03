@@ -1,6 +1,7 @@
 import {
   bounty,
   type CheckKind,
+  DEMO_WITNESS_NODES,
   type DealSpec,
   gig,
   LIMITS,
@@ -828,3 +829,48 @@ export const removeReviewer = (check: DraftCheck, id: string): DraftCheck =>
         reviewers: check.reviewers.filter((reviewer) => reviewer.id !== id),
       }
     : check;
+
+const DEFAULT_LABEL = /^(Reviewer|Node|Witness node) \d+$/;
+const PASSING = "success";
+
+const expectFor = (kind: CheckKind, current: string) => {
+  if (kind === "github_checks") {
+    return PASSING;
+  }
+  return kind === "http_contains" && current !== PASSING ? current : "";
+};
+
+export const setCheckKind = (
+  check: DraftCheck,
+  kind: CheckKind
+): DraftCheck => {
+  const word = kind === "manual" ? "Reviewer" : "Node";
+  return {
+    ...check,
+    expect: expectFor(kind, check.expect),
+    kind,
+    reviewers: check.reviewers.map((reviewer, position) =>
+      DEFAULT_LABEL.test(reviewer.label)
+        ? { ...reviewer, label: `${word} ${position + 1}` }
+        : reviewer
+    ),
+    target: kind === check.kind ? check.target : "",
+  };
+};
+
+export const hasDemoNodes = (check: DraftCheck) =>
+  check.reviewers.length === DEMO_WITNESS_NODES.witnesses.length &&
+  check.reviewers.every(
+    (reviewer, position) =>
+      reviewer.address.trim() === DEMO_WITNESS_NODES.witnesses[position]
+  );
+
+export const withDemoNodes = (check: DraftCheck): DraftCheck => ({
+  ...check,
+  reviewers: DEMO_WITNESS_NODES.witnesses.map((address, position) => ({
+    address,
+    id: newId(),
+    label: `Node ${position + 1}`,
+  })),
+  threshold: DEMO_WITNESS_NODES.threshold,
+});

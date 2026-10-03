@@ -1,10 +1,12 @@
 import { Button, cn, Input, Spinner, Textarea } from "@cladd-ui/react";
+import { useSearch } from "@tanstack/react-router";
 import { ArrowUp, CircleCheck, CloudOff, X } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import {
   type FormEvent,
   type KeyboardEvent,
   useCallback,
+  useEffect,
   useState,
 } from "react";
 import { QUICK } from "@/components/pact/motion";
@@ -126,13 +128,25 @@ function QuestionCard({ question }: { question: Question }) {
   );
 }
 
+function Upgrade() {
+  const { wallet } = useBuilder();
+  if (wallet === null) {
+    return (
+      <p className="text-cladd-fg-soft text-sm">Connect a wallet to go Pro.</p>
+    );
+  }
+  return <GoPro />;
+}
+
 function Status() {
   const { failure, note, online, recheck, stage, status } = useAi();
   if (status !== "idle") {
+    const label =
+      status === "retrying" ? `Second attempt. ${stage ?? ""}` : (stage ?? "");
     return (
       <p className="flex items-center gap-2.5 text-sm">
         <Spinner color="neutral" size="sm" />
-        {stage}
+        {label}
       </p>
     );
   }
@@ -146,7 +160,7 @@ function Status() {
           </span>
           <span className="text-cladd-fg-soft">{failure.detail}</span>
         </p>
-        {failure.code === "quota_exhausted" ? <GoPro /> : null}
+        {failure.code === "quota_exhausted" ? <Upgrade /> : null}
         {offline ? (
           <div>
             <Button onClick={recheck} size="lg">
@@ -198,8 +212,17 @@ function Status() {
 }
 
 export function PromptBox({ variant }: { variant: Variant }) {
-  const { online, origin, questions, quota, send, setText, status, text } =
-    useAi();
+  const {
+    failure,
+    online,
+    origin,
+    questions,
+    quota,
+    send,
+    setText,
+    status,
+    text,
+  } = useAi();
   const { mode } = useBuilder();
   const copy = COPY[variant];
   const busy = status !== "idle";
@@ -224,6 +247,22 @@ export function PromptBox({ variant }: { variant: Variant }) {
   );
   const known = useQuota();
   const usage = quotaText(quota ?? known.data ?? null);
+
+  const { template } = useSearch({ strict: false }) as { template?: unknown };
+  const [focusFirst] = useState(() => template === "ai");
+  useEffect(() => {
+    if (focusFirst) {
+      origin.current
+        ?.querySelector<HTMLElement>("[contenteditable], textarea")
+        ?.focus();
+    }
+  }, [focusFirst, origin]);
+
+  useEffect(() => {
+    if (failure) {
+      origin.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+  }, [failure, origin]);
 
   if (mode === "play") {
     return null;

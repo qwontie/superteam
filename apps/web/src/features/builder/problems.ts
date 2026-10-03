@@ -145,7 +145,10 @@ const checkProblem = (path: Path, message: string, ctx: Context): Found => {
       return check.target.trim() === ""
         ? {
             anchor,
-            text: `Say what the reviewers of check ${(checkAt as number) + 1} confirm.`,
+            text:
+              check.kind === "manual"
+                ? `Say what the reviewers of check ${(checkAt as number) + 1} confirm.`
+                : `Say what the nodes of check ${(checkAt as number) + 1} look at.`,
             todo: true,
           }
         : {
@@ -265,6 +268,49 @@ const explain = (problem: string, ctx: Context): Found => {
   }
 };
 
+const REPO_REF = /^[\w.-]+\/[\w.-]+@[\w./-]+$/;
+const REPO_PR = /^[\w.-]+\/[\w.-]+#\d+$/;
+const HTTPS = /^https:\/\/\S+$/;
+
+const formatProblems = (draft: Draft): Found[] =>
+  draft.checks.map((check, index) => {
+    const anchor = anchors.check(check.id);
+    const target = check.target.trim();
+    const number = index + 1;
+    if (check.kind === "manual" || target === "") {
+      return null;
+    }
+    if (check.kind === "http_contains") {
+      if (!HTTPS.test(target)) {
+        return {
+          anchor,
+          text: `Check ${number}: the page address must start with https://`,
+        };
+      }
+      return check.expect.trim() === ""
+        ? {
+            anchor,
+            text: `Say which text the page of check ${number} must contain.`,
+            todo: true,
+          }
+        : null;
+    }
+    if (check.kind === "github_checks") {
+      return REPO_REF.test(target)
+        ? null
+        : {
+            anchor,
+            text: `Check ${number}: write the repository and commit as owner/repo@ref.`,
+          };
+    }
+    return REPO_PR.test(target)
+      ? null
+      : {
+          anchor,
+          text: `Check ${number}: write the pull request as owner/repo#number.`,
+        };
+  });
+
 export const validateDraft = (
   draft: Draft,
   wallet: string | null,
@@ -272,15 +318,18 @@ export const validateDraft = (
 ): Validation => {
   const spec = draftToSpec(draft, wallet);
   const result = validateDealSpec(spec, now);
-  if (result.ok) {
+  const formats = formatProblems(draft);
+  if (result.ok && formats.every((entry) => entry === null)) {
     return { problems: [], spec: result.spec };
   }
-  const raw = [...result.problems, ...dealSpecProblems(spec, now)];
+  const raw = result.ok
+    ? []
+    : [...result.problems, ...dealSpecProblems(spec, now)];
   const ctx = { draft, spec, wallet };
   const seen = new Set<string>();
   const problems: Problem[] = [];
-  for (const entry of raw) {
-    const found = explain(entry, ctx);
+  const all = [...raw.map((entry) => explain(entry, ctx)), ...formats];
+  for (const found of all) {
     const key = found ? `${found.anchor}|${found.text}` : null;
     if (found && key && !seen.has(key)) {
       seen.add(key);

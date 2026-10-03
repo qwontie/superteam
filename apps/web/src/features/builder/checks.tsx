@@ -1,6 +1,8 @@
 import {
   Button,
   Input,
+  List,
+  ListButton,
   NumberField,
   Popover,
   PopoverClose,
@@ -8,7 +10,7 @@ import {
   PopoverTrigger,
 } from "@cladd-ui/react";
 import type { CheckKind } from "@pact/sdk";
-import { Eye, Plus, Trash2 } from "lucide-react";
+import { Check, ChevronDown, Eye, Plus, Trash2 } from "lucide-react";
 import { AnimatePresence } from "motion/react";
 import { useCallback } from "react";
 import { Arrive } from "@/features/builder/arrive";
@@ -19,11 +21,14 @@ import {
   canAddCheck,
   canAddReviewer,
   type DraftCheck,
+  hasDemoNodes,
   type PartySlot,
   type Reviewer,
   removeCheck,
   removeReviewer,
+  setCheckKind,
   updateCheck,
+  withDemoNodes,
 } from "@/features/builder/model";
 import {
   AddressField,
@@ -38,11 +43,25 @@ import { anchors } from "@/features/builder/problems";
 import { useBuilder, useDraft } from "@/features/builder/state";
 
 const KIND_TEXT: Record<CheckKind, string> = {
-  github_checks: "witness nodes confirm the checks on a commit are green",
-  github_pr_merged: "witness nodes confirm a pull request is merged",
-  http_contains: "witness nodes confirm a page contains a text",
-  manual: "reviewers confirm a statement",
+  github_checks: "nodes see green checks on a commit",
+  github_pr_merged: "nodes see a pull request merged",
+  http_contains: "nodes see a text on a page",
+  manual: "people confirm a statement",
 };
+const KIND_HINT: Record<CheckKind, string> = {
+  github_checks: "Witness nodes read the GitHub checks of a commit",
+  github_pr_merged: "Witness nodes read the state of a pull request",
+  http_contains: "Witness nodes open the page and look for the text",
+  manual: "The people you name vote from their own wallets",
+};
+const capital = (text: string) =>
+  `${text.charAt(0).toUpperCase()}${text.slice(1)}`;
+const KIND_ORDER: CheckKind[] = [
+  "manual",
+  "http_contains",
+  "github_checks",
+  "github_pr_merged",
+];
 const TARGET_HINT: Record<CheckKind, string> = {
   github_checks: "owner/repo@ref",
   github_pr_merged: "owner/repo#number",
@@ -201,6 +220,76 @@ function BindToggle({ check, party }: { check: DraftCheck; party: PartySlot }) {
   );
 }
 
+function KindOption({ check, kind }: { check: DraftCheck; kind: CheckKind }) {
+  const { edit } = useBuilder();
+  const pick = useCallback(
+    () => edit((d) => updateCheck(d, check.id, (c) => setCheckKind(c, kind))),
+    [check.id, edit, kind]
+  );
+  const selected = check.kind === kind;
+  return (
+    <PopoverClose>
+      <ListButton aria-pressed={selected} multiline onClick={pick} size="xl">
+        <span className="flex w-full items-center justify-between gap-2">
+          <span>
+            {capital(KIND_TEXT[kind])}
+            <span className="block text-cladd-fg-soft text-xs">
+              {KIND_HINT[kind]}
+            </span>
+          </span>
+          {selected ? <Check aria-hidden="true" size={15} /> : null}
+        </span>
+      </ListButton>
+    </PopoverClose>
+  );
+}
+
+function KindMenu({ check }: { check: DraftCheck }) {
+  return (
+    <PopoverRoot>
+      <PopoverTrigger>
+        <button
+          aria-label={`Who confirms: ${KIND_TEXT[check.kind]}. Change`}
+          className="inline-flex min-h-8 items-center gap-1 rounded-chip text-left text-cladd-fg-soft text-sm transition-colors duration-150 hover:text-cladd-fg"
+          type="button"
+        >
+          {KIND_TEXT[check.kind]}
+          <ChevronDown aria-hidden="true" className="shrink-0" size={15} />
+        </button>
+      </PopoverTrigger>
+      <Popover
+        className="w-80 max-w-[calc(100vw-2rem)]"
+        offset={8}
+        position="bottom-start"
+      >
+        <List className="p-1.5">
+          {KIND_ORDER.map((kind) => (
+            <KindOption check={check} key={kind} kind={kind} />
+          ))}
+        </List>
+      </Popover>
+    </PopoverRoot>
+  );
+}
+
+function DemoNodes({ check }: { check: DraftCheck }) {
+  const { edit } = useBuilder();
+  const fill = useCallback(
+    () => edit((d) => updateCheck(d, check.id, withDemoNodes)),
+    [check.id, edit]
+  );
+  return (
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+      <Button onClick={fill} size="lg">
+        Use the Pact demo witness nodes
+      </Button>
+      <span className="text-cladd-fg-soft text-xs">
+        Three nodes we run on devnet. Anyone can run their own.
+      </span>
+    </div>
+  );
+}
+
 function CheckBlock({ check, index }: { check: DraftCheck; index: number }) {
   const { edit, locked, mode } = useBuilder();
   const draft = useDraft();
@@ -247,9 +336,13 @@ function CheckBlock({ check, index }: { check: DraftCheck; index: number }) {
         <h3 className="font-display font-semibold text-sm">
           Check {index + 1}
         </h3>
-        <span className="text-cladd-fg-soft text-sm">
-          {check.binds === null ? KIND_TEXT[check.kind] : "names the winner"}
-        </span>
+        {editable ? (
+          <KindMenu check={check} />
+        ) : (
+          <span className="text-cladd-fg-soft text-sm">
+            {KIND_TEXT[check.kind]}
+          </span>
+        )}
         {editable ? (
           <Button
             aria-label={`Remove check ${index + 1}`}
@@ -312,7 +405,7 @@ function CheckBlock({ check, index }: { check: DraftCheck; index: number }) {
           ))}
           {editable && canAddReviewer(check) ? (
             <Button
-              aria-label="Add a reviewer"
+              aria-label="Add a voter"
               onClick={add}
               rounded
               size="lg"
@@ -324,6 +417,9 @@ function CheckBlock({ check, index }: { check: DraftCheck; index: number }) {
           ) : null}
         </div>
       </div>
+      {editable && check.kind !== "manual" && !hasDemoNodes(check) ? (
+        <DemoNodes check={check} />
+      ) : null}
       {editable && openParties.length > 0 ? (
         <div className="flex flex-wrap items-center gap-2">
           {openParties.map((party) => (
@@ -333,8 +429,9 @@ function CheckBlock({ check, index }: { check: DraftCheck; index: number }) {
       ) : null}
       {check.binds === null ? null : (
         <p className="text-cladd-fg-soft text-sm">
-          Each yes vote carries a wallet. When {quorum(check)} pick the same
-          one, it becomes {partyName(draft, check.binds)}.
+          {check.kind === "github_pr_merged"
+            ? `The nodes take the wallet from the line "pact: <address>" in the pull request. When ${quorum(check)} report the same one, it becomes ${partyName(draft, check.binds)}.`
+            : `Each yes vote carries a wallet. When ${quorum(check)} pick the same one, it becomes ${partyName(draft, check.binds)}.`}
         </p>
       )}
       <ProblemLines anchor={anchors.check(check.id)} />
@@ -355,8 +452,8 @@ export function Checks() {
       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
         <h2 className={SECTION_TITLE}>What people must confirm</h2>
         <p className="text-cladd-fg-soft text-sm">
-          A check passes when enough of its reviewers vote yes from their own
-          wallets.
+          A check passes when enough of its people or witness nodes vote yes on
+          chain.
         </p>
       </div>
       <AnimatePresence initial={false}>
