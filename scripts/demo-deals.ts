@@ -47,6 +47,7 @@ type Kind = (typeof KINDS)[number];
 const AMOUNT = solToLamports(process.env.DEMO_SOL ?? "0.02");
 const WAIT_HOURS = Number(process.env.WAIT_HOURS ?? "24");
 const EXIT_MINUTES = Number(process.env.EXIT_MINUTES ?? "3");
+const MIN_HOURS = Number(process.env.MIN_HOURS ?? "6");
 const PAGE_DIR = process.env.DEMO_PAGE_DIR ?? "/root/superteam-demo-page";
 const PROOF_URL = `${PROD_URL}/proof/delivery.html`;
 const REVIEW = "Landing page delivered as agreed";
@@ -338,6 +339,106 @@ const clean = async () => {
   );
 };
 
+const exitOf = (state: DealState) =>
+  state.spec.rules.map(exitTime).find((ts) => ts !== null) ?? 0;
+
+const untouched = (state: DealState) =>
+  state.votes.every((tally) => !tally || tally.yes + tally.no === 0);
+
+const lasts = (state: DealState, at: number) =>
+  exitOf(state) > at + MIN_HOURS * 3600;
+
+const fits: Record<Kind, (state: DealState, at: number) => boolean> = {
+  auto: (state, at) =>
+    state.status === "funded" && untouched(state) && lasts(state, at),
+  bounty: (state, at) =>
+    state.status === "funded" &&
+    untouched(state) &&
+    state.spec.parties.includes(null) &&
+    lasts(state, at),
+  "exit-soon": (state, at) =>
+    state.status === "funded" &&
+    untouched(state) &&
+    exitOf(state) <= at + EXIT_MINUTES * 60,
+  "one-short": (state, at) =>
+    state.status === "funded" &&
+    state.votes[0]?.yes === 1 &&
+    state.votes[0]?.no === 0 &&
+    lasts(state, at),
+  settled: (state) => state.status === "settled",
+  votes: (state, at) =>
+    state.status === "funded" && untouched(state) && lasts(state, at),
+};
+
+const ensure = async () => {
+  const deals = load();
+  const at = now();
+  const states = new Map<string, DealState | null>();
+  for (const deal of deals) {
+    // biome-ignore lint/performance/noAwaitInLoops: few deals, keeps the RPC calm
+    states.set(deal.address, await fetchDeal(rpc, address(deal.address)));
+  }
+  const ready = (kind: Kind) =>
+    deals.find((deal) => {
+      const state = states.get(deal.address);
+      return deal.kind === kind && state && fits[kind](state, at);
+    });
+  const missing = KINDS.filter((kind) => !ready(kind));
+  for (const kind of KINDS) {
+    const deal = ready(kind);
+    console.log(
+      `${kind.padEnd(10)} ${deal ? `ready    ${dealLink(deal.address)}` : "missing, creating a new one"}`
+    );
+  }
+  const byNodes = deals.find(
+    (deal) =>
+      deal.kind === "auto" && states.get(deal.address)?.status === "settled"
+  );
+  console.log(
+    byNodes
+      ? `settled by nodes      ${dealLink(byNodes.address)}`
+      : "settled by nodes      none recorded: run make demo-deliver, then make demo-ensure again"
+  );
+  if (missing.length > 0) {
+    await createAll(missing);
+  } else {
+    await writeList(deals);
+  }
+};
+
+const closeSettled = async (targets: string[]) => {
+  const signers = await wallets();
+  const recorded = new Set(load().map((deal) => deal.address));
+  for (const target of targets) {
+    // biome-ignore lint/performance/noAwaitInLoops: one deal at a time
+    const state = await fetchDeal(rpc, address(target));
+    if (!state) {
+      console.log(`${target}: already closed`);
+      continue;
+    }
+    if (state.creator !== signers.client.address) {
+      console.log(`${target}: skipped, not created by the client wallet`);
+      continue;
+    }
+    if (state.status !== "settled") {
+      console.log(
+        `${target}: skipped, ${state.status}, only settled deals are closed`
+      );
+      continue;
+    }
+    if (recorded.has(target)) {
+      console.log(
+        `${target}: skipped, part of the demo set in demo-deals.json`
+      );
+      continue;
+    }
+    console.log(`${target}: ${state.spec.title}`);
+    await send("close (rent back)", signers.client, [
+      getCloseInstruction({ creator: signers.client, deal: address(target) }),
+    ]);
+  }
+};
+
 const vote = async (deal: string, who: string, nominee?: string) => {
   if (!["witness1", "witness2", "witness3"].includes(who)) {
     throw new Error("AS must be witness1, witness2 or witness3");
@@ -424,6 +525,15 @@ if (command === "create") {
   await createAll(wanted as Kind[]);
 } else if (command === "status") {
   await status();
+} else if (command === "ensure") {
+  await ensure();
+} else if (command === "close" && rest.length > 0) {
+  await closeSettled(
+    rest
+      .join(" ")
+      .split(/[\s,]+/)
+      .filter(Boolean)
+  );
 } else if (command === "clean") {
   await clean();
 } else if (command === "vote" && rest[0] && rest[1]) {
@@ -434,7 +544,7 @@ if (command === "create") {
   undeliver();
 } else {
   console.log(
-    `usage: bun scripts/demo-deals.ts create [${KINDS.join("|")}...] | status | clean | vote <deal> <witnessN> [nominee] | deliver [text] | undeliver`
+    `usage: bun scripts/demo-deals.ts create [${KINDS.join("|")}...] | ensure | close <deal...> | status | clean | vote <deal> <witnessN> [nominee] | deliver [text] | undeliver`
   );
   process.exit(1);
 }
