@@ -31,8 +31,14 @@ export interface Config {
 }
 
 const git = (...args: string[]) => {
-  const result = spawnSync(["git", "rev-parse", ...args], { stderr: "ignore" });
-  return result.exitCode === 0 ? result.stdout.toString().trim() : null;
+  try {
+    const result = spawnSync(["git", "rev-parse", ...args], {
+      stderr: "ignore",
+    });
+    return result.exitCode === 0 ? result.stdout.toString().trim() : null;
+  } catch {
+    return null;
+  }
 };
 
 const mainCheckoutEnv = () => {
