@@ -19,6 +19,9 @@ const LOG_LIMIT = 30;
 const LOG_CHUNK = 5;
 const DEAL_REFRESH_MS = 45_000;
 const LIST_STALE_MS = 30_000;
+const CATCH_UP_MS = [2500, 8000, 20_000];
+const BEHIND_RETRY_MS = 4000;
+const BEHIND_RETRIES = 12;
 
 export const dealKeys = {
   all: ["deals"] as const,
@@ -135,13 +138,21 @@ const fetchLog = async (
   return loadChunks(infos, load);
 };
 
-export function useDealLog(address: string, enabled: boolean) {
+export function useDealLog(address: string, enabled: boolean, settled = false) {
   const client = useAppClient();
   const queryClient = useQueryClient();
   return useQuery<LogEntry[]>({
     enabled: enabled && isAddress(address),
     queryFn: () => fetchLog(client, queryClient, address),
     queryKey: dealKeys.log(address),
+    refetchInterval: (query) => {
+      const behind =
+        settled &&
+        !query.state.data?.some((entry) => entry.event?.kind === "executed");
+      return behind && query.state.dataUpdateCount < BEHIND_RETRIES
+        ? BEHIND_RETRY_MS
+        : false;
+    },
   });
 }
 
@@ -153,17 +164,32 @@ export function useDealLive(address: string) {
       return;
     }
     const abort = new AbortController();
+    const timers = new Set<ReturnType<typeof setTimeout>>();
+    const refreshLog = () =>
+      queryClient.invalidateQueries({ queryKey: dealKeys.log(address) });
     const listen = async () => {
       const notifications = await client.rpcSubscriptions
         .accountNotifications(toAddress(address), { commitment: "confirmed" })
         .subscribe({ abortSignal: abort.signal });
       for await (const _ of notifications) {
         queryClient.invalidateQueries({ queryKey: dealKeys.one(address) });
-        queryClient.invalidateQueries({ queryKey: dealKeys.log(address) });
         queryClient.invalidateQueries({ queryKey: dealKeys.all });
+        refreshLog();
+        for (const delay of CATCH_UP_MS) {
+          const timer = setTimeout(() => {
+            timers.delete(timer);
+            refreshLog();
+          }, delay);
+          timers.add(timer);
+        }
       }
     };
     listen().catch(() => undefined);
-    return () => abort.abort();
+    return () => {
+      abort.abort();
+      for (const timer of timers) {
+        clearTimeout(timer);
+      }
+    };
   }, [address, client, queryClient]);
 }

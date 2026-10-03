@@ -124,7 +124,11 @@ function RuleChecks({ checks, deal, moves, viewer }: RuleChecksProps) {
 function DealView({ deal }: { deal: DealState }) {
   const now = useNow();
   const { address: wallet } = useWallet();
-  const log = useDealLog(deal.address, true);
+  const log = useDealLog(
+    deal.address,
+    true,
+    deal.status === "settled" && deal.settledRule !== null
+  );
   const evaluation = useMemo(() => evaluateDeal(deal, now), [deal, now]);
   const labels = useMemo(() => partyLabels(deal.spec), [deal.spec]);
   const roles = useMemo(() => walletRoles(deal, wallet), [deal, wallet]);
