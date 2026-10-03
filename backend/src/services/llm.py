@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 
+from pydantic_ai.exceptions import UserError
 from pydantic_ai.models import Model, infer_model
 from pydantic_ai.models.google import GoogleModelSettings
 from pydantic_ai.providers import Provider as AiProvider
@@ -7,7 +8,9 @@ from pydantic_ai.providers import infer_provider
 from pydantic_ai.providers.google import GoogleProvider
 from pydantic_ai.settings import ModelSettings
 
+from services.deal.errors import ai_unavailable
 from utils.env import LlmSettings, env
+from utils.logging import logger
 
 GOOGLE = {"google"}
 
@@ -41,8 +44,9 @@ class Llm:
 
 def build_llm(llm: LlmSettings | None = None) -> Llm:
     llm = llm or env.llm
-    return Llm(
-        name=llm.model,
-        model=infer_model(llm.model, provider_factory=_provider),
-        settings=_settings(llm),
-    )
+    try:
+        model = infer_model(llm.model, provider_factory=_provider)
+    except UserError as e:
+        logger.warning("llm %s is not configured: %s", llm.model, type(e).__name__)
+        raise ai_unavailable() from e
+    return Llm(name=llm.model, model=model, settings=_settings(llm))
