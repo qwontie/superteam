@@ -38,7 +38,7 @@ class LlmSettings(Section):
 
 
 class DealSettings(Section):
-    open_recipient: bool = False
+    open_recipient: bool = True
 
 
 class Settings(BaseSettings):

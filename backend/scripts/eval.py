@@ -381,9 +381,9 @@ async def main() -> None:
     )
     parser.add_argument("--repeat", type=int, default=1)
     parser.add_argument("--case", action="append", default=[])
-    parser.add_argument("--open", action="store_true", help="open recipients on")
+    parser.add_argument("--closed", action="store_true", help="open recipients off")
     args = parser.parse_args()
-    env.deal.open_recipient = args.open
+    env.deal.open_recipient = not args.closed
     specs = args.model or [
         f"{env.llm.model}@{env.llm.thinking_budget or env.llm.thinking_level or ''}"
     ]
