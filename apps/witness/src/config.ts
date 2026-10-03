@@ -9,6 +9,7 @@ import {
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import type { Cluster } from "@pact/sdk";
+import { GATE_CROSSBAR_URL } from "@pact/sdk/gate-feed";
 import { createKeyPairSignerFromBytes, type KeyPairSigner } from "@solana/kit";
 import { spawnSync } from "bun";
 
@@ -22,6 +23,8 @@ const HTTP_SCHEME = /^http/;
 export interface Config {
   autoExecute: boolean;
   cluster: Cluster;
+  crossbarUrl: string;
+  gateCrank: boolean;
   githubToken?: string;
   keypairPath: string;
   pollSeconds: number;
@@ -92,6 +95,8 @@ export const loadConfig = (env: NodeJS.ProcessEnv = process.env): Config => {
   return {
     autoExecute: env.AUTO_EXECUTE?.trim() !== "0",
     cluster: clusterOf(rpcUrl),
+    crossbarUrl: env.GATE_CROSSBAR_URL?.trim() || GATE_CROSSBAR_URL,
+    gateCrank: env.GATE_CRANK?.trim() === "1",
     githubToken: env.GITHUB_TOKEN?.trim() || undefined,
     keypairPath,
     pollSeconds,

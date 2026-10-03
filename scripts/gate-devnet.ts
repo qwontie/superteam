@@ -48,6 +48,7 @@ const AMOUNT = solToLamports(process.env.GATE_SOL ?? "0.01");
 const WAIT_MINUTES = Number(process.env.WAIT_MINUTES ?? "20");
 const EXIT_MINUTES = Number(process.env.EXIT_MINUTES ?? "30");
 const POLL_MS = 5000;
+const BY_NODE = process.env.BY === "node";
 const CONFIRM_ATTEMPTS = 5;
 const ERROR_CODE = /Error Code: (\w+)/;
 const PANIC = /panicked at (.*)/;
@@ -153,6 +154,21 @@ const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 const pageContains = async (needle: string) => {
   const response = await fetch(PROOF_URL, { cache: "no-store" });
   return response.ok && (await response.text()).includes(needle);
+};
+
+const waitForSettled = async (deal: Address, until: number): Promise<void> => {
+  const state = await fetchDeal(rpc, deal);
+  if (state?.status === "settled") {
+    console.log(
+      `  settled by rule ${state.settledRule}, nobody here sent a transaction`
+    );
+    return;
+  }
+  if (Date.now() > until) {
+    throw new Error("no node settled the deal in time");
+  }
+  await sleep(POLL_MS);
+  return waitForSettled(deal, until);
 };
 
 const waitForPage = async (needle: string, until: number): Promise<void> => {
@@ -350,8 +366,15 @@ const run = async (payer: KeyPairSigner) => {
   console.log("\ndelivery");
   await deliver(marker);
 
-  console.log("\nconfirm by the oracles, then execute and close");
-  await confirmByOracles(payer, deal, feedHash);
+  if (BY_NODE) {
+    console.log(
+      "\nwaiting for a witness node with GATE_CRANK=1 to confirm and execute"
+    );
+    await waitForSettled(deal, Date.now() + WAIT_MINUTES * 60_000);
+  } else {
+    console.log("\nconfirm by the oracles, then execute and close");
+    await confirmByOracles(payer, deal, feedHash);
+  }
   await settleAndClose(payer, deal);
   console.log(`\ndone: ${spec.parties[1]} paid by the oracle gate`);
 };

@@ -3,7 +3,7 @@ x-witness: &witness
   pull_policy: never
   profiles: [services]
   restart: always
-  environment:
+  environment: &witness-env
     RPC_URL: ${RPC_URL:?RPC_URL is required for the witness nodes}
     POLL_SECONDS: ${WITNESS_POLL_SECONDS:-20}
     WITNESS_KEYPAIR: /run/secrets/witness
@@ -26,6 +26,9 @@ services:
 
   witness1:
     <<: *witness
+    environment:
+      <<: *witness-env
+      GATE_CRANK: "1"
     build:
       context: .
       dockerfile: apps/witness/Dockerfile

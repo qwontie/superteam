@@ -1,7 +1,17 @@
-import { lamportsToSol, PACT_PROGRAM_ID } from "@pact/sdk";
-import { createSolanaRpc, createSolanaRpcSubscriptions } from "@solana/kit";
+import {
+  fetchAllDeals,
+  fetchDeal,
+  lamportsToSol,
+  PACT_PROGRAM_ID,
+} from "@pact/sdk";
+import {
+  address,
+  createSolanaRpc,
+  createSolanaRpcSubscriptions,
+} from "@solana/kit";
 import { sleep } from "bun";
 import { loadConfig, loadSigner, rpcHost } from "./config";
+import { createGateCrank, createSwitchboardQuotes } from "./gate-crank";
 import { createGithub } from "./github";
 import { createPageFetcher, DEFAULT_POLICY } from "./guarded-fetch";
 import { createNode, createVerifiers } from "./node";
@@ -60,12 +70,37 @@ const node = createNode({
   verifiers,
 });
 
+const crank = config.gateCrank
+  ? createGateCrank({
+      cluster: config.cluster,
+      fetchQuote: createSwitchboardQuotes({
+        crossbarUrl: config.crossbarUrl,
+        payer: signer.address,
+        rpcUrl: config.rpcUrl,
+      }),
+      log,
+      rpc,
+      rpcSubscriptions,
+      signer,
+    })
+  : null;
+if (crank) {
+  say(
+    `oracle gate crank on: confirms gate checks with ${rpcHost(config.crossbarUrl)} quotes and executes the rules they unlock`
+  );
+}
+
 let delay = pollMs;
 let watching = "";
 for (;;) {
   try {
     // biome-ignore lint/performance/noAwaitInLoops: the poll loop is sequential by design
     const pass = await node.runOnce();
+    if (crank) {
+      await crank.runOnce(await fetchAllDeals(rpc), (deal) =>
+        fetchDeal(rpc, address(deal.address))
+      );
+    }
     const status = `watching ${pass.pending} open checks that name this key, ${pass.deals} deals on chain`;
     if (status !== watching) {
       watching = status;
