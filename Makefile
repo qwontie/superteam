@@ -16,6 +16,7 @@ fmt:
 build:
 	bash scripts/program-key.sh
 	anchor build
+	cp target/idl/pact.json target/types/pact.ts packages/sdk/src/idl/
 
 check: build
 	cargo fmt --all -- --check

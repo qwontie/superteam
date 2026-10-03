@@ -13,7 +13,8 @@
       "!.codex",
       "!target",
       "!.anchor",
-      "!**/*.md"
+      "!**/*.md",
+      "!packages/sdk/src/idl"
     ]
   }
 }
