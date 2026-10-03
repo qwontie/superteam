@@ -7,7 +7,7 @@ from pydantic_ai.providers import infer_provider
 from pydantic_ai.providers.google import GoogleProvider
 from pydantic_ai.settings import ModelSettings
 
-from utils.env import env
+from utils.env import LlmSettings, env
 
 GOOGLE = {"google"}
 
@@ -18,28 +18,31 @@ def _provider(name: str) -> AiProvider:
     return infer_provider(name)
 
 
-def _settings() -> ModelSettings:
+def _settings(llm: LlmSettings) -> ModelSettings:
     thinking: dict[str, str | int] = {}
-    if env.llm.thinking_level:
-        thinking["thinking_level"] = env.llm.thinking_level.upper()
-    if env.llm.thinking_budget is not None:
-        thinking["thinking_budget"] = env.llm.thinking_budget
-    if env.llm.model.split(":", 1)[0] in GOOGLE:
+    if llm.thinking_level:
+        thinking["thinking_level"] = llm.thinking_level.upper()
+    if llm.thinking_budget is not None:
+        thinking["thinking_budget"] = llm.thinking_budget
+    if llm.model.split(":", 1)[0] in GOOGLE:
         return GoogleModelSettings(
-            temperature=env.llm.temperature,
+            temperature=llm.temperature,
             google_thinking_config=thinking,  # ty: ignore[invalid-argument-type]
         )
-    return ModelSettings(temperature=env.llm.temperature)
+    return ModelSettings(temperature=llm.temperature)
 
 
 @dataclass(frozen=True, slots=True)
 class Llm:
+    name: str
     model: Model
     settings: ModelSettings
 
 
-def build_llm() -> Llm:
+def build_llm(llm: LlmSettings | None = None) -> Llm:
+    llm = llm or env.llm
     return Llm(
-        model=infer_model(env.llm.model, provider_factory=_provider),
-        settings=_settings(),
+        name=llm.model,
+        model=infer_model(llm.model, provider_factory=_provider),
+        settings=_settings(llm),
     )

@@ -6,6 +6,7 @@ WORKDIR /app
 
 ENV PATH="/app/.venv/bin:$PATH" \
     RUN_ENVIRONMENT=prod \
+    PYDANTIC_AI_NO_BANNER=1 \
     UV_COMPILE_BYTECODE=1 \
     UV_LINK_MODE=copy
 

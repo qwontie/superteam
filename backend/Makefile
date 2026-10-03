@@ -13,10 +13,10 @@ check:
 	uv run ty check
 
 dev:
-	PACT_ENV_FILE=$(ROOT_ENV) uv run uvicorn api.app:app --reload --reload-dir src --host 127.0.0.1 --port 8000
+	PYDANTIC_AI_NO_BANNER=1 PACT_ENV_FILE=$(ROOT_ENV) uv run uvicorn api.app:app --reload --reload-dir src --host 127.0.0.1 --port 8000
 
 build:
 	$(COMPOSE) build api
 
 eval:
-	PACT_ENV_FILE=$(ROOT_ENV) uv run python scripts/eval.py $(ARGS)
+	PYDANTIC_AI_NO_BANNER=1 PACT_ENV_FILE=$(ROOT_ENV) uv run python scripts/eval.py $(ARGS)
