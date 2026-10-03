@@ -4,13 +4,15 @@ import {
   getProvider,
   type Program,
   setProvider,
-  type web3,
+  web3,
   workspace,
 } from "@anchor-lang/core";
 import { before, describe, it } from "mocha";
+import { DEAL_ACCOUNT_SIZE } from "../packages/sdk/src/layout.ts";
 import type { DealSpec } from "../packages/sdk/src/spec.ts";
 import {
-  freelanceWithCheck,
+  bounty,
+  gig,
   silenceIsConsent,
 } from "../packages/sdk/src/templates.ts";
 import type { Pact } from "../target/types/pact";
@@ -47,7 +49,7 @@ describe("pact", () => {
   });
 
   const freelanceSpec = async (deadlineIn = 2 * HOUR) =>
-    freelanceWithCheck({
+    gig({
       amount: AMOUNT,
       check: {
         target: "Landing page delivered as agreed",
@@ -77,10 +79,11 @@ describe("pact", () => {
     deal: PublicKey,
     witness: Keypair,
     verdict: boolean,
-    check = 0
+    check = 0,
+    nominee: PublicKey | null = null
   ) =>
     program.methods
-      .attest(check, verdict)
+      .attest(check, verdict, nominee)
       .accountsPartial({ deal, witness: witness.publicKey })
       .signers([witness])
       .rpc({ commitment: "confirmed" });
@@ -118,13 +121,14 @@ describe("pact", () => {
     assert.equal(account.settledRule, rule);
     const info = await connection.getAccountInfo(deal, "confirmed");
     assert.ok(info);
+    assert.equal(info.data.length, DEAL_ACCOUNT_SIZE);
     const rent = await connection.getMinimumBalanceForRentExemption(
       info.data.length
     );
     assert.equal(info.lamports, rent);
   };
 
-  describe("template: freelance with a check", () => {
+  describe("template: gig", () => {
     it("pays the freelancer once 2 of 3 witnesses say yes", async () => {
       const deal = await createDeal(program, client, await freelanceSpec());
       const draft = await program.account.deal.fetch(deal, "confirmed");
@@ -238,6 +242,119 @@ describe("pact", () => {
         clientBefore + Number(AMOUNT)
       );
       await assertSettled(deal, 2);
+    });
+  });
+
+  describe("bounty: the winner is chosen by the reviewers", () => {
+    const OPEN = web3.PublicKey.default;
+
+    const bountySpec = async (deadlineIn = 2 * HOUR) =>
+      bounty({
+        amount: AMOUNT,
+        check: {
+          target: "Best landing page wins",
+          witnesses: witnesses.map((witness) => witness.publicKey.toBase58()),
+        },
+        deadline: (await chainNow(provider)) + deadlineIn,
+        sponsor: client.publicKey.toBase58(),
+        title: "Landing page bounty",
+      });
+
+    const fundedBounty = async () => {
+      const deal = await createDeal(program, client, await bountySpec());
+      await fund(deal);
+      return deal;
+    };
+
+    it("fills the open slot when 2 of 3 reviewers name the same winner", async () => {
+      const deal = await fundedBounty();
+      const [first, second, third] = witnesses as [Keypair, Keypair, Keypair];
+      await attest(deal, first, true, 0, freelancer.publicKey);
+      await attest(deal, second, true, 0, stranger.publicKey);
+      await rejectsWith(
+        execute(deal, 0, payoutAccounts([client.publicKey, OPEN])),
+        "ConditionNotMet"
+      );
+
+      await attest(deal, third, true, 0, freelancer.publicKey);
+      const bound = await program.account.deal.fetch(deal, "confirmed");
+      assert.ok(bound.parties[1]?.equals(freelancer.publicKey));
+
+      const freelancerBefore = await balance(freelancer.publicKey);
+      await execute(deal, 0);
+      assert.equal(
+        await balance(freelancer.publicKey),
+        freelancerBefore + Number(AMOUNT)
+      );
+      await assertSettled(deal, 0);
+    });
+
+    it("refunds the sponsor when the reviewers stay silent", async () => {
+      const deal = await fundedBounty();
+      const account = await program.account.deal.fetch(deal, "confirmed");
+      const exit = account.rules[1]?.when[0]?.after?.ts.toNumber();
+      assert.ok(exit);
+      await timeTravel(provider, exit);
+      const clientBefore = await balance(client.publicKey);
+      await execute(deal, 1, payoutAccounts([client.publicKey, OPEN]));
+      assert.equal(
+        await balance(client.publicKey),
+        clientBefore + Number(AMOUNT)
+      );
+      await assertSettled(deal, 1);
+    });
+
+    it("refuses votes without a nominee, with a bad nominee, and after the slot is filled", async () => {
+      const deal = await fundedBounty();
+      const [first, second, third] = witnesses as [Keypair, Keypair, Keypair];
+      await rejectsWith(attest(deal, first, true), "NomineeRequired");
+      await rejectsWith(
+        attest(deal, first, false, 0, freelancer.publicKey),
+        "NomineeNotExpected"
+      );
+      await rejectsWith(
+        attest(deal, first, true, 0, client.publicKey),
+        "BadNominee"
+      );
+      await rejectsWith(attest(deal, first, true, 0, OPEN), "BadNominee");
+      await attest(deal, first, true, 0, freelancer.publicKey);
+      await attest(deal, second, true, 0, freelancer.publicKey);
+      await rejectsWith(attest(deal, third, false), "AlreadyBound");
+    });
+
+    it("refuses a nominee on a check that fills no slot", async () => {
+      const deal = await fundedFreelanceDeal();
+      await rejectsWith(
+        attest(deal, witnesses[0] as Keypair, true, 0, freelancer.publicKey),
+        "NomineeNotExpected"
+      );
+    });
+
+    it("refuses bad open slot layouts at creation", async () => {
+      const refused = async (
+        change: (spec: DealSpec) => void,
+        code: string
+      ) => {
+        const spec = await bountySpec();
+        change(spec);
+        await rejectsWith(createDeal(program, client, spec), code);
+      };
+      await refused((spec) => {
+        spec.parties = [null, client.publicKey.toBase58()];
+        spec.funder = 0;
+      }, "FunderIsOpen");
+      await refused((spec) => {
+        (spec.checks[0] as DealSpec["checks"][number]).binds = 0;
+      }, "BindsNotOpenSlot");
+      await refused((spec) => {
+        spec.checks.push({ ...(spec.checks[0] as DealSpec["checks"][number]) });
+      }, "DuplicateBinding");
+      await refused((spec) => {
+        spec.rules[0] = {
+          pay: [{ bps: 10_000, party: 1 }],
+          when: [{ party: 0, type: "signed" }],
+        };
+      }, "UnboundPayout");
     });
   });
 

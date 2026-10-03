@@ -1,6 +1,6 @@
 import { type Address, address } from "@solana/kit";
 import type { ConditionArgs, CreateDealArgs, DealAccount } from "./codecs";
-import { CHECK_KINDS, type Condition, type DealSpec } from "./spec";
+import { CHECK_KINDS, type Condition, type DealSpec, OPEN_SLOT } from "./spec";
 import { type DealState, votesFromBitmaps } from "./state";
 
 const conditionToArgs = (condition: Condition): ConditionArgs => {
@@ -49,6 +49,7 @@ export const specToCreateArgs = (
 ): CreateDealArgs => ({
   amount: BigInt(spec.amount),
   checks: spec.checks.map((check) => ({
+    binds: check.binds ?? null,
     expect: check.expect,
     kind: CHECK_KINDS.indexOf(check.kind),
     target: check.target,
@@ -57,7 +58,7 @@ export const specToCreateArgs = (
   })),
   dealId,
   funder: spec.funder,
-  parties: spec.parties.map((party) => address(party)),
+  parties: spec.parties.map((party) => address(party ?? OPEN_SLOT)),
   rules: spec.rules.map((rule) => ({
     pay: rule.pay,
     when: rule.when.map(conditionToArgs),
@@ -68,6 +69,7 @@ export const specToCreateArgs = (
 export const accountToSpec = (account: DealAccount): DealSpec => ({
   amount: account.amount.toString(),
   checks: account.checks.map((check) => ({
+    binds: check.binds,
     expect: check.expect,
     kind: checkKindName(check.kind),
     target: check.target,
@@ -75,7 +77,7 @@ export const accountToSpec = (account: DealAccount): DealSpec => ({
     witnesses: [...check.witnesses],
   })),
   funder: account.funder,
-  parties: [...account.parties],
+  parties: account.parties.map((party) => (party === OPEN_SLOT ? null : party)),
   rules: account.rules.map((rule) => ({
     pay: rule.pay.map((payout) => ({ bps: payout.bps, party: payout.party })),
     when: rule.when.map(conditionFromAccount),
@@ -99,6 +101,11 @@ export const accountToState = (
   spec: accountToSpec(account),
   status: account.status,
   votes: account.checks.map((check) =>
-    votesFromBitmaps(check.yes, check.no, check.witnesses.length)
+    votesFromBitmaps(
+      check.yes,
+      check.no,
+      check.witnesses.length,
+      check.nominees
+    )
   ),
 });

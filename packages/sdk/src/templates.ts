@@ -8,35 +8,35 @@ const lamportsText = (amount: bigint | string) => amount.toString();
 
 export const majority = (witnesses: number) => Math.floor(witnesses / 2) + 1;
 
-export interface FreelanceWithCheckInput {
+export interface CheckInput {
+  expect?: string;
+  kind?: CheckKind;
+  target: string;
+  threshold?: number;
+  witnesses: string[];
+}
+
+const checkFrom = (input: CheckInput, binds: number | null) => ({
+  binds,
+  expect: input.expect ?? "",
+  kind: input.kind ?? "manual",
+  target: input.target,
+  threshold: input.threshold ?? majority(input.witnesses.length),
+  witnesses: input.witnesses,
+});
+
+export interface GigInput {
   amount: bigint | string;
-  check: {
-    kind?: CheckKind;
-    target: string;
-    expect?: string;
-    witnesses: string[];
-    threshold?: number;
-  };
+  check: CheckInput;
   client: string;
   deadline: number;
   freelancer: string;
   title: string;
 }
 
-export const freelanceWithCheck = (
-  input: FreelanceWithCheckInput
-): DealSpec => ({
+export const gig = (input: GigInput): DealSpec => ({
   amount: lamportsText(input.amount),
-  checks: [
-    {
-      expect: input.check.expect ?? "",
-      kind: input.check.kind ?? "manual",
-      target: input.check.target,
-      threshold:
-        input.check.threshold ?? majority(input.check.witnesses.length),
-      witnesses: input.check.witnesses,
-    },
-  ],
+  checks: [checkFrom(input.check, null)],
   funder: CLIENT,
   parties: [input.client, input.freelancer],
   rules: [
@@ -97,3 +97,34 @@ export const silenceIsConsent = (input: SilenceIsConsentInput): DealSpec => ({
   ],
   title: input.title,
 });
+
+export interface BountyInput {
+  amount: bigint | string;
+  check: CheckInput;
+  deadline: number;
+  sponsor: string;
+  title: string;
+}
+
+const SPONSOR = 0;
+const WINNER = 1;
+
+export const bounty = (input: BountyInput): DealSpec => ({
+  amount: lamportsText(input.amount),
+  checks: [checkFrom(input.check, WINNER)],
+  funder: SPONSOR,
+  parties: [input.sponsor, null],
+  rules: [
+    {
+      pay: [{ bps: ALL, party: WINNER }],
+      when: [{ check: 0, type: "attested" }],
+    },
+    {
+      pay: [{ bps: ALL, party: SPONSOR }],
+      when: [{ ts: input.deadline, type: "after" }],
+    },
+  ],
+  title: input.title,
+});
+
+export const freelanceWithCheck = gig;

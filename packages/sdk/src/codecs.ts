@@ -40,6 +40,7 @@ export const checkSpecCodec = getStructCodec([
   ["expect", stringCodec],
   ["witnesses", getArrayCodec(getAddressCodec())],
   ["threshold", getU8Codec()],
+  ["binds", getNullableCodec(getU8Codec())],
 ]);
 
 export const checkCodec = getStructCodec([
@@ -48,8 +49,10 @@ export const checkCodec = getStructCodec([
   ["expect", stringCodec],
   ["witnesses", getArrayCodec(getAddressCodec())],
   ["threshold", getU8Codec()],
+  ["binds", getNullableCodec(getU8Codec())],
   ["yes", getU8Codec()],
   ["no", getU8Codec()],
+  ["nominees", getArrayCodec(getAddressCodec())],
 ]);
 
 export const dealStatusCodec = getLiteralUnionCodec([
@@ -87,6 +90,7 @@ export const createDealArgsCodec = getStructCodec([
 export const attestArgsCodec = getStructCodec([
   ["check", getU8Codec()],
   ["verdict", getBooleanCodec()],
+  ["nominee", getNullableCodec(getAddressCodec())],
 ]);
 
 export const executeArgsCodec = getStructCodec([["rule", getU8Codec()]]);

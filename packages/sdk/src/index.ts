@@ -33,6 +33,7 @@ export {
 } from "./evaluate";
 export { type Cluster, explorerAddress, explorerTx } from "./explorer";
 export type { Pact } from "./idl/pact";
+export { DEAL_ACCOUNT_SIZE } from "./layout";
 export { type SendInput, sendInstructions } from "./send";
 export {
   CHECK_KINDS,
@@ -45,6 +46,7 @@ export {
   DealSpecSchema,
   dealSpecJsonSchema,
   LIMITS,
+  OPEN_SLOT,
   type Payout,
   PayoutSchema,
   type Rule,
@@ -54,12 +56,17 @@ export {
   type CheckVotes,
   type DealState,
   type DealStatus,
+  leadingNominee,
   type Vote,
   votesFromBitmaps,
 } from "./state";
 export {
-  type FreelanceWithCheckInput,
+  type BountyInput,
+  bounty,
+  type CheckInput,
   freelanceWithCheck,
+  type GigInput,
+  gig,
   majority,
   type SilenceIsConsentInput,
   silenceIsConsent,

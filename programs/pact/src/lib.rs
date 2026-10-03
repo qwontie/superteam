@@ -38,8 +38,13 @@ pub mod pact {
         instructions::signal::handler(ctx)
     }
 
-    pub fn attest(ctx: Context<Attest>, check: u8, verdict: bool) -> Result<()> {
-        instructions::attest::handler(ctx, check, verdict)
+    pub fn attest(
+        ctx: Context<Attest>,
+        check: u8,
+        verdict: bool,
+        nominee: Option<Pubkey>,
+    ) -> Result<()> {
+        instructions::attest::handler(ctx, check, verdict, nominee)
     }
 
     pub fn execute<'info>(ctx: Context<'info, Execute<'info>>, rule: u8) -> Result<()> {

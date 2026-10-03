@@ -78,6 +78,7 @@ const KIND_CODES = { github_checks: 2, http_contains: 1, manual: 0 } as const;
 export const createArgs = (spec: DealSpec) => ({
   amount: new BN(spec.amount),
   checks: spec.checks.map((check) => ({
+    binds: check.binds ?? null,
     expect: check.expect,
     kind: KIND_CODES[check.kind],
     target: check.target,
@@ -85,7 +86,9 @@ export const createArgs = (spec: DealSpec) => ({
     witnesses: check.witnesses.map((witness) => new PublicKey(witness)),
   })),
   funder: spec.funder,
-  parties: spec.parties.map((party) => new PublicKey(party)),
+  parties: spec.parties.map((party) =>
+    party ? new PublicKey(party) : PublicKey.default
+  ),
   rules: spec.rules.map((rule) => ({
     pay: rule.pay,
     when: rule.when.map(conditionArg),
@@ -119,7 +122,11 @@ export const createDeal = async (
 };
 
 export const payoutAccounts = (parties: PublicKey[]) =>
-  parties.map((pubkey) => ({ isSigner: false, isWritable: true, pubkey }));
+  parties.map((pubkey) => ({
+    isSigner: false,
+    isWritable: !pubkey.equals(PublicKey.default),
+    pubkey,
+  }));
 
 export const rejectsWith = async (action: Promise<unknown>, code: string) => {
   await assert.rejects(action, (error: unknown) => {

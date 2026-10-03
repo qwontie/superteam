@@ -1,5 +1,5 @@
 import type { DealSpec, DealState } from "../src";
-import { freelanceWithCheck, votesFromBitmaps } from "../src";
+import { bounty, gig, votesFromBitmaps } from "../src";
 
 export const CLIENT = "8aBswR9arwLWu7YnG94Qswv7yfNfL6vahzrNqi898QbX";
 export const FREELANCER = "3iKMsEWGThBcMqviN4FCsqj3um9TacshQXXZCnjcG8YM";
@@ -12,7 +12,7 @@ export const NOW = 1_790_000_000;
 export const DEADLINE = NOW + 86_400;
 
 export const demoSpec = (): DealSpec =>
-  freelanceWithCheck({
+  gig({
     amount: 10_000_000n,
     check: { target: "Landing page delivered as agreed", witnesses: WITNESSES },
     client: CLIENT,
@@ -38,3 +38,12 @@ export const stateOf = (
   ),
   ...overrides,
 });
+
+export const bountySpec = (): DealSpec =>
+  bounty({
+    amount: 20_000_000n,
+    check: { target: "Best landing page wins", witnesses: WITNESSES },
+    deadline: DEADLINE,
+    sponsor: CLIENT,
+    title: "Landing page bounty",
+  });

@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
-  freelanceWithCheck,
+  bounty,
+  gig,
   lamportsToSol,
   silenceIsConsent,
   solToLamports,
@@ -9,8 +10,8 @@ import {
 import { CLIENT, DEADLINE, FREELANCER, NOW, WITNESSES } from "./fixtures";
 
 describe("templates", () => {
-  test("freelanceWithCheck follows the kickoff", () => {
-    const spec = freelanceWithCheck({
+  test("gig follows the kickoff", () => {
+    const spec = gig({
       amount: "10000000",
       check: {
         expect: "pact-1",
@@ -65,5 +66,30 @@ describe("templates", () => {
     expect(lamportsToSol(10_000_000n)).toBe("0.01");
     expect(lamportsToSol("2000000000")).toBe("2");
     expect(() => solToLamports("0.0000000001")).toThrow();
+  });
+});
+
+describe("bounty template", () => {
+  test("leaves the winner open and fills it through check 0", () => {
+    const spec = bounty({
+      amount: "20000000",
+      check: { target: "Best landing page wins", witnesses: WITNESSES },
+      deadline: DEADLINE,
+      sponsor: CLIENT,
+      title: "Landing page bounty",
+    });
+    expect(spec.parties).toEqual([CLIENT, null]);
+    expect(spec.checks[0]?.binds).toBe(1);
+    expect(spec.rules).toEqual([
+      {
+        pay: [{ bps: 10_000, party: 1 }],
+        when: [{ check: 0, type: "attested" }],
+      },
+      {
+        pay: [{ bps: 10_000, party: 0 }],
+        when: [{ ts: DEADLINE, type: "after" }],
+      },
+    ]);
+    expect(validateDealSpec(spec, NOW).ok).toBe(true);
   });
 });

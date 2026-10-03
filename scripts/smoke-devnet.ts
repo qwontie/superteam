@@ -8,16 +8,18 @@ import {
   type KeyPairSigner,
 } from "@solana/kit";
 import {
+  bounty,
   type Cluster,
+  type DealSpec,
   evaluateDeal,
   explorerAddress,
   explorerTx,
   fetchDeal,
-  freelanceWithCheck,
   getAttestInstruction,
   getCreateDealInstruction,
   getExecuteInstruction,
   getFundInstruction,
+  gig,
   lamportsToSol,
   newDealId,
   sendInstructions,
@@ -78,18 +80,22 @@ const chainNow = async () => {
   return Number(time);
 };
 
-const createAndFund = async (title: string, deadline: number) => {
-  const spec = freelanceWithCheck({
+const WITNESS_CHECK = {
+  target: "Smoke test: landing page delivered as agreed",
+  witnesses: [witness1.address, witness2.address, witness3.address],
+};
+
+const gigSpec = (title: string, deadline: number) =>
+  gig({
     amount: AMOUNT,
-    check: {
-      target: "Smoke test: landing page delivered as agreed",
-      witnesses: [witness1.address, witness2.address, witness3.address],
-    },
+    check: WITNESS_CHECK,
     client: client.address,
     deadline,
     freelancer: freelancer.address,
     title,
   });
+
+const createAndFund = async (spec: DealSpec) => {
   const valid = validateDealSpec(spec, await chainNow());
   if (!valid.ok) {
     throw new Error(valid.problems.join("\n"));
@@ -134,16 +140,15 @@ const report = async (deal: Address) => {
 };
 
 console.log("Run 1: witnesses confirm delivery, the freelancer is paid");
-const gig = await createAndFund(
-  "Smoke: gig paid on 2 of 3",
-  (await chainNow()) + 3600
+const paidRun = await createAndFund(
+  gigSpec("Smoke: gig paid on 2 of 3", (await chainNow()) + 3600)
 );
 await send(
   "attest yes (witness1)",
   witness1,
   getAttestInstruction({
     check: 0,
-    deal: gig.deal,
+    deal: paidRun.deal,
     verdict: true,
     witness: witness1,
   })
@@ -153,12 +158,12 @@ await send(
   witness2,
   getAttestInstruction({
     check: 0,
-    deal: gig.deal,
+    deal: paidRun.deal,
     verdict: true,
     witness: witness2,
   })
 );
-const ready = await fetchDeal(rpc, gig.deal);
+const ready = await fetchDeal(rpc, paidRun.deal);
 if (!ready) {
   throw new Error("deal vanished");
 }
@@ -170,13 +175,13 @@ await send(
   "execute rule 0 (freelancer)",
   freelancer,
   getExecuteInstruction({
-    deal: gig.deal,
+    deal: paidRun.deal,
     executor: freelancer,
-    parties: gig.parties,
+    parties: paidRun.parties,
     rule: 0,
   })
 );
-const paid = await report(gig.deal);
+const paid = await report(paidRun.deal);
 console.log(
   `freelancer balance change ${lamportsToSol((await balance(freelancer.address)) - freelancerBefore + 5000n)} SOL plus the 5000 lamport fee`
 );
@@ -189,8 +194,7 @@ console.log(
 );
 const refundDeadline = (await chainNow()) + REFUND_DEADLINE_SECONDS;
 const refund = await createAndFund(
-  "Smoke: refund after deadline",
-  refundDeadline
+  gigSpec("Smoke: refund after deadline", refundDeadline)
 );
 await waitUntil(refundDeadline);
 const clientBefore = await balance(client.address);
@@ -210,4 +214,50 @@ console.log(
 );
 if (refunded.status !== "settled" || refunded.settledRule !== 2) {
   throw new Error("run 2 did not settle on rule 2");
+}
+
+console.log(
+  "\nRun 3: bounty, 2 of 3 reviewers name the winner, the winner is paid"
+);
+const bountyRun = await createAndFund(
+  bounty({
+    amount: AMOUNT,
+    check: { ...WITNESS_CHECK, target: "Smoke test: best landing page wins" },
+    deadline: (await chainNow()) + 3600,
+    sponsor: client.address,
+    title: "Smoke: bounty",
+  })
+);
+const nominate = (name: string, witness: KeyPairSigner) =>
+  send(
+    `nominate freelancer (${name})`,
+    witness,
+    getAttestInstruction({
+      check: 0,
+      deal: bountyRun.deal,
+      nominee: freelancer.address,
+      verdict: true,
+      witness,
+    })
+  );
+await nominate("witness1", witness1);
+await nominate("witness2", witness2);
+const won = await fetchDeal(rpc, bountyRun.deal);
+console.log(`winner slot filled with ${won?.spec.parties[1]}`);
+await send(
+  "execute rule 0 (witness3)",
+  witness3,
+  getExecuteInstruction({
+    deal: bountyRun.deal,
+    executor: witness3,
+    parties: won?.spec.parties ?? [],
+    rule: 0,
+  })
+);
+const awarded = await report(bountyRun.deal);
+if (
+  awarded.status !== "settled" ||
+  awarded.spec.parties[1] !== freelancer.address
+) {
+  throw new Error("run 3 did not pay the nominated winner");
 }

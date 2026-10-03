@@ -12,7 +12,7 @@ pub enum PactError {
     FunderOutOfRange,
     #[msg("Amount must be above zero")]
     ZeroAmount,
-    #[msg("A deal has at most 2 checks")]
+    #[msg("A deal has at most 3 checks")]
     CheckCount,
     #[msg("Unknown check kind")]
     UnknownCheckKind,
@@ -64,4 +64,22 @@ pub enum PactError {
     ConditionNotMet,
     #[msg("Payout accounts must be the deal parties, in order and writable")]
     WrongPayoutAccounts,
+    #[msg("The funder cannot be an open slot")]
+    FunderIsOpen,
+    #[msg("A check can only bind an open slot")]
+    BindsNotOpenSlot,
+    #[msg("Two checks bind the same open slot")]
+    DuplicateBinding,
+    #[msg("A rule that pays an open slot must require the check that fills it")]
+    UnboundPayout,
+    #[msg("A yes vote on this check must name a nominee")]
+    NomineeRequired,
+    #[msg("This vote cannot carry a nominee")]
+    NomineeNotExpected,
+    #[msg("The nominee cannot be empty or an existing party")]
+    BadNominee,
+    #[msg("The open slot of this check is already filled")]
+    AlreadyBound,
+    #[msg("The rule pays an open slot that is still empty")]
+    OpenSlotNotBound,
 }

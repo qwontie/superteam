@@ -1,11 +1,12 @@
 use anchor_lang::prelude::*;
 
 pub const DEAL_SEED: &[u8] = b"deal";
+pub const OPEN_SLOT: Pubkey = Pubkey::new_from_array([0; 32]);
 pub const TOTAL_BPS: u32 = 10_000;
 pub const MAX_TITLE_BYTES: usize = 48;
 pub const MIN_PARTIES: usize = 2;
 pub const MAX_PARTIES: usize = 4;
-pub const MAX_CHECKS: usize = 2;
+pub const MAX_CHECKS: usize = 3;
 pub const MAX_CHECK_KIND: u8 = 2;
 pub const MAX_TARGET_BYTES: usize = 128;
 pub const MAX_EXPECT_BYTES: usize = 64;
@@ -58,8 +59,11 @@ pub struct Check {
     #[max_len(MAX_WITNESSES)]
     pub witnesses: Vec<Pubkey>,
     pub threshold: u8,
+    pub binds: Option<u8>,
     pub yes: u8,
     pub no: u8,
+    #[max_len(MAX_WITNESSES)]
+    pub nominees: Vec<Pubkey>,
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone)]
@@ -69,6 +73,7 @@ pub struct CheckSpec {
     pub expect: String,
     pub witnesses: Vec<Pubkey>,
     pub threshold: u8,
+    pub binds: Option<u8>,
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, InitSpace)]
@@ -99,7 +104,14 @@ impl Deal {
             Condition::After { ts } => now >= ts,
             Condition::Signed { party } => self.signals[party as usize].is_some(),
             Condition::Unsigned { party } => self.signals[party as usize].is_none(),
-            Condition::Attested { check } => self.checks[check as usize].passed(),
+            Condition::Attested { check } => self.passed(&self.checks[check as usize]),
+        }
+    }
+
+    pub fn passed(&self, check: &Check) -> bool {
+        match check.binds {
+            None => check.yes.count_ones() >= u32::from(check.threshold),
+            Some(slot) => self.parties[usize::from(slot)] != OPEN_SLOT,
         }
     }
 
@@ -109,7 +121,11 @@ impl Deal {
 }
 
 impl Check {
-    pub fn passed(&self) -> bool {
-        self.yes.count_ones() >= u32::from(self.threshold)
+    pub fn yes_votes_for(&self, nominee: &Pubkey) -> u8 {
+        self.nominees
+            .iter()
+            .enumerate()
+            .filter(|(witness, voted)| self.yes & (1 << witness) != 0 && *voted == nominee)
+            .count() as u8
     }
 }

@@ -2,10 +2,12 @@ import { describe, expect, test } from "bun:test";
 import {
   evaluateDeal,
   evaluateRule,
+  OPEN_SLOT,
   silenceIsConsent,
   votesFromBitmaps,
 } from "../src";
 import {
+  bountySpec,
   CLIENT,
   DEADLINE,
   demoSpec,
@@ -13,6 +15,11 @@ import {
   NOW,
   stateOf,
 } from "./fixtures";
+
+const WINNERS = [
+  FREELANCER,
+  "4Nd1mBQtrMJVYVfKf2PJy9NZUZdTAsp7D4xWLs4gDB4T",
+] as const;
 
 describe("evaluateRule", () => {
   test("nothing fires on a fresh funded deal", () => {
@@ -77,6 +84,37 @@ describe("evaluateRule", () => {
     );
     expect(evaluateRule(settled, 9, DEADLINE).blockedBy).toBe(
       "rule 9 does not exist"
+    );
+  });
+});
+
+describe("bounty", () => {
+  const [first, second] = WINNERS;
+
+  test("waits until enough witnesses agree on one nominee", () => {
+    const empty = stateOf(bountySpec());
+    expect(evaluateRule(empty, 0, NOW).blockedBy).toBe(
+      "no nominee yet, 2 of 3 witnesses must agree on one"
+    );
+    const split = stateOf(bountySpec(), {
+      votes: [votesFromBitmaps(0b011, 0, 3, [first, second])],
+    });
+    expect(evaluateRule(split, 0, NOW).blockedBy).toBe(
+      "leading nominee has 1 of 2 yes votes needed"
+    );
+  });
+
+  test("fires once the open slot is filled", () => {
+    const spec = bountySpec();
+    spec.parties[1] = first;
+    const bound = stateOf(spec, {
+      votes: [votesFromBitmaps(0b101, 0, 3, [first, OPEN_SLOT, first])],
+    });
+    expect(bound.votes[0]?.nominees).toEqual([first, null, first]);
+    const result = evaluateRule(bound, 0, NOW);
+    expect(result.canExecute).toBe(true);
+    expect(result.conditions[0]?.reason).toBe(
+      `2 of 3 witnesses chose ${first} for party 1`
     );
   });
 });

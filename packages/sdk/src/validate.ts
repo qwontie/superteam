@@ -37,8 +37,19 @@ const issueText = (issue: z.core.$ZodIssue) => {
   return path ? `${path}: ${issue.message}` : issue.message;
 };
 
-const firstDuplicate = (values: string[]) =>
-  values.find((value, position) => values.indexOf(value) !== position);
+const firstDuplicate = (values: (string | null)[]) =>
+  values.find(
+    (value, position) => value !== null && values.indexOf(value) !== position
+  );
+
+const isOpen = (spec: DealSpec, party: number) => spec.parties[party] === null;
+
+const fillsSlot = (rule: Rule, spec: DealSpec, slot: number) =>
+  rule.when.some(
+    (condition) =>
+      condition.type === "attested" &&
+      spec.checks[condition.check]?.binds === slot
+  );
 
 const conditionProblem = (
   condition: Condition,
@@ -72,9 +83,17 @@ const ruleProblems = (rule: Rule, ruleIndex: number, spec: DealSpec) => {
     }
   }
   for (const [position, payout] of rule.pay.entries()) {
+    const path = `rules[${ruleIndex}].pay[${position}]`;
     if (payout.party >= spec.parties.length) {
       problems.push(
-        `rules[${ruleIndex}].pay[${position}]: party ${payout.party} does not exist, the deal has ${spec.parties.length} parties`
+        `${path}: party ${payout.party} does not exist, the deal has ${spec.parties.length} parties`
+      );
+    } else if (
+      isOpen(spec, payout.party) &&
+      !fillsSlot(rule, spec, payout.party)
+    ) {
+      problems.push(
+        `${path}: party ${payout.party} is an open slot, the rule must also require "attested" of the check that fills it`
       );
     }
   }
@@ -99,21 +118,42 @@ const exitProblem = (spec: DealSpec, now: number) => {
   return null;
 };
 
-export const dealSpecProblems = (
-  spec: DealSpec,
-  now: number = nowSeconds()
-) => {
+const partyProblems = (spec: DealSpec) => {
   const problems: string[] = [];
   const parties = spec.parties.length;
   if (spec.funder >= parties) {
     problems.push(
       `funder: party ${spec.funder} does not exist, the deal has ${parties} parties`
     );
+  } else if (isOpen(spec, spec.funder)) {
+    problems.push(
+      `funder: party ${spec.funder} is an open slot, the funder must be a named wallet`
+    );
   }
   const duplicateParty = firstDuplicate(spec.parties);
   if (duplicateParty) {
     problems.push(`parties: ${duplicateParty} appears more than once`);
   }
+  return problems;
+};
+
+const bindingProblem = (spec: DealSpec, position: number) => {
+  const slot = spec.checks[position]?.binds;
+  if (slot === null || slot === undefined) {
+    return null;
+  }
+  const path = `checks[${position}].binds`;
+  if (slot >= spec.parties.length || !isOpen(spec, slot)) {
+    return `${path}: party ${slot} is not an open slot, a check can only fill an open slot`;
+  }
+  if (spec.checks.slice(0, position).some((other) => other.binds === slot)) {
+    return `${path}: another check already fills party ${slot}`;
+  }
+  return null;
+};
+
+const checkProblems = (spec: DealSpec) => {
+  const problems: string[] = [];
   for (const [position, check] of spec.checks.entries()) {
     const witnesses = check.witnesses.length;
     if (check.threshold < 1 || check.threshold > witnesses) {
@@ -127,7 +167,19 @@ export const dealSpecProblems = (
         `checks[${position}].witnesses: ${duplicateWitness} appears more than once`
       );
     }
+    const binding = bindingProblem(spec, position);
+    if (binding) {
+      problems.push(binding);
+    }
   }
+  return problems;
+};
+
+export const dealSpecProblems = (
+  spec: DealSpec,
+  now: number = nowSeconds()
+) => {
+  const problems = [...partyProblems(spec), ...checkProblems(spec)];
   for (const [position, rule] of spec.rules.entries()) {
     problems.push(...ruleProblems(rule, position, spec));
   }

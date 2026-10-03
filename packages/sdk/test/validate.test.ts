@@ -1,6 +1,13 @@
 import { describe, expect, test } from "bun:test";
 import { type DealSpec, dealSpecJsonSchema, validateDealSpec } from "../src";
-import { CLIENT, DEADLINE, demoSpec, NOW, WITNESSES } from "./fixtures";
+import {
+  bountySpec,
+  CLIENT,
+  DEADLINE,
+  demoSpec,
+  NOW,
+  WITNESSES,
+} from "./fixtures";
 
 const problemsOf = (spec: unknown) => {
   const result = validateDealSpec(spec, NOW);
@@ -120,7 +127,7 @@ describe("validateDealSpec", () => {
     const problems = problemsOf({
       ...spec,
       amount: "0",
-      checks: [...spec.checks, ...spec.checks, ...spec.checks],
+      checks: [...spec.checks, ...spec.checks, ...spec.checks, ...spec.checks],
       parties: [CLIENT],
       rules: Array.from({ length: 7 }, () => spec.rules[2]),
       title: "x".repeat(49),
@@ -170,5 +177,68 @@ describe("validateDealSpec", () => {
       "rules",
       "title",
     ]);
+  });
+});
+
+describe("open slots", () => {
+  const bountyProblems = (change: (spec: DealSpec) => void) => {
+    const spec = bountySpec();
+    change(spec);
+    return problemsOf(spec);
+  };
+
+  test("accepts the bounty template", () => {
+    expect(bountyProblems(() => undefined)).toEqual([]);
+  });
+
+  test("the funder cannot be an open slot", () => {
+    expect(
+      bountyProblems((spec) => {
+        spec.funder = 1;
+        spec.rules[1] = {
+          pay: [{ bps: 10_000, party: 0 }],
+          when: [{ ts: DEADLINE, type: "after" }],
+        };
+      })
+    ).toEqual([
+      "funder: party 1 is an open slot, the funder must be a named wallet",
+    ]);
+  });
+
+  test("a check can only fill an open slot, once", () => {
+    expect(
+      bountyProblems((spec) => {
+        (spec.checks[0] as DealSpec["checks"][number]).binds = 0;
+      })
+    ).toEqual([
+      "checks[0].binds: party 0 is not an open slot, a check can only fill an open slot",
+      'rules[0].pay[0]: party 1 is an open slot, the rule must also require "attested" of the check that fills it',
+    ]);
+    expect(
+      bountyProblems((spec) => {
+        spec.checks.push({ ...(spec.checks[0] as DealSpec["checks"][number]) });
+      })
+    ).toEqual(["checks[1].binds: another check already fills party 1"]);
+  });
+
+  test("a rule that pays an open slot must require the binding check", () => {
+    expect(
+      bountyProblems((spec) => {
+        spec.rules[0] = {
+          pay: [{ bps: 10_000, party: 1 }],
+          when: [{ party: 0, type: "signed" }],
+        };
+      })
+    ).toEqual([
+      'rules[0].pay[0]: party 1 is an open slot, the rule must also require "attested" of the check that fills it',
+    ]);
+  });
+
+  test("open slots are not duplicates of each other", () => {
+    expect(
+      bountyProblems((spec) => {
+        spec.parties.push(null);
+      })
+    ).toEqual([]);
   });
 });

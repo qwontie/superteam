@@ -24,7 +24,8 @@ import {
 } from "./codecs";
 import { accountToState, specToCreateArgs } from "./convert";
 import idl from "./idl/pact.json" with { type: "json" };
-import type { DealSpec } from "./spec";
+import { DEAL_ACCOUNT_SIZE } from "./layout";
+import { type DealSpec, OPEN_SLOT } from "./spec";
 import type { DealState } from "./state";
 
 export const PACT_PROGRAM_ID: Address = address(idl.address);
@@ -73,6 +74,11 @@ const writable = (account: Address): AccountMeta => ({
   address: account,
   role: AccountRole.WRITABLE,
 });
+
+const OPEN_SLOT_META: AccountMeta = {
+  address: address(OPEN_SLOT),
+  role: AccountRole.READONLY,
+};
 
 const SYSTEM_PROGRAM_META: AccountMeta = {
   address: SYSTEM_PROGRAM_ID,
@@ -141,11 +147,16 @@ export const getAttestInstruction = (input: {
   deal: Address;
   check: number;
   verdict: boolean;
+  nominee?: string | null;
 }): Instruction => ({
   accounts: [signerMeta(input.witness, false), writable(input.deal)],
   data: concat(
     instructionDiscriminator("attest"),
-    attestArgsCodec.encode({ check: input.check, verdict: input.verdict })
+    attestArgsCodec.encode({
+      check: input.check,
+      nominee: input.nominee ? address(input.nominee) : null,
+      verdict: input.verdict,
+    })
   ),
   programAddress: PACT_PROGRAM_ID,
 });
@@ -154,12 +165,14 @@ export const getExecuteInstruction = (input: {
   executor: TransactionSigner;
   deal: Address;
   rule: number;
-  parties: readonly string[];
+  parties: readonly (string | null)[];
 }): Instruction => ({
   accounts: [
     signerMeta(input.executor, false),
     writable(input.deal),
-    ...input.parties.map((party) => writable(address(party))),
+    ...input.parties.map((party) =>
+      party ? writable(address(party)) : OPEN_SLOT_META
+    ),
   ],
   data: concat(
     instructionDiscriminator("execute"),
@@ -219,7 +232,7 @@ export const fetchAllDeals = async (
   const deals: DealState[] = [];
   for (const { pubkey, account } of accounts) {
     const data = base64.encode(account.data[0] as Base64EncodedBytes);
-    if (isDealAccount(data)) {
+    if (data.length === DEAL_ACCOUNT_SIZE && isDealAccount(data)) {
       deals.push(decodeDeal(pubkey, data, account.lamports));
     }
   }

@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { BN, BorshCoder, type Idl, web3 } from "@anchor-lang/core";
 import {
+  AccountRole,
   address,
   createNoopSigner,
   SOLANA_ERROR__INSTRUCTION_ERROR__CUSTOM,
@@ -14,10 +15,18 @@ import {
   getAttestInstruction,
   getCreateDealInstruction,
   getExecuteInstruction,
+  OPEN_SLOT,
   PACT_IDL,
   PACT_PROGRAM_ID,
 } from "../src";
-import { CLIENT, DEADLINE, demoSpec, FREELANCER, WITNESSES } from "./fixtures";
+import {
+  bountySpec,
+  CLIENT,
+  DEADLINE,
+  demoSpec,
+  FREELANCER,
+  WITNESSES,
+} from "./fixtures";
 
 const coder = new BorshCoder(PACT_IDL as Idl);
 const key = (value: string) => new web3.PublicKey(value);
@@ -93,7 +102,7 @@ describe("chain client", () => {
     expect(
       coder.instruction.decode(Buffer.from(attest.data as Uint8Array))
     ).toEqual({
-      data: { check: 1, verdict: true },
+      data: { check: 1, nominee: null, verdict: true },
       name: "attest",
     });
     const execute = getExecuteInstruction({
@@ -119,9 +128,13 @@ describe("chain client", () => {
       bump: 254,
       checks: [
         {
+          binds: null,
           expect: "",
           kind: 0,
           no: 0b010,
+          nominees: WITNESSES.map(() =>
+            key("11111111111111111111111111111111")
+          ),
           target: "Landing page delivered as agreed",
           threshold: 2,
           witnesses: WITNESSES.map(key),
@@ -157,6 +170,7 @@ describe("chain client", () => {
     expect(deal.votes[0]).toEqual({
       byWitness: ["yes", "no", "yes"],
       no: 1,
+      nominees: [null, null, null],
       yes: 2,
     });
     expect(deal.spec).toEqual(demoSpec());
@@ -175,5 +189,51 @@ describe("chain client", () => {
     expect(explorerTx("abc")).toBe(
       "https://explorer.solana.com/tx/abc?cluster=devnet"
     );
+  });
+
+  test("encodes a bounty with an open slot and a nominee", async () => {
+    const instruction = await getCreateDealInstruction({
+      creator,
+      dealId: 8n,
+      spec: bountySpec(),
+    });
+    const decoded = coder.instruction.decode(
+      Buffer.from(instruction.data as Uint8Array)
+    );
+    const data = decoded?.data as {
+      parties: web3.PublicKey[];
+      checks: { binds: number | null }[];
+    };
+    expect(data.parties.map((party) => party.toBase58())).toEqual([
+      CLIENT,
+      OPEN_SLOT,
+    ]);
+    expect(data.checks[0]?.binds).toBe(1);
+
+    const deal = address(WITNESSES[2] as string);
+    const attest = getAttestInstruction({
+      check: 0,
+      deal,
+      nominee: FREELANCER,
+      verdict: true,
+      witness: creator,
+    });
+    const vote = coder.instruction.decode(
+      Buffer.from(attest.data as Uint8Array)
+    )?.data as {
+      nominee: web3.PublicKey | null;
+    };
+    expect(vote.nominee?.toBase58()).toBe(FREELANCER);
+
+    const execute = getExecuteInstruction({
+      deal,
+      executor: creator,
+      parties: [CLIENT, null],
+      rule: 1,
+    });
+    expect(execute.accounts?.slice(2)).toEqual([
+      { address: address(CLIENT), role: AccountRole.WRITABLE },
+      { address: address(OPEN_SLOT), role: AccountRole.READONLY },
+    ]);
   });
 });

@@ -1,5 +1,5 @@
 import type { Condition } from "./spec";
-import type { DealState } from "./state";
+import { type DealState, leadingNominee } from "./state";
 
 export interface ConditionResult {
   condition: Condition;
@@ -44,6 +44,40 @@ const statusBlock = (deal: DealState) => {
   return `the deal is ${deal.status}, only a funded deal can be executed`;
 };
 
+const attestedResult = (
+  deal: DealState,
+  condition: Extract<Condition, { type: "attested" }>
+): ConditionResult => {
+  const check = deal.spec.checks[condition.check];
+  const votes = deal.votes[condition.check];
+  if (!(check && votes)) {
+    return {
+      condition,
+      holds: false,
+      reason: `check ${condition.check} does not exist`,
+    };
+  }
+  const witnesses = check.witnesses.length;
+  if (check.binds === null || check.binds === undefined) {
+    const holds = votes.yes >= check.threshold;
+    const reason = `${votes.yes} of ${witnesses} witnesses said yes, ${check.threshold} needed`;
+    return { condition, holds, reason };
+  }
+  const winner = deal.spec.parties[check.binds] ?? null;
+  if (winner) {
+    return {
+      condition,
+      holds: true,
+      reason: `${check.threshold} of ${witnesses} witnesses chose ${winner} for party ${check.binds}`,
+    };
+  }
+  const leader = leadingNominee(votes);
+  const reason = leader
+    ? `leading nominee has ${leader.votes} of ${check.threshold} yes votes needed`
+    : `no nominee yet, ${check.threshold} of ${witnesses} witnesses must agree on one`;
+  return { condition, holds: false, reason };
+};
+
 export const evaluateCondition = (
   deal: DealState,
   condition: Condition,
@@ -73,20 +107,8 @@ export const evaluateCondition = (
           : `party ${condition.party} already signed at ${iso(at)}`;
       return { condition, holds: at === null, reason };
     }
-    case "attested": {
-      const check = deal.spec.checks[condition.check];
-      const votes = deal.votes[condition.check];
-      if (!(check && votes)) {
-        return {
-          condition,
-          holds: false,
-          reason: `check ${condition.check} does not exist`,
-        };
-      }
-      const holds = votes.yes >= check.threshold;
-      const reason = `${votes.yes} of ${check.witnesses.length} witnesses said yes, ${check.threshold} needed`;
-      return { condition, holds, reason };
-    }
+    case "attested":
+      return attestedResult(deal, condition);
     default:
       return condition satisfies never;
   }

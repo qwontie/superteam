@@ -35,18 +35,18 @@ pub fn handler<'info>(ctx: Context<'info, Execute<'info>>, rule_index: u8) -> Re
         PactError::WrongPayoutAccounts
     );
     for (account, party) in recipients.iter().zip(&deal.parties) {
-        require!(
-            account.key == party && account.is_writable,
-            PactError::WrongPayoutAccounts
-        );
+        require!(account.key == party, PactError::WrongPayoutAccounts);
     }
 
     let amount = deal.amount;
     let payouts = split(amount, &rule.pay);
     let deal_info = deal.to_account_info();
     for (party, lamports) in payouts {
+        let recipient = &recipients[usize::from(party)];
+        require!(*recipient.key != OPEN_SLOT, PactError::OpenSlotNotBound);
+        require!(recipient.is_writable, PactError::WrongPayoutAccounts);
         deal_info.sub_lamports(lamports)?;
-        recipients[usize::from(party)].add_lamports(lamports)?;
+        recipient.add_lamports(lamports)?;
     }
 
     let deal = &mut ctx.accounts.deal;

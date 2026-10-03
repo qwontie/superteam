@@ -66,6 +66,12 @@ export type Pact = {
         {
           "name": "verdict",
           "type": "bool"
+        },
+        {
+          "name": "nominee",
+          "type": {
+            "option": "pubkey"
+          }
         }
       ]
     },
@@ -476,7 +482,7 @@ export type Pact = {
     {
       "code": 6005,
       "name": "checkCount",
-      "msg": "A deal has at most 2 checks"
+      "msg": "A deal has at most 3 checks"
     },
     {
       "code": 6006,
@@ -602,6 +608,51 @@ export type Pact = {
       "code": 6030,
       "name": "wrongPayoutAccounts",
       "msg": "Payout accounts must be the deal parties, in order and writable"
+    },
+    {
+      "code": 6031,
+      "name": "funderIsOpen",
+      "msg": "The funder cannot be an open slot"
+    },
+    {
+      "code": 6032,
+      "name": "bindsNotOpenSlot",
+      "msg": "A check can only bind an open slot"
+    },
+    {
+      "code": 6033,
+      "name": "duplicateBinding",
+      "msg": "Two checks bind the same open slot"
+    },
+    {
+      "code": 6034,
+      "name": "unboundPayout",
+      "msg": "A rule that pays an open slot must require the check that fills it"
+    },
+    {
+      "code": 6035,
+      "name": "nomineeRequired",
+      "msg": "A yes vote on this check must name a nominee"
+    },
+    {
+      "code": 6036,
+      "name": "nomineeNotExpected",
+      "msg": "This vote cannot carry a nominee"
+    },
+    {
+      "code": 6037,
+      "name": "badNominee",
+      "msg": "The nominee cannot be empty or an existing party"
+    },
+    {
+      "code": 6038,
+      "name": "alreadyBound",
+      "msg": "The open slot of this check is already filled"
+    },
+    {
+      "code": 6039,
+      "name": "openSlotNotBound",
+      "msg": "The rule pays an open slot that is still empty"
     }
   ],
   "types": [
@@ -625,6 +676,12 @@ export type Pact = {
           {
             "name": "verdict",
             "type": "bool"
+          },
+          {
+            "name": "nominee",
+            "type": {
+              "option": "pubkey"
+            }
           },
           {
             "name": "yes",
@@ -665,12 +722,24 @@ export type Pact = {
             "type": "u8"
           },
           {
+            "name": "binds",
+            "type": {
+              "option": "u8"
+            }
+          },
+          {
             "name": "yes",
             "type": "u8"
           },
           {
             "name": "no",
             "type": "u8"
+          },
+          {
+            "name": "nominees",
+            "type": {
+              "vec": "pubkey"
+            }
           }
         ]
       }
@@ -701,6 +770,12 @@ export type Pact = {
           {
             "name": "threshold",
             "type": "u8"
+          },
+          {
+            "name": "binds",
+            "type": {
+              "option": "u8"
+            }
           }
         ]
       }

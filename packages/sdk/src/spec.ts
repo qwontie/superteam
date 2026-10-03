@@ -3,7 +3,7 @@ import { z } from "zod";
 
 export const LIMITS = {
   expectBytes: 64,
-  maxChecks: 2,
+  maxChecks: 3,
   maxConditions: 4,
   maxParties: 4,
   maxPayouts: 4,
@@ -18,6 +18,8 @@ export const LIMITS = {
   titleBytes: 48,
   totalBps: 10_000,
 } as const;
+
+export const OPEN_SLOT = "11111111111111111111111111111111";
 
 export const CHECK_KINDS = [
   "manual",
@@ -70,6 +72,7 @@ export const PayoutSchema = z.object({
 });
 
 export const CheckSchema = z.object({
+  binds: index.nullish(),
   expect: maxBytes(LIMITS.expectBytes),
   kind: z.enum(CHECK_KINDS),
   target: maxBytes(LIMITS.targetBytes).min(1, "must not be empty"),
@@ -89,7 +92,10 @@ export const DealSpecSchema = z.object({
   amount: lamports,
   checks: z.array(CheckSchema).max(LIMITS.maxChecks),
   funder: index,
-  parties: z.array(pubkey).min(LIMITS.minParties).max(LIMITS.maxParties),
+  parties: z
+    .array(pubkey.nullable())
+    .min(LIMITS.minParties)
+    .max(LIMITS.maxParties),
   rules: z.array(RuleSchema).min(LIMITS.minRules).max(LIMITS.maxRules),
   title: maxBytes(LIMITS.titleBytes).min(1, "must not be empty"),
 });

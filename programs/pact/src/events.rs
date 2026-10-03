@@ -28,6 +28,7 @@ pub struct Attested {
     pub check: u8,
     pub witness: Pubkey,
     pub verdict: bool,
+    pub nominee: Option<Pubkey>,
     pub yes: u8,
     pub no: u8,
 }
