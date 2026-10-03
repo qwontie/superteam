@@ -5,6 +5,7 @@ import { AnimatePresence, motion } from "motion/react";
 import type { ReactNode } from "react";
 import { QUICK } from "@/components/pact/motion";
 import { Party, PartyAvatar } from "@/components/pact/party";
+import { useTone } from "@/components/pact/tone";
 import { errorsAt } from "@/features/builder/problems";
 import { useBuilder } from "@/features/builder/state";
 
@@ -62,38 +63,49 @@ interface SlotPillProps {
   you?: boolean;
 }
 
+const pillTone = (broken: boolean, ink: boolean) => {
+  if (ink) {
+    return { frame: "border-pact-ink/45 text-pact-ink", soft: "opacity-70" };
+  }
+  if (broken) {
+    return { frame: "border-pact-stop text-pact-stop", soft: "text-pact-stop" };
+  }
+  return {
+    frame: "border-cladd-fg-softer text-cladd-fg",
+    soft: "text-cladd-fg-soft",
+  };
+};
+
 export function SlotPill({ address, empty, label, open, you }: SlotPillProps) {
+  const ink = useTone() === "ink";
   const value = address.trim();
   if (!open && value !== "" && isAddress(value)) {
     return <Party address={value} label={label} you={you} />;
   }
   const broken = !open && value !== "";
+  const tone = pillTone(broken, ink);
   const hint = broken ? "check the address" : empty;
   return (
     <span
       className={cn(
         "inline-flex h-8 max-w-full items-center gap-2 whitespace-nowrap rounded-full border border-dashed pr-3 pl-1 font-medium text-sm",
-        broken
-          ? "border-pact-stop text-pact-stop"
-          : "border-cladd-fg-softer text-cladd-fg"
+        tone.frame
       )}
     >
       {open ? (
         <PartyAvatar seed={null} size={24} />
       ) : (
-        <span className="grid size-6 shrink-0 place-items-center rounded-full bg-cladd-surface-hover text-cladd-fg-soft">
+        <span
+          className={cn(
+            "grid size-6 shrink-0 place-items-center rounded-full",
+            ink ? "bg-pact-ink/12" : "bg-cladd-surface-hover text-cladd-fg-soft"
+          )}
+        >
           <Plus aria-hidden="true" size={14} />
         </span>
       )}
       <span className="truncate">{label}</span>
-      <span
-        className={cn(
-          "font-normal",
-          broken ? "text-pact-stop" : "text-cladd-fg-soft"
-        )}
-      >
-        {hint}
-      </span>
+      <span className={cn("font-normal", tone.soft)}>{hint}</span>
     </span>
   );
 }

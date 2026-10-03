@@ -151,6 +151,7 @@ export function VaultBlock({ settled }: { settled: boolean }) {
               ) : (
                 <VaultAmount
                   flightId={VAULT_FLIGHT}
+                  key={settled ? "empty" : "full"}
                   lamports={lamports}
                   status={settled ? "settled" : "funded"}
                 />

@@ -14,13 +14,16 @@ import { CSS } from "@dnd-kit/utilities";
 import { GripVertical, Lock, Plus, Trash2 } from "lucide-react";
 import { Fragment, type ReactNode, useCallback } from "react";
 import { RuleBlock } from "@/components/pact/rule-block";
+import { FiredNote } from "@/components/pact/vault";
 import { ArrivePiece } from "@/features/builder/arrive";
 import { ConditionPiece } from "@/features/builder/condition-piece";
 import { readRule } from "@/features/builder/describe";
 import {
   addCheck,
   addCondition,
+  amountLamports,
   canTake,
+  type DraftCondition,
   type DraftRule,
   isTimeOnly,
   newCondition,
@@ -31,7 +34,10 @@ import { anchorId, ProblemLines } from "@/features/builder/parts";
 import { PIECES, PieceIcon } from "@/features/builder/pieces";
 import { anchors } from "@/features/builder/problems";
 import { ShareBar, Shares } from "@/features/builder/shares";
+import { useSim } from "@/features/builder/simulation";
 import { useBuilder, useDraft } from "@/features/builder/state";
+import { VAULT_FLIGHT } from "@/features/builder/vault-block";
+import { formatCountdown } from "@/lib/format";
 
 export interface RuleDrag {
   kind: "rule";
@@ -114,6 +120,45 @@ function AddCondition({ rule }: { rule: DraftRule }) {
   );
 }
 
+function RuleNote({
+  bar,
+  fired,
+  rule,
+}: {
+  bar: boolean;
+  fired: boolean;
+  rule: DraftRule;
+}) {
+  if (fired) {
+    return <PlayNote />;
+  }
+  return bar ? <ShareBar rule={rule} /> : null;
+}
+
+function LivePiece({
+  condition,
+  detail,
+  holds,
+  rule,
+}: {
+  condition: DraftCondition;
+  detail: (condition: DraftCondition, holds: boolean) => string | null;
+  holds: boolean | undefined;
+  rule: DraftRule;
+}) {
+  if (holds === undefined) {
+    return <ConditionPiece condition={condition} rule={rule} />;
+  }
+  return (
+    <ConditionPiece
+      condition={condition}
+      detail={detail(condition, holds)}
+      rule={rule}
+      state={holds ? "holds" : "pending"}
+    />
+  );
+}
+
 interface RuleBodyProps {
   action?: ReactNode;
   gutter: ReactNode;
@@ -121,10 +166,50 @@ interface RuleBodyProps {
   rule: DraftRule;
 }
 
+function FireButton({ ruleId }: { ruleId: string }) {
+  const { fire } = useSim();
+  const execute = useCallback(() => fire(ruleId), [fire, ruleId]);
+  return (
+    <Button onClick={execute} size="xl" variant="solid-fill">
+      Execute
+    </Button>
+  );
+}
+
+function PlayNote() {
+  const draft = useDraft();
+  const lamports = amountLamports(draft.amount);
+  if (lamports === null) {
+    return (
+      <p className="font-medium text-pact-ink text-sm">
+        The whole vault left. No one approved it.
+      </p>
+    );
+  }
+  return <FiredNote flightId={VAULT_FLIGHT} lamports={lamports} />;
+}
+
+const usePlayDetail = () => {
+  const { now, yesByCheck } = useSim();
+  return (condition: DraftCondition, holds: boolean) => {
+    if (condition.type === "after") {
+      return holds ? null : `in ${formatCountdown(condition.ts - now)}`;
+    }
+    if (condition.type === "attested") {
+      return `${yesByCheck[condition.check] ?? 0} so far`;
+    }
+    return null;
+  };
+};
+
 function RuleBody({ action, gutter, index, rule }: RuleBodyProps) {
   const { locked, mode } = useBuilder();
   const draft = useDraft();
+  const sim = useSim();
+  const playDetail = usePlayDetail();
   const editable = !locked && mode === "build";
+  const live = mode === "play" ? sim.byRule[rule.id] : undefined;
+  const status = live?.status ?? "idle";
   const drop: WhenDrop = { kind: "when", ruleId: rule.id };
   const { isOver, setNodeRef, active } = useDroppable({
     data: drop,
@@ -153,12 +238,19 @@ function RuleBody({ action, gutter, index, rule }: RuleBodyProps) {
           ref={setNodeRef}
         >
           <RuleBlock
-            action={action}
+            action={
+              status === "armed" ? <FireButton ruleId={rule.id} /> : action
+            }
             exit={isTimeOnly(rule)}
             index={index}
             note={
-              editable && rule.pay.length > 1 ? <ShareBar rule={rule} /> : null
+              <RuleNote
+                bar={editable && rule.pay.length > 1}
+                fired={status === "fired"}
+                rule={rule}
+              />
             }
+            status={status}
             then={<Shares rule={rule} />}
             when={
               <>
@@ -171,7 +263,12 @@ function RuleBody({ action, gutter, index, rule }: RuleBodyProps) {
                       className="inline-flex max-w-full"
                       position={position}
                     >
-                      <ConditionPiece condition={condition} rule={rule} />
+                      <LivePiece
+                        condition={condition}
+                        detail={playDetail}
+                        holds={live?.evaluation.conditions[position]?.holds}
+                        rule={rule}
+                      />
                     </ArrivePiece>
                   </Fragment>
                 ))}

@@ -113,13 +113,16 @@ const joinAnd = (parts: string[]) => {
 const capital = (text: string) =>
   text.replace(FIRST_LETTER, (letter) => letter.toUpperCase());
 
+export const readPayouts = (rule: DraftRule, draft: Draft) =>
+  joinAnd(
+    rule.pay.map((payout) => payoutPhrase(draft, payout, rule.pay.length === 1))
+  );
+
 export const readRule = (rule: DraftRule, draft: Draft) => {
   const conditions = rule.when.map(
     (condition) => conditionText(condition, draft).label
   );
-  const payouts = joinAnd(
-    rule.pay.map((payout) => payoutPhrase(draft, payout, rule.pay.length === 1))
-  );
+  const payouts = readPayouts(rule, draft);
   if (conditions.length === 0) {
     return "This rule has no condition yet, so it can never fire.";
   }
