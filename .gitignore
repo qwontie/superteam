@@ -1,0 +1,6 @@
+.mcp.json
+.claude/settings.local.json
+.claude/skills/vibegram/
+.codex/hooks.json
+.cursor/hooks.json
+.DS_Store

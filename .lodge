@@ -1,0 +1,3 @@
+shared docs/agents
+shared CLAUDE.local.md
+branch .agent

@@ -1,0 +1,13 @@
+{
+  "defaultThreadEnvMode": "worktree",
+  "scripts": [
+    {
+      "id": "qwontie",
+      "name": "qwontie",
+      "command": "qwontie worktree",
+      "icon": "play",
+      "runOnWorktreeCreate": true,
+      "async": false
+    }
+  ]
+}
