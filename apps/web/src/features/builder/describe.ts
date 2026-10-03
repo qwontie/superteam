@@ -1,4 +1,5 @@
 import { lamportsToSol } from "@pact/sdk";
+import { isOracle, ORACLE_LABEL } from "@/features/builder/gate";
 import type {
   Draft,
   DraftCheck,
@@ -31,6 +32,9 @@ export const checkName = (draft: Draft, id: string) => {
 };
 
 export const quorum = (check: DraftCheck) => {
+  if (isOracle(check)) {
+    return ORACLE_LABEL;
+  }
   const total = check.reviewers.length;
   const who = check.kind === "manual" ? "reviewer" : "node";
   if (total === 1) {
@@ -51,7 +55,7 @@ const attestedLabel = (check: DraftCheck | undefined) => {
     threshold: check.threshold,
     witnesses: [],
   });
-  const single = check.reviewers.length === 1;
+  const single = check.reviewers.length === 1 && !isOracle(check);
   return `${quorum(check)} ${single ? verb.one : verb.many}`;
 };
 

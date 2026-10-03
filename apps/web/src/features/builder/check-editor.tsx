@@ -2,8 +2,15 @@ import { Button, cn, Input, NumberField } from "@cladd-ui/react";
 import type { CheckKind } from "@pact/sdk";
 import { isAddress } from "@solana/kit";
 import { Plus, UserRound, X } from "lucide-react";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { checkName, partyName } from "@/features/builder/describe";
+import {
+  gateOf,
+  isOracle,
+  ORACLE_COUNT,
+  withOracle,
+  withoutOracle,
+} from "@/features/builder/gate";
 import {
   addCheck,
   addReviewer,
@@ -23,6 +30,7 @@ import {
 import { Field, ProblemLines, pickedClass } from "@/features/builder/parts";
 import { anchors } from "@/features/builder/problems";
 import { useBuilder, useDraft } from "@/features/builder/state";
+import { shortAddress } from "@/lib/format";
 
 type CheckCondition = Extract<DraftCondition, { type: "attested" }>;
 
@@ -68,7 +76,12 @@ const TARGET_MAX = 128;
 function KindOption({ check, kind }: { check: DraftCheck; kind: CheckKind }) {
   const { edit } = useBuilder();
   const pick = useCallback(
-    () => edit((d) => updateCheck(d, check.id, (c) => setCheckKind(c, kind))),
+    () =>
+      edit((d) =>
+        updateCheck(d, check.id, (c) =>
+          setCheckKind(kind === "http_contains" ? c : withoutOracle(c), kind)
+        )
+      ),
     [check.id, edit, kind]
   );
   const selected = check.kind === kind;
@@ -281,26 +294,14 @@ function BindToggle({ check, party }: { check: DraftCheck; party: PartySlot }) {
   );
 }
 
-function CheckForm({ check }: { check: DraftCheck }) {
+function Voters({
+  check,
+  firstEmpty,
+}: {
+  check: DraftCheck;
+  firstEmpty: string | null;
+}) {
   const { edit } = useBuilder();
-  const draft = useDraft();
-  const openParties = draft.parties.filter((party) => party.open);
-  const [firstEmpty] = useState(() =>
-    check.target === ""
-      ? null
-      : (check.reviewers.find((reviewer) => reviewer.address.trim() === "")
-          ?.id ?? null)
-  );
-  const setTarget = useCallback(
-    (target: string) =>
-      edit((d) => updateCheck(d, check.id, (c) => ({ ...c, target }))),
-    [check.id, edit]
-  );
-  const setExpect = useCallback(
-    (expect: string) =>
-      edit((d) => updateCheck(d, check.id, (c) => ({ ...c, expect }))),
-    [check.id, edit]
-  );
   const setThreshold = useCallback(
     (threshold: number) =>
       edit((d) => updateCheck(d, check.id, (c) => ({ ...c, threshold }))),
@@ -310,36 +311,8 @@ function CheckForm({ check }: { check: DraftCheck }) {
     () => edit((d) => updateCheck(d, check.id, addReviewer)),
     [check.id, edit]
   );
-  const fill = useCallback(
-    () => edit((d) => updateCheck(d, check.id, withDemoNodes)),
-    [check.id, edit]
-  );
   return (
     <>
-      <div className="grid grid-cols-2 gap-1.5">
-        {KIND_ORDER.map((kind) => (
-          <KindOption check={check} key={kind} kind={kind} />
-        ))}
-      </div>
-      <Input
-        autoFocus={check.target === ""}
-        inputComponentProps={{ "aria-label": TARGET_LABEL[check.kind] }}
-        maxLength={TARGET_MAX}
-        onChange={setTarget}
-        placeholder={TARGET_HINT[check.kind]}
-        size="xl"
-        value={check.target}
-      />
-      {check.kind === "http_contains" ? (
-        <Input
-          inputComponentProps={{ "aria-label": "Text the page must contain" }}
-          maxLength={EXPECT_MAX}
-          onChange={setExpect}
-          placeholder="Text the page must contain"
-          size="xl"
-          value={check.expect}
-        />
-      ) : null}
       <Field label={check.kind === "manual" ? "Voters" : "Witness nodes"}>
         <ul className="flex flex-col gap-1.5">
           {check.reviewers.map((reviewer, position) => (
@@ -380,7 +353,140 @@ function CheckForm({ check }: { check: DraftCheck }) {
           </Button>
         ) : null}
       </div>
-      {check.kind !== "manual" && !hasDemoNodes(check) ? (
+    </>
+  );
+}
+
+function Checker({ check }: { check: DraftCheck }) {
+  const { edit } = useBuilder();
+  const oracle = isOracle(check);
+  const demo = hasDemoNodes(check);
+  const useDemo = useCallback(
+    () => edit((d) => updateCheck(d, check.id, withDemoNodes)),
+    [check.id, edit]
+  );
+  const toggleOracle = useCallback(
+    () =>
+      edit((d) =>
+        updateCheck(d, check.id, oracle ? withoutOracle : withOracle)
+      ),
+    [check.id, edit, oracle]
+  );
+  return (
+    <Field label="Checked by">
+      <div className="grid grid-cols-2 gap-1.5">
+        <Button
+          aria-label="Use the Pact demo witness nodes"
+          aria-pressed={demo}
+          className={cn("justify-center", pickedClass(demo))}
+          onClick={useDemo}
+          size="lg"
+          title="Three nodes we run on devnet. Anyone can run their own."
+        >
+          Demo nodes
+        </Button>
+        <Button
+          aria-label="Use the Switchboard oracle network"
+          aria-pressed={oracle}
+          className={cn("justify-center", pickedClass(oracle))}
+          onClick={toggleOracle}
+          size="lg"
+          title="Three Switchboard oracles read the page. Use a text that only this deal has."
+        >
+          Oracle network
+        </Button>
+      </div>
+    </Field>
+  );
+}
+
+function OracleLine({ check }: { check: DraftCheck }) {
+  const [feedHash, setFeedHash] = useState("");
+  const address = check.reviewers[0]?.address.trim() ?? "";
+  useEffect(() => {
+    let live = true;
+    gateOf(check)
+      .then((feed) => (live ? setFeedHash(feed.feedHash) : undefined))
+      .catch(() => undefined);
+    return () => {
+      live = false;
+    };
+  }, [check]);
+  return (
+    <p className="flex flex-wrap items-baseline gap-x-2 text-sm">
+      Switchboard, {ORACLE_COUNT} oracles
+      {address === "" ? null : (
+        <span
+          className="font-mono text-cladd-fg-soft text-xs"
+          title={`Gate ${address}, feed ${feedHash}`}
+        >
+          {shortAddress(address)}
+        </span>
+      )}
+    </p>
+  );
+}
+
+function CheckForm({ check }: { check: DraftCheck }) {
+  const { edit } = useBuilder();
+  const draft = useDraft();
+  const openParties = draft.parties.filter((party) => party.open);
+  const oracle = isOracle(check);
+  const [firstEmpty] = useState(() =>
+    check.target === ""
+      ? null
+      : (check.reviewers.find((reviewer) => reviewer.address.trim() === "")
+          ?.id ?? null)
+  );
+  const setTarget = useCallback(
+    (target: string) =>
+      edit((d) => updateCheck(d, check.id, (c) => ({ ...c, target }))),
+    [check.id, edit]
+  );
+  const setExpect = useCallback(
+    (expect: string) =>
+      edit((d) => updateCheck(d, check.id, (c) => ({ ...c, expect }))),
+    [check.id, edit]
+  );
+  const fill = useCallback(
+    () => edit((d) => updateCheck(d, check.id, withDemoNodes)),
+    [check.id, edit]
+  );
+  return (
+    <>
+      <div className="grid grid-cols-2 gap-1.5">
+        {KIND_ORDER.map((kind) => (
+          <KindOption check={check} key={kind} kind={kind} />
+        ))}
+      </div>
+      <Input
+        autoFocus={check.target === ""}
+        inputComponentProps={{ "aria-label": TARGET_LABEL[check.kind] }}
+        maxLength={TARGET_MAX}
+        onChange={setTarget}
+        placeholder={TARGET_HINT[check.kind]}
+        size="xl"
+        value={check.target}
+      />
+      {check.kind === "http_contains" ? (
+        <Input
+          inputComponentProps={{ "aria-label": "Text the page must contain" }}
+          maxLength={EXPECT_MAX}
+          onChange={setExpect}
+          placeholder="Text the page must contain"
+          size="xl"
+          value={check.expect}
+        />
+      ) : null}
+      {check.kind === "http_contains" ? <Checker check={check} /> : null}
+      {oracle ? (
+        <OracleLine check={check} />
+      ) : (
+        <Voters check={check} firstEmpty={firstEmpty} />
+      )}
+      {check.kind !== "manual" &&
+      check.kind !== "http_contains" &&
+      !hasDemoNodes(check) ? (
         <Button
           className="justify-center"
           onClick={fill}
@@ -390,9 +496,11 @@ function CheckForm({ check }: { check: DraftCheck }) {
           Use the Pact demo witness nodes
         </Button>
       ) : null}
-      {openParties.map((party) => (
-        <BindToggle check={check} key={party.id} party={party} />
-      ))}
+      {oracle
+        ? null
+        : openParties.map((party) => (
+            <BindToggle check={check} key={party.id} party={party} />
+          ))}
       <ProblemLines anchor={anchors.check(check.id)} />
     </>
   );

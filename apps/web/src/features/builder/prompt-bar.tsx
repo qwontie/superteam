@@ -127,7 +127,10 @@ function Trouble() {
     return null;
   }
   return (
-    <div className="flex flex-col gap-2 px-1 text-sm" role="status">
+    <div
+      className="flex flex-col gap-2 rounded-chip bg-cladd-bg px-1 py-1 text-sm"
+      role="status"
+    >
       <p className="flex flex-wrap gap-x-2">
         <span className="font-medium text-pact-stop">{failure.title}</span>
         <span className="text-cladd-fg-soft">{failure.detail}</span>

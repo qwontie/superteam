@@ -25,6 +25,7 @@ import {
   PrimaryButton,
   useCreate,
 } from "@/features/builder/create";
+import { useGateSync } from "@/features/builder/gate";
 import { MoneyLine } from "@/features/builder/money-line";
 import { anchorId, ProblemLines } from "@/features/builder/parts";
 import { PlayBar } from "@/features/builder/play-bar";
@@ -192,6 +193,7 @@ function Money() {
 }
 
 function Canvas() {
+  useGateSync();
   return (
     <>
       <LooseProblems />

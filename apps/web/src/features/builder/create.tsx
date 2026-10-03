@@ -18,6 +18,7 @@ import {
   useState,
 } from "react";
 import { partyName } from "@/features/builder/describe";
+import { storeOracleJobs } from "@/features/builder/gate";
 import { type Draft, draftToSpec } from "@/features/builder/model";
 import { jumpTo, topmost } from "@/features/builder/parts";
 import { anchors, type Problem } from "@/features/builder/problems";
@@ -28,6 +29,7 @@ import { useWallet } from "@/lib/use-wallet";
 
 const CREATE_LABEL = "Create the deal";
 const FUND_LABEL = "Create and lock funds";
+const STORE_LABEL = "Store the oracle job";
 const RENT_STALE_MS = 3_600_000;
 const INVALIDATE = [["deals"], ["balance"]] as const;
 
@@ -42,6 +44,12 @@ const CHANGED: TxFailure = {
   kind: "unknown",
   title: "The deal is not ready to sign",
 };
+
+const oracleDown = (message: string): TxFailure => ({
+  detail: "Nothing was sent, the draft is kept.",
+  kind: "network",
+  title: message || "The oracle network did not take the job",
+});
 
 const BUILD_FAILED: TxFailure = {
   detail: "The transaction could not be prepared. Nothing was sent.",
@@ -65,6 +73,7 @@ export function CreateProvider({ children }: { children: ReactNode }) {
   const { connected } = useWallet();
   const { pending, send } = useSendTx();
   const [failure, setFailure] = useState<TxFailure | null>(null);
+  const [storing, setStoring] = useState(false);
 
   const run = useCallback(
     async (fund: boolean) => {
@@ -82,6 +91,15 @@ export function CreateProvider({ children }: { children: ReactNode }) {
         return;
       }
       setFailure(null);
+      setStoring(true);
+      const stored = await storeOracleJobs(draft.checks).catch(
+        (error: unknown) => (error instanceof Error ? error.message : "")
+      );
+      setStoring(false);
+      if (stored !== true) {
+        setFailure(stored === false ? CHANGED : oracleDown(stored));
+        return;
+      }
       let instruction: Awaited<ReturnType<typeof getCreateDealInstruction>>;
       try {
         instruction = await getCreateDealInstruction({
@@ -127,15 +145,16 @@ export function CreateProvider({ children }: { children: ReactNode }) {
   const { spec } = validation;
   const funds =
     spec !== null && wallet !== null && spec.parties[spec.funder] === wallet;
+  const busy = storing ? STORE_LABEL : pending;
   const value = useMemo<CreateValue>(
     () => ({
-      canLockLater: funds && pending === null,
+      canLockLater: funds && busy === null,
       create,
       failure,
       funds,
-      pending,
+      pending: busy,
     }),
-    [create, failure, funds, pending]
+    [busy, create, failure, funds]
   );
   return <CreateContext value={value}>{children}</CreateContext>;
 }
@@ -264,7 +283,7 @@ export function PrimaryButton({ className }: { className?: string }) {
       <Button
         {...shared}
         disabled={pending !== null}
-        loading={pending === FUND_LABEL}
+        loading={pending === FUND_LABEL || pending === STORE_LABEL}
         onClick={createAndFund}
         title={rentNote}
       >
@@ -276,7 +295,7 @@ export function PrimaryButton({ className }: { className?: string }) {
     <Button
       {...shared}
       disabled={pending !== null}
-      loading={pending === CREATE_LABEL}
+      loading={pending === CREATE_LABEL || pending === STORE_LABEL}
       onClick={createOnly}
       title={`${partyName(draft, draft.funder)} locks the ${amount} from the deal page. ${rentNote ?? ""}`}
     >
@@ -291,7 +310,10 @@ export function CreateFailure() {
     return null;
   }
   return (
-    <p className="flex flex-wrap gap-x-2 text-sm" role="alert">
+    <p
+      className="flex flex-wrap gap-x-2 rounded-chip bg-cladd-bg py-1 text-sm"
+      role="alert"
+    >
       <span className="font-medium text-pact-stop">{failure.title}</span>
       <span className="text-cladd-fg-soft">{failure.detail}</span>
     </p>
