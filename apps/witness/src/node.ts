@@ -2,11 +2,13 @@ import {
   type Check,
   type Cluster,
   type DealState,
+  evaluateDeal,
   explorerTx,
   fetchAllDeals,
   fetchDeal,
   findPactError,
   getAttestInstruction,
+  getExecuteInstruction,
   OPEN_SLOT,
   sendInstructions,
 } from "@pact/sdk";
@@ -98,7 +100,33 @@ const nomineeProblem = (deal: DealState, nominee: string) => {
   return null;
 };
 
+export const executableRule = (
+  deal: DealState,
+  me: string,
+  kinds: ReadonlySet<string>,
+  nowSeconds: number
+) => {
+  if (deal.status !== "funded") {
+    return null;
+  }
+  const mine = new Set(
+    deal.spec.checks.flatMap((check, index) =>
+      kinds.has(check.kind) && check.witnesses.includes(me) ? [index] : []
+    )
+  );
+  if (mine.size === 0) {
+    return null;
+  }
+  const rule = evaluateDeal(deal, nowSeconds).executable.find((candidate) =>
+    deal.spec.rules[candidate]?.when.some(
+      (condition) => condition.type === "attested" && mine.has(condition.check)
+    )
+  );
+  return rule ?? null;
+};
+
 export interface NodeContext {
+  autoExecute: boolean;
   cluster: Cluster;
   githubIntervalMs: number;
   log: (line: string) => void;
@@ -113,6 +141,7 @@ export interface NodeContext {
 
 export interface PassSummary {
   deals: number;
+  executions: string[];
   pending: number;
   votes: string[];
 }
@@ -240,20 +269,83 @@ export const createNode = (ctx: NodeContext) => {
     return vote(pending, verdict);
   };
 
+  const execute = async (deal: DealState, rule: number) => {
+    const stamp = `${new Date(now()).toISOString()} exec deal=${deal.address} rule=${rule}`;
+    try {
+      const signature = await sendInstructions({
+        feePayer: ctx.signer,
+        instructions: [
+          getExecuteInstruction({
+            deal: address(deal.address),
+            executor: ctx.signer,
+            parties: deal.spec.parties,
+            rule,
+          }),
+        ],
+        rpc: ctx.rpc,
+        rpcSubscriptions: ctx.rpcSubscriptions,
+      });
+      const link = explorerTx(signature, ctx.cluster);
+      ctx.log(
+        `${stamp} evidence: every condition of the rule holds, payout sent tx: ${link}`
+      );
+      return link;
+    } catch (error) {
+      const pactError = findPactError(error);
+      ctx.log(`${stamp} not executed: ${pactError?.name ?? reason(error)}`);
+      return null;
+    }
+  };
+
+  const executeReady = async (deals: DealState[]) => {
+    const links: string[] = [];
+    for (const deal of deals) {
+      const rule = executableRule(deal, me, kinds, Math.floor(now() / 1000));
+      if (rule !== null) {
+        // biome-ignore lint/performance/noAwaitInLoops: one transaction at a time keeps RPC load low
+        const link = await execute(deal, rule);
+        if (link) {
+          links.push(link);
+        }
+      }
+    }
+    return links;
+  };
+
   const runOnce = async (): Promise<PassSummary> => {
     const deals = await fetchAllDeals(ctx.rpc);
     const pending = pendingChecks(deals, me, kinds).filter(
       (entry) => !done.has(`${entry.deal.address}:${entry.index}`)
     );
     const votes: string[] = [];
+    const touched = new Set<string>();
     for (const entry of pending) {
       // biome-ignore lint/performance/noAwaitInLoops: one vote at a time keeps RPC load low
       const link = await decide(entry);
       if (link) {
         votes.push(link);
+        touched.add(entry.deal.address);
       }
     }
-    return { deals: deals.length, pending: pending.length, votes };
+    if (!ctx.autoExecute) {
+      return {
+        deals: deals.length,
+        executions: [],
+        pending: pending.length,
+        votes,
+      };
+    }
+    const fresh = await Promise.all(
+      deals.map((deal) =>
+        touched.has(deal.address)
+          ? fetchDeal(ctx.rpc, address(deal.address))
+          : Promise.resolve(deal)
+      )
+    );
+    const executions = await executeReady(
+      fresh.filter((deal): deal is DealState => deal !== null)
+    );
+    return { deals: deals.length, executions, pending: pending.length, votes };
   };
 
   return { runOnce };

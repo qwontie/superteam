@@ -20,6 +20,7 @@ const QUOTES = /^["']|["']$/g;
 const HTTP_SCHEME = /^http/;
 
 export interface Config {
+  autoExecute: boolean;
   cluster: Cluster;
   githubToken?: string;
   keypairPath: string;
@@ -83,6 +84,7 @@ export const loadConfig = (env: NodeJS.ProcessEnv = process.env): Config => {
   const keypair = env.WITNESS_KEYPAIR?.trim();
   const keypairPath = keypair ? resolve(base, keypair) : DEFAULT_KEYPAIR;
   return {
+    autoExecute: env.AUTO_EXECUTE?.trim() !== "0",
     cluster: clusterOf(rpcUrl),
     githubToken: env.GITHUB_TOKEN?.trim() || undefined,
     keypairPath,

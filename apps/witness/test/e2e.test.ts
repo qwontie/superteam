@@ -3,10 +3,8 @@ import { existsSync, mkdtempSync, rmSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import {
-  evaluateDeal,
   fetchDeal,
   getCreateDealInstruction,
-  getExecuteInstruction,
   getFundInstruction,
   gig,
   newDealId,
@@ -120,7 +118,7 @@ describe.skipIf(!ready)("witness nodes on a local validator", () => {
     rmSync(ledger, { force: true, recursive: true });
   });
 
-  test("two of three nodes attest and the payout happens", async () => {
+  test("two of three nodes attest and a node executes the payout", async () => {
     const airdrop = airdropFactory({ rpc, rpcSubscriptions });
     const [client, freelancer, ...witnesses] = (await Promise.all(
       Array.from({ length: 5 }, () => generateKeyPairSigner())
@@ -174,6 +172,7 @@ describe.skipIf(!ready)("witness nodes on a local validator", () => {
     });
     const nodeFor = (signer: KeyPairSigner) =>
       createNode({
+        autoExecute: true,
         cluster: "localnet",
         githubIntervalMs: 0,
         log: (line) => logs.push(line),
@@ -205,36 +204,27 @@ describe.skipIf(!ready)("witness nodes on a local validator", () => {
       passes.push(await node.runOnce());
     }
     expect(passes.map((pass) => pass.votes.length)).toEqual([1, 1]);
+    expect(passes.map((pass) => pass.executions.length)).toEqual([0, 1]);
     expect(passes[1]?.votes[0]).toContain("explorer.solana.com/tx/");
 
     const { state, votes } = await tally(create.deal);
     expect(votes?.byWitness).toEqual(["yes", "yes", null]);
-    expect(
-      state && evaluateDeal(state, Math.floor(Date.now() / 1000)).executable
-    ).toContain(0);
+    expect(state?.status).toBe("settled");
+    expect(state?.settledRule).toBe(0);
 
-    expect((await firstNode.runOnce()).pending).toBe(0);
+    const idle = await firstNode.runOnce();
+    expect(idle.pending).toBe(0);
+    expect(idle.executions).toEqual([]);
 
-    await sendInstructions({
-      feePayer: client,
-      instructions: [
-        getExecuteInstruction({
-          deal: create.deal,
-          executor: client,
-          parties: spec.parties,
-          rule: 0,
-        }),
-      ],
-      rpc,
-      rpcSubscriptions,
-    });
     const { value: paid } = await rpc
       .getBalance(freelancer.address, { commitment: "confirmed" })
       .send();
     expect(paid).toBe(lamports(AMOUNT));
-    expect((await tally(create.deal)).state?.status).toBe("settled");
     expect(
       logs.some((line) => line.includes(` yes  deal=${create.deal}`))
+    ).toBe(true);
+    expect(
+      logs.some((line) => line.includes(` exec deal=${create.deal} rule=0`))
     ).toBe(true);
   }, 120_000);
 });

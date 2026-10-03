@@ -38,7 +38,7 @@ say(
   `program ${PACT_PROGRAM_ID} on ${config.cluster}, rpc ${rpcHost(config.rpcUrl)} (${config.rpcSource})`
 );
 say(
-  `kinds ${Object.keys(verifiers).sort().join(", ")}; poll every ${config.pollSeconds} s; GitHub ${config.githubToken ? "with token" : `anonymous, at most every ${githubIntervalMs / 1000} s per check`}`
+  `kinds ${Object.keys(verifiers).sort().join(", ")}; poll every ${config.pollSeconds} s; ${config.autoExecute ? "executes rules its checks unlock" : "votes only"}; GitHub ${config.githubToken ? "with token" : `anonymous, at most every ${githubIntervalMs / 1000} s per check`}`
 );
 try {
   const { value } = await rpc.getBalance(signer.address).send();
@@ -50,6 +50,7 @@ try {
 }
 
 const node = createNode({
+  autoExecute: config.autoExecute,
   cluster: config.cluster,
   githubIntervalMs,
   log,
