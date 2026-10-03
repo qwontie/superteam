@@ -8,6 +8,7 @@ import {
 import { useCallback, useMemo, useState } from "react";
 import { type BuildInstruction, TxButton } from "@/components/shell/tx-button";
 import { planKey, usePlan } from "@/lib/use-plan";
+import { quotaKey } from "@/lib/use-quota";
 
 const DAY = 86_400;
 const PERIOD_DAYS = SUBSCRIPTION_PERIOD_SECONDS / DAY;
@@ -38,7 +39,11 @@ export function GoPro() {
     [periods]
   );
   const invalidate = useMemo(
-    () => [planKey(plan.wallet ?? ""), ["balance"] as const],
+    () => [
+      planKey(plan.wallet ?? ""),
+      quotaKey(plan.wallet ?? ""),
+      ["balance"] as const,
+    ],
     [plan.wallet]
   );
   if (plan.wallet === null) {

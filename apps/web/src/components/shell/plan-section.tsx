@@ -3,6 +3,8 @@ import { useCallback, useState } from "react";
 import { GoPro } from "@/components/shell/go-pro";
 import { formatDay } from "@/lib/format";
 import { type Plan, usePlan } from "@/lib/use-plan";
+import { useQuota } from "@/lib/use-quota";
+import { useWalletProof } from "@/lib/wallet-proof";
 
 const TAG =
   "rounded-full px-1.5 py-px font-semibold text-[0.65rem] uppercase leading-4";
@@ -21,6 +23,44 @@ const planLine = (plan: Plan) => {
       return "Reading your plan from devnet";
   }
 };
+
+function FreeDrafts() {
+  const { proof, request, signing } = useWalletProof();
+  const quota = useQuota();
+  const ask = useCallback(() => {
+    request().catch(() => undefined);
+  }, [request]);
+  if (!proof) {
+    return (
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <span className="text-cladd-fg-soft text-xs">
+          10 free AI drafts a day.
+        </span>
+        <Button loading={signing} onClick={ask} size="xl" variant="transparent">
+          Show what is left
+        </Button>
+      </div>
+    );
+  }
+  if (quota.isError) {
+    return (
+      <span className="text-cladd-fg-soft text-xs">
+        Could not read your AI drafts. The AI service did not answer.
+      </span>
+    );
+  }
+  if (!quota.data || quota.data.remaining === null) {
+    return null;
+  }
+  return (
+    <span className="text-cladd-fg-soft text-xs">
+      <span className="font-medium text-cladd-fg tabular-nums">
+        {quota.data.remaining} of {quota.data.limit}
+      </span>{" "}
+      free AI drafts left today.
+    </span>
+  );
+}
 
 export function PlanTag() {
   const plan = usePlan();
@@ -71,6 +111,7 @@ export function PlanSection() {
           </Button>
         ) : null}
       </div>
+      {plan.kind === "free" ? <FreeDrafts /> : null}
       {showControl ? <GoPro /> : null}
     </section>
   );
