@@ -9,10 +9,10 @@ export function Home() {
     <main
       className={cn(
         PAGE,
-        "grid items-center gap-10 pt-10 sm:pt-16 lg:grid-cols-[minmax(0,11fr)_minmax(0,14fr)] lg:gap-14"
+        "grid items-start gap-10 pt-10 sm:pt-16 lg:grid-cols-[minmax(0,11fr)_minmax(0,14fr)] lg:gap-14"
       )}
     >
-      <div className="flex flex-col gap-6">
+      <div className="flex flex-col gap-6 lg:pt-28">
         <h1 className="font-display font-semibold text-[2.5rem] leading-none tracking-[-0.02em] sm:text-6xl lg:text-[3.5rem] xl:text-[3.75rem]">
           Lock the payment.
           <br />

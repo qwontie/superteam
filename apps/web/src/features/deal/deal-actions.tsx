@@ -137,6 +137,7 @@ function FundButton({ deal }: { deal: DealState }) {
   const amount = `${lamportsToSol(deal.spec.amount)} SOL`;
   return (
     <TxButton
+      align="sm-end"
       build={build}
       hint="Locks the payment in the vault. After that only a rule can move it."
       invalidate={dealInvalidation(deal.address)}
@@ -159,6 +160,7 @@ function CancelButton({ deal }: { deal: DealState }) {
   }, [navigate]);
   return (
     <TxButton
+      align="sm-end"
       build={build}
       confirm={{
         keep: "Keep the deal",
@@ -188,6 +190,7 @@ function CloseButton({ deal, quiet }: { deal: DealState; quiet: boolean }) {
   const rent = `${lamportsToSol(deal.lamports)} SOL`;
   return (
     <TxButton
+      align="sm-end"
       build={build}
       confirm={{
         keep: "Keep the deal",
@@ -247,6 +250,7 @@ function SignButton({
   );
   return (
     <TxButton
+      align="sm-end"
       build={build}
       hint={signHint(deal, party)}
       invalidate={dealInvalidation(deal.address)}

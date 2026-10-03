@@ -88,9 +88,9 @@ const checkHomes = (deal: DealState) => {
 function RuleChecks({ checks, deal, moves, viewer }: RuleChecksProps) {
   return (
     <div className="flex flex-col gap-4">
-      {checks.map((index) => {
-        const check = deal.spec.checks[index];
-        const seat = moves.votes.find((entry) => entry.check === index);
+      {checks.map((checkIndex) => {
+        const check = deal.spec.checks[checkIndex];
+        const seat = moves.votes.find((entry) => entry.check === checkIndex);
         if (!check) {
           return null;
         }
@@ -103,7 +103,7 @@ function RuleChecks({ checks, deal, moves, viewer }: RuleChecksProps) {
                   quiet={
                     !(
                       moves.primary?.kind === "vote" &&
-                      moves.primary.check === index
+                      moves.primary.check === checkIndex
                     )
                   }
                   seat={seat}
@@ -111,9 +111,9 @@ function RuleChecks({ checks, deal, moves, viewer }: RuleChecksProps) {
               ) : null
             }
             check={check}
-            key={check.target}
+            key={checkIndex}
             viewer={viewer}
-            votes={deal.votes[index]}
+            votes={deal.votes[checkIndex]}
           />
         );
       })}
@@ -150,7 +150,7 @@ function DealView({ deal }: { deal: DealState }) {
               status={deal.status}
             />
           </div>
-          <div className="flex flex-col gap-4 sm:items-end sm:justify-between sm:pt-1.5">
+          <div className="flex flex-col gap-4 sm:items-end sm:pt-1.5">
             <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
               <ExplorerLink
                 className="order-2 font-mono text-cladd-fg-soft text-sm sm:order-1"

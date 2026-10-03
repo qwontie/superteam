@@ -16,7 +16,7 @@ export type BuildInstruction = (
 ) => Instruction | Promise<Instruction>;
 
 interface TxButtonProps {
-  align?: "start" | "end";
+  align?: "start" | "end" | "sm-end";
   build: BuildInstruction;
   children: ReactNode;
   confirm?: { keep: string; text: string; title: string };
@@ -28,6 +28,16 @@ interface TxButtonProps {
   size?: ButtonSize;
   txLabel: string;
 }
+
+const ALIGN = {
+  end: { anchor: "self-end", box: "items-end", text: "-ml-64 text-right" },
+  "sm-end": {
+    anchor: "self-start sm:self-end",
+    box: "items-start sm:items-end",
+    text: "sm:-ml-64 sm:text-right",
+  },
+  start: { anchor: "self-start", box: "items-start", text: "" },
+} as const;
 
 const NO_SIGNER: TxFailure = {
   detail: "Connect a wallet that can sign transactions.",
@@ -113,23 +123,20 @@ export function TxButton({
   const button = hint ? <Tooltip tooltip={hint}>{trigger}</Tooltip> : trigger;
 
   return (
-    <div
-      className={cn(
-        "flex flex-col gap-1.5",
-        align === "end" ? "items-end" : "items-start"
-      )}
-    >
+    <div className={cn("flex flex-col gap-1.5", ALIGN[align].box)}>
       {button}
       {failure ? (
-        <p
-          className={cn(
-            "max-w-64 font-medium text-pact-stop text-xs",
-            align === "end" && "text-right"
-          )}
-          role="alert"
-        >
-          {failure.title}. {failure.detail}
-        </p>
+        <div className={cn("w-0", ALIGN[align].anchor)}>
+          <p
+            className={cn(
+              "w-64 font-medium text-pact-stop text-xs",
+              ALIGN[align].text
+            )}
+            role="alert"
+          >
+            {failure.title}. {failure.detail}
+          </p>
+        </div>
       ) : null}
     </div>
   );

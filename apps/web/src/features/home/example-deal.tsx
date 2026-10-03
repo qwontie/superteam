@@ -183,7 +183,7 @@ export function ExampleDeal() {
         <div className="flex flex-wrap gap-2">
           <Toggle
             disabled={settled}
-            label="Reviewers approve"
+            label="Witnesses say yes"
             onToggle={flipVotes}
             pressed={play.yes !== 0}
           />
