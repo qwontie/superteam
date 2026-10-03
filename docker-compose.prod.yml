@@ -1,8 +1,6 @@
 x-witness: &witness
-  build:
-    context: .
-    dockerfile: apps/witness/Dockerfile
   image: pact/witness
+  pull_policy: never
   profiles: [services]
   restart: always
   environment:
@@ -28,6 +26,9 @@ services:
 
   witness1:
     <<: *witness
+    build:
+      context: .
+      dockerfile: apps/witness/Dockerfile
     secrets:
       - source: witness1
         target: witness
