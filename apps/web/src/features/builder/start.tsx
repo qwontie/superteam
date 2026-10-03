@@ -14,10 +14,10 @@ import {
 } from "@/features/builder/model";
 import { useBuilder } from "@/features/builder/state";
 
-const TEMPLATES: { key: TemplateKey; name: string }[] = [
-  { key: "gig", name: "Post a gig" },
-  { key: "bounty", name: "Post a bounty" },
-  { key: "silence", name: "Silence is consent" },
+const TEMPLATES: { key: TemplateKey; label: string; name: string }[] = [
+  { key: "gig", label: "Post a gig", name: "Gig" },
+  { key: "bounty", label: "Post a bounty", name: "Bounty" },
+  { key: "silence", label: "Silence is consent", name: "Silence is consent" },
 ];
 
 const EXAMPLES = [
@@ -70,9 +70,11 @@ function RuleLine({ draft, rule }: { draft: Draft; rule: DraftRule }) {
 }
 
 function TemplateCard({
-  templateKey,
+  label,
   name,
+  templateKey,
 }: {
+  label: string;
   name: string;
   templateKey: TemplateKey;
 }) {
@@ -87,6 +89,7 @@ function TemplateCard({
   );
   return (
     <button
+      aria-label={label}
       className={cn(
         "group flex flex-col justify-between gap-4 rounded-block bg-cladd-surface p-4 text-left shadow-cladd-outline transition-colors duration-200",
         "hover:bg-cladd-surface-hover"
@@ -153,6 +156,7 @@ export function Start({ prompt }: { prompt: ReactNode }) {
         {TEMPLATES.map((info) => (
           <TemplateCard
             key={info.key}
+            label={info.label}
             name={info.name}
             templateKey={info.key}
           />

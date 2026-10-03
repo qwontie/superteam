@@ -25,7 +25,7 @@ interface ArrivalValue {
 const NO_ORIGIN: RefObject<HTMLElement | null> = { current: null };
 const START_SCALE = 0.4;
 const FALLBACK_DROP = -28;
-const FOLLOW_MARGIN = 120;
+const FOLLOW_MARGIN = 190;
 const PIECE_DELAY = 0.26;
 const PIECE_STEP = 0.09;
 const FLASH_SECONDS = 1.1;

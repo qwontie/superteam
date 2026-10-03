@@ -47,7 +47,7 @@ export function Created({ created }: { created: CreatedDeal }) {
               : `${created.funder} still has to lock ${amount}.`}
           </p>
         </header>
-        <div className="flex items-stretch gap-2">
+        <div className="flex items-center gap-2">
           <output
             aria-label="Link to share"
             className="flex min-h-12 min-w-0 flex-1 items-center break-all rounded-block bg-cladd-surface-cut px-4 py-2 font-mono text-sm shadow-cladd-cut-outline"
@@ -56,7 +56,7 @@ export function Created({ created }: { created: CreatedDeal }) {
           </output>
           <Button
             aria-label={copied ? "Copied" : "Copy link"}
-            className="h-auto"
+            className="shrink-0"
             onClick={copy}
             size="2xl"
             square

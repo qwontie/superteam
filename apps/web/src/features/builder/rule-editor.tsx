@@ -253,7 +253,11 @@ function RuleBody({ action, gutter, index, rule }: RuleBodyProps) {
     dragged.ruleId !== rule.id;
 
   return (
-    <div className="group/rule relative flex flex-col gap-1.5">
+    <div
+      className="group/rule relative flex flex-col gap-1.5"
+      data-anchor-block={anchors.rule(rule.id)}
+      tabIndex={-1}
+    >
       {gutter}
       <div
         className={cn(

@@ -25,17 +25,35 @@ export const pickedClass = (picked: boolean) =>
 export const POPOVER_BODY =
   "flex max-h-[min(36rem,calc(100dvh-6rem))] flex-col gap-3 overflow-y-auto p-4";
 
+const targetOf = (anchor: string) =>
+  document.getElementById(anchorId(anchor)) ??
+  document.querySelector<HTMLElement>(`[data-anchor="${anchor}"]`) ??
+  document.querySelector<HTMLElement>(`[data-anchor-block="${anchor}"]`);
+
+const FAR = Number.MAX_SAFE_INTEGER;
+
+export const topmost = (anchorList: readonly string[]) => {
+  let best: string | undefined;
+  let bestTop = FAR;
+  for (const anchor of anchorList) {
+    const top = targetOf(anchor)?.getBoundingClientRect().top ?? FAR - 1;
+    if (top < bestTop) {
+      best = anchor;
+      bestTop = top;
+    }
+  }
+  return best;
+};
+
 export const jumpTo = (anchor: string) => {
-  const field = document.getElementById(anchorId(anchor));
-  const target =
-    field ?? document.querySelector<HTMLElement>(`[data-anchor="${anchor}"]`);
+  const target = targetOf(anchor);
   if (!target) {
     window.scrollTo({ behavior: "smooth", top: 0 });
     return;
   }
   target.scrollIntoView({ block: "center" });
   target.focus({ preventScroll: true });
-  if (!field && target instanceof HTMLButtonElement) {
+  if (target instanceof HTMLButtonElement) {
     target.click();
   }
 };

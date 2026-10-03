@@ -1,7 +1,7 @@
 import { Button, cn, Input, Spinner } from "@cladd-ui/react";
 import { useSearch } from "@tanstack/react-router";
 import { ArrowUp, RotateCw, X } from "lucide-react";
-import { AnimatePresence, motion } from "motion/react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import {
   type ChangeEvent,
   type FormEvent,
@@ -11,7 +11,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { QUICK } from "@/components/pact/motion";
+import { QUICK, SETTLE } from "@/components/pact/motion";
 import { GoPro } from "@/components/shell/go-pro";
 import { type Question, useAi } from "@/features/builder/ai";
 import { useBuilder } from "@/features/builder/state";
@@ -23,9 +23,15 @@ type Variant = "hero" | "dock";
 const TEXT_MAX = 2000;
 const MAX_HEIGHT = 160;
 const PLACEHOLDER: Record<Variant, string> = {
-  dock: "Change anything in plain words",
+  dock: "Say what to change",
   hero: "Describe your deal",
 };
+
+const SWEEP = {
+  duration: 1.3,
+  ease: "linear",
+  repeat: Number.POSITIVE_INFINITY,
+} as const;
 
 const quotaTag = (quota: Quota | null) => {
   if (!quota) {
@@ -112,7 +118,7 @@ function Upgrade() {
       <span className="text-cladd-fg-soft">Connect a wallet to go Pro.</span>
     );
   }
-  return <GoPro />;
+  return <GoPro quiet />;
 }
 
 function Trouble() {
@@ -202,6 +208,7 @@ export function PromptBar({ variant }: { variant: Variant }) {
   const offline = online === false;
   const ready = text.trim() !== "" && !busy && !offline;
   const field = useAutoHeight(text);
+  const reduced = useReducedMotion();
 
   const submit = useCallback(
     (event: FormEvent) => {
@@ -259,15 +266,26 @@ export function PromptBar({ variant }: { variant: Variant }) {
         ) : null}
       </AnimatePresence>
       <Trouble />
-      <form
+      <motion.form
         aria-label="Describe or change the deal"
         className={cn(
           "relative flex items-end gap-2 overflow-hidden rounded-[1.25rem] bg-cladd-surface shadow-cladd-outline transition-shadow duration-200 focus-within:shadow-[inset_0_0_0_1.5px_var(--color-cladd-fg)]",
           hero ? "p-2.5 pl-5" : "p-2 pl-4"
         )}
+        layout="position"
+        layoutId="builder-prompt"
         onSubmit={submit}
         ref={origin as React.RefObject<HTMLFormElement | null>}
+        transition={SETTLE}
       >
+        {busy && !reduced ? (
+          <motion.span
+            animate={{ left: ["-30%", "100%"] }}
+            aria-hidden="true"
+            className="pointer-events-none absolute bottom-0 h-0.5 w-[30%] rounded-full bg-cladd-fg"
+            transition={SWEEP}
+          />
+        ) : null}
         {busy ? (
           <p
             aria-live="polite"
@@ -305,7 +323,7 @@ export function PromptBar({ variant }: { variant: Variant }) {
           </span>
         ) : null}
         <Action hero={hero} offline={offline} ready={ready} />
-      </form>
+      </motion.form>
     </div>
   );
 }

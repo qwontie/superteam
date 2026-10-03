@@ -1,6 +1,7 @@
 import { nowSeconds } from "@pact/sdk";
 import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useSearch } from "@tanstack/react-router";
+import { LayoutGroup } from "motion/react";
 import { type ReactNode, useCallback, useEffect } from "react";
 import { AiProvider, useAi } from "@/features/builder/ai";
 import { Created } from "@/features/builder/created";
@@ -80,7 +81,9 @@ export function BuilderEntry() {
   return (
     <BuilderProvider>
       <AiBridge>
-        <BuilderScreen />
+        <LayoutGroup>
+          <BuilderScreen />
+        </LayoutGroup>
       </AiBridge>
     </BuilderProvider>
   );

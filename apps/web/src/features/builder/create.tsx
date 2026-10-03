@@ -19,7 +19,7 @@ import {
 } from "react";
 import { partyName } from "@/features/builder/describe";
 import { type Draft, draftToSpec } from "@/features/builder/model";
-import { jumpTo } from "@/features/builder/parts";
+import { jumpTo, topmost } from "@/features/builder/parts";
 import { anchors, type Problem } from "@/features/builder/problems";
 import { useBuilder, useDraft } from "@/features/builder/state";
 import { type TxFailure, useSendTx } from "@/lib/tx";
@@ -212,12 +212,15 @@ export function PrimaryButton({ className }: { className?: string }) {
   const open = validation.problems.filter(
     (problem) => !(problem.todo && waiting.has(problem.anchor))
   );
-  const first = open.find((problem) => !problem.todo) ?? open[0];
+  const errors = open.filter((problem) => !problem.todo);
+  const next = errors.length > 0 ? errors : open;
+  const [first] = next;
   const jump = useCallback(() => {
-    if (first) {
-      jumpTo(first.anchor);
+    const anchor = topmost(next.map((problem) => problem.anchor));
+    if (anchor) {
+      jumpTo(anchor);
     }
-  }, [first]);
+  }, [next]);
   const createOnly = useCallback(() => create(false), [create]);
   const createAndFund = useCallback(() => create(true), [create]);
   const shared = {
@@ -235,7 +238,7 @@ export function PrimaryButton({ className }: { className?: string }) {
   }
   if (first) {
     return (
-      <Button {...shared} onClick={jump} title={first.text}>
+      <Button {...shared} onClick={jump}>
         {gapLabel(draft, open)}
       </Button>
     );

@@ -400,7 +400,7 @@ export function ConditionPiece({
     <ConditionChip
       className={cn(
         (gap || broken) &&
-          "outline-dashed outline-1 outline-current outline-offset-2",
+          "outline-dashed outline-1 outline-current outline-offset-2 max-sm:[&>span:nth-child(3)]:hidden",
         broken && "text-pact-stop"
       )}
       detail={detail ?? gap ?? text.detail}

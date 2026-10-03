@@ -11,7 +11,8 @@ import { useBuilder, useDraft } from "@/features/builder/state";
 export const VAULT_FLIGHT = "builder-vault";
 
 const AMOUNT = /^\d{0,10}(\.\d{0,9})?$/;
-const MIN_CHARS = 1;
+const FIGURE =
+  "min-w-[0.6em] font-display font-semibold text-4xl tabular-nums leading-none tracking-[-0.03em]";
 
 const setFunder: Place = (draft, partyId) => ({ ...draft, funder: partyId });
 
@@ -46,22 +47,26 @@ function AmountField() {
   return (
     <label className="inline-flex items-baseline gap-2">
       <span className="sr-only">Amount in SOL</span>
-      <input
-        autoComplete="off"
-        className={cn(
-          "min-w-0 border-b bg-transparent font-display font-semibold text-3xl text-cladd-fg tabular-nums leading-tight tracking-[-0.03em] outline-none transition-colors duration-200 placeholder:text-cladd-fg-softer focus:border-cladd-fg focus-visible:outline-none!",
-          missing
-            ? "border-cladd-fg-softer border-dashed"
-            : "border-transparent hover:border-cladd-outline"
-        )}
-        disabled={locked}
-        id={anchorId(anchors.amount)}
-        inputMode="decimal"
-        onChange={change}
-        placeholder="0"
-        style={{ width: `${Math.max(MIN_CHARS, draft.amount.length) + 0.4}ch` }}
-        value={draft.amount}
-      />
+      <span className={cn("relative inline-grid", FIGURE)}>
+        <span aria-hidden="true" className="invisible whitespace-pre">
+          {draft.amount || "0"}
+        </span>
+        <input
+          autoComplete="off"
+          className={cn(
+            "absolute inset-0 w-full border-b bg-transparent text-cladd-fg outline-none transition-colors duration-200 [font:inherit] [letter-spacing:inherit] placeholder:text-cladd-fg-softer focus:border-cladd-fg focus-visible:outline-none!",
+            missing
+              ? "border-cladd-fg-softer border-dashed"
+              : "border-transparent hover:border-cladd-outline"
+          )}
+          disabled={locked}
+          id={anchorId(anchors.amount)}
+          inputMode="decimal"
+          onChange={change}
+          placeholder="0"
+          value={draft.amount}
+        />
+      </span>
       <span className="font-medium text-cladd-fg-soft text-lg">SOL</span>
     </label>
   );
@@ -82,7 +87,6 @@ export function MoneyLine({ settled }: { settled: boolean }) {
             flightId={VAULT_FLIGHT}
             key={settled ? "empty" : "full"}
             lamports={lamports}
-            size="md"
             status={settled ? "settled" : "funded"}
           />
           <StatusPill status={settled ? "settled" : "funded"} />

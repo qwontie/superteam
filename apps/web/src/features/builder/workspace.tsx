@@ -10,8 +10,7 @@ import {
   useDialog,
 } from "@cladd-ui/react";
 import { LIMITS } from "@pact/sdk";
-import { Ellipsis, Pencil, Play, RotateCcw, Vault } from "lucide-react";
-import { LayoutGroup } from "motion/react";
+import { Ellipsis, LockOpen, Pencil, Play, RotateCcw } from "lucide-react";
 import {
   type ChangeEvent,
   type ReactNode,
@@ -141,7 +140,7 @@ function MoreMenu() {
           <PopoverClose>
             <ListButton
               disabled={!canLockLater}
-              icon={<Vault aria-hidden="true" size={16} />}
+              icon={<LockOpen aria-hidden="true" size={16} />}
               onClick={lockLater}
               size="xl"
             >
@@ -234,24 +233,22 @@ export function Workspace({
     <ArrivalProvider origin={origin} streaming={streaming}>
       <SimulationProvider draft={draft}>
         <CreateProvider>
-          <LayoutGroup>
-            <main className={cn(PAGE, "flex flex-1 flex-col pt-6 sm:pt-10")}>
-              <div className={cn(COLUMN, "flex flex-col gap-4")}>
-                <header className="flex flex-wrap items-center gap-x-2 gap-y-3">
-                  <TitleField />
-                  <div className="order-last ml-auto flex items-center gap-2 sm:order-none">
-                    <PlayToggle />
-                    <MoreMenu />
-                  </div>
-                  <div className="min-w-0 flex-1 sm:basis-full">
-                    <Money />
-                  </div>
-                </header>
-                <Canvas />
-              </div>
-              <Dock prompt={prompt} />
-            </main>
-          </LayoutGroup>
+          <main className={cn(PAGE, "flex flex-1 flex-col pt-6 sm:pt-10")}>
+            <div className={cn(COLUMN, "flex flex-col gap-4")}>
+              <header className="flex flex-wrap items-center gap-x-2 gap-y-3">
+                <TitleField />
+                <div className="order-last ml-auto flex items-center gap-2 sm:order-none">
+                  <PlayToggle />
+                  <MoreMenu />
+                </div>
+                <div className="min-w-0 flex-1 sm:basis-full">
+                  <Money />
+                </div>
+              </header>
+              <Canvas />
+            </div>
+            <Dock prompt={prompt} />
+          </main>
         </CreateProvider>
       </SimulationProvider>
     </ArrivalProvider>

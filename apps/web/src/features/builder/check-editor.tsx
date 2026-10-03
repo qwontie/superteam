@@ -2,7 +2,7 @@ import { Button, cn, Input, NumberField } from "@cladd-ui/react";
 import type { CheckKind } from "@pact/sdk";
 import { isAddress } from "@solana/kit";
 import { Plus, UserRound, X } from "lucide-react";
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import { checkName, partyName } from "@/features/builder/describe";
 import {
   addCheck,
@@ -159,10 +159,12 @@ function CheckPicker({ condition, ruleId }: PickProps) {
 
 function VoterRow({
   check,
+  focus,
   position,
   reviewer,
 }: {
   check: DraftCheck;
+  focus: boolean;
   position: number;
   reviewer: Reviewer;
 }) {
@@ -212,6 +214,7 @@ function VoterRow({
         value={reviewer.label}
       />
       <Input
+        autoFocus={focus}
         className="min-w-0 flex-1"
         inputClassName="font-mono text-xs"
         inputComponentProps={{ "aria-label": `Wallet address of ${name}` }}
@@ -282,6 +285,12 @@ function CheckForm({ check }: { check: DraftCheck }) {
   const { edit } = useBuilder();
   const draft = useDraft();
   const openParties = draft.parties.filter((party) => party.open);
+  const [firstEmpty] = useState(() =>
+    check.target === ""
+      ? null
+      : (check.reviewers.find((reviewer) => reviewer.address.trim() === "")
+          ?.id ?? null)
+  );
   const setTarget = useCallback(
     (target: string) =>
       edit((d) => updateCheck(d, check.id, (c) => ({ ...c, target }))),
@@ -336,6 +345,7 @@ function CheckForm({ check }: { check: DraftCheck }) {
           {check.reviewers.map((reviewer, position) => (
             <VoterRow
               check={check}
+              focus={reviewer.id === firstEmpty}
               key={reviewer.id}
               position={position}
               reviewer={reviewer}
