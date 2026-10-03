@@ -1,0 +1,28 @@
+[package]
+name = "pact_gate"
+version = "0.1.0"
+description = "Switchboard oracle quorum as a Pact witness"
+edition.workspace = true
+rust-version.workspace = true
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "pact_gate"
+
+[features]
+default = []
+cpi = ["no-entrypoint"]
+no-entrypoint = []
+no-log-ix-name = []
+idl-build = ["anchor-lang/idl-build"]
+anchor-debug = []
+custom-heap = []
+custom-panic = []
+
+[dependencies]
+anchor-lang = "=1.1.2"
+switchboard-on-demand = { version = "0.13.0", default-features = false, features = ["devnet", "solana-v2"] }
+solana-program-v2 = { package = "solana-program", version = "=2.3.0" }
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(target_os, values("solana"))'] }

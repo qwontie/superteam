@@ -34,6 +34,16 @@ export {
   type RuleEvaluation,
 } from "./evaluate";
 export { type Cluster, explorerAddress, explorerTx } from "./explorer";
+export {
+  feedHashBytes,
+  findGateAddress,
+  GATE_MAX_AGE_SLOTS,
+  GATE_MIN_SIGNATURES,
+  getGateConfirmInstruction,
+  PACT_GATE_PROGRAM_ID,
+  pinQuoteInstruction,
+  SWITCHBOARD_DEVNET_QUEUE,
+} from "./gate";
 export type { Pact } from "./idl/pact";
 export { DEAL_ACCOUNT_SIZE } from "./layout";
 export { type SendInput, sendInstructions } from "./send";

@@ -13,6 +13,9 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.15",
+    "@solana/web3.js": "1.99.0",
+    "@switchboard-xyz/common": "5.8.5",
+    "@switchboard-xyz/on-demand": "3.10.6",
     "@types/bn.js": "^5.2.0",
     "@types/mocha": "^10",
     "@types/node": "^24",

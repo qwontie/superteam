@@ -8,9 +8,11 @@ skip-lint = false
 
 [programs.localnet]
 pact = "6uhLn2f5NZzydXocLTaxhGYKZ2pQQvrhrbwyMmM9YsCk"
+pact_gate = "CYb16ChX7J5LPB6nv8HtPVmLE72cjhgHpKCxoujrgUmn"
 
 [programs.devnet]
 pact = "6uhLn2f5NZzydXocLTaxhGYKZ2pQQvrhrbwyMmM9YsCk"
+pact_gate = "CYb16ChX7J5LPB6nv8HtPVmLE72cjhgHpKCxoujrgUmn"
 
 [provider]
 cluster = "localnet"
