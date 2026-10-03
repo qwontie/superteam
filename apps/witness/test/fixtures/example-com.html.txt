@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <link href="data:," rel="icon">
+    <meta content="width=device-width,initial-scale=1" name="viewport">
+    <title>Example Domain</title>
+    <style>
+    html {
+      color-scheme: light dark;
+      background: light-dark(#eee, #222);
+    }
+    body {
+      max-width: 26em;
+      padding: 25vh 2em 2em;
+      margin: auto;
+      font:
+        16px / 1.6 system-ui,
+        sans-serif;
+      text-align: center;
+    }
+    </style>
+  </head>
+  <body>
+    <p>
+      This domain is for use in documentation examples without needing
+      permission. This is not a service; avoid relying on it for testing and
+      monitoring purposes.
+    </p>
+    <script src="/s.js"></script>
+  </body>
+</html>

@@ -1,0 +1,9 @@
+{
+  "body": "We recently updated our platform-tools to 1.57, which has a higher Rust version.\r\n\r\nSome recent crates in the Agave repo also updated their MSRV to 1.95, so this should help address that.",
+  "html_url": "https://github.com/otter-sec/anchor/pull/5137",
+  "merge_commit_sha": "1c27fd3aa2998f095986e6dc1295720897172cae",
+  "merged": false,
+  "merged_at": null,
+  "number": 5137,
+  "state": "open"
+}

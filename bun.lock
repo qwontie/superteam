@@ -60,6 +60,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@pact/sdk": "workspace:*",
+        "@solana/kit": "^7",
       },
       "devDependencies": {
         "@types/bun": "^1.4.2",

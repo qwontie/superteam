@@ -1,0 +1,9 @@
+{
+  "body": "Fixes HackHack AI - OR-115\r\n\r\n- Document simple mode with `anchor-asm-v2` as a build dependency and `anchor-asm-v2-runtime` as the program dependency. \r\n- Remove `include_asm!` from `anchor-asm-v2`. The macro stays on the zero-dependency runtime crate.\r\n- Correct the runtime crate's own example including `#![no_std]`.\r\n\r\n",
+  "html_url": "https://github.com/otter-sec/anchor/pull/5125",
+  "merge_commit_sha": "a91e5bebf5761db0d8cf419650379d80340e68c9",
+  "merged": true,
+  "merged_at": "2026-10-02T09:39:20Z",
+  "number": 5125,
+  "state": "closed"
+}
