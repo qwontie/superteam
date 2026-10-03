@@ -4,9 +4,9 @@ import { type NetworkProblem, useNetworkProblem } from "@/lib/use-cluster";
 
 const TEXT: Record<Exclude<NetworkProblem, null>, string> = {
   "rpc-not-devnet":
-    "This app is connected to a Solana cluster that is not devnet. Deals and balances shown here are not the devnet ones.",
+    "This app is not connected to devnet. What you see here is not the devnet state.",
   "wallet-no-devnet":
-    "This wallet does not offer devnet. Switch it to devnet in the wallet settings or connect another wallet, otherwise it cannot sign for Pact.",
+    "This wallet does not offer devnet. Switch it to devnet or connect another wallet.",
 };
 
 export function NetworkBanner({ className }: { className?: string }) {

@@ -15,8 +15,7 @@ import {
   useDisconnect,
   useWallets,
 } from "@solana/kit-plugin-wallet/react";
-import { Link } from "@tanstack/react-router";
-import { ArrowUpRight, Copy, LogOut, Rows3, Wallet } from "lucide-react";
+import { ArrowUpRight, Copy, LogOut, Wallet } from "lucide-react";
 import { useCallback, useState } from "react";
 import { Amount } from "@/components/pact/amount";
 import { PartyAvatar } from "@/components/pact/party";
@@ -70,21 +69,16 @@ function NoWallet() {
       <div className="flex flex-col gap-2 p-4">
         <p className="font-medium text-sm">No Solana wallet found</p>
         <p className="text-cladd-fg-soft text-sm">
-          Install Phantom, Solflare or Backpack in this browser, switch it to
-          devnet and reload the page.
+          Install Phantom, Solflare or Backpack, switch it to devnet and reload.
         </p>
       </div>
     );
   }
   return (
     <div className="flex flex-col">
-      <div className="flex flex-col gap-1.5 px-4 pt-4 pb-2">
-        <p className="font-medium text-sm">Open Pact in your wallet app</p>
-        <p className="text-cladd-fg-soft text-sm">
-          A phone browser cannot reach your wallet. Open this page inside the
-          wallet and connect there.
-        </p>
-      </div>
+      <p className="px-4 pt-4 pb-2 font-medium text-sm">
+        Open Pact in your wallet app
+      </p>
       <List className="p-1.5">
         {links.map((link) => (
           <ListButton
@@ -100,14 +94,13 @@ function NoWallet() {
         ))}
       </List>
       <p className="px-4 pb-4 text-cladd-fg-soft text-xs">
-        Pact runs on Solana devnet: switch the wallet to devnet in its settings
-        first.
+        Switch the wallet to devnet first.
       </p>
     </div>
   );
 }
 
-function ConnectMenu() {
+function ConnectMenu({ quiet }: { quiet: boolean }) {
   const client = useAppClient();
   const wallets = useWallets(client);
   const toast = useToast();
@@ -139,7 +132,11 @@ function ConnectMenu() {
   return (
     <PopoverRoot>
       <PopoverTrigger>
-        <Button loading={isRunning} size="xl" variant="solid-fill">
+        <Button
+          loading={isRunning}
+          size="xl"
+          variant={quiet ? "solid" : "solid-fill"}
+        >
           <Wallet aria-hidden="true" size={16} />
           Connect wallet
         </Button>
@@ -195,7 +192,7 @@ function AccountMenu({ address }: { address: string }) {
       </PopoverTrigger>
       <Popover className="w-80" offset={8} position="bottom-end">
         <div className="flex flex-col gap-1 px-4 pt-4 pb-3">
-          <span className="text-cladd-fg-soft text-xs">Balance on devnet</span>
+          <span className="text-cladd-fg-soft text-xs">Devnet balance</span>
           {typeof balance.data === "bigint" ? (
             <Amount lamports={balance.data} precision={4} size="lg" />
           ) : (
@@ -211,16 +208,6 @@ function AccountMenu({ address }: { address: string }) {
         <PlanSection />
         <ListSeparator />
         <List className="p-1.5">
-          <PopoverClose>
-            <ListButton
-              as={Link}
-              icon={<Rows3 aria-hidden="true" size={16} />}
-              size="xl"
-              to="/deals"
-            >
-              Your deals
-            </ListButton>
-          </PopoverClose>
           <ListButton
             icon={<Copy aria-hidden="true" size={16} />}
             onClick={copy}
@@ -253,7 +240,7 @@ function AccountMenu({ address }: { address: string }) {
   );
 }
 
-export function WalletButton() {
+export function WalletButton({ quiet = false }: { quiet?: boolean }) {
   const { address, ready } = useWallet();
   if (!ready) {
     return (
@@ -262,5 +249,9 @@ export function WalletButton() {
       </Button>
     );
   }
-  return address ? <AccountMenu address={address} /> : <ConnectMenu />;
+  return address ? (
+    <AccountMenu address={address} />
+  ) : (
+    <ConnectMenu quiet={quiet} />
+  );
 }

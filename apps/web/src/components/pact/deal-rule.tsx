@@ -24,6 +24,7 @@ import {
 interface DealRuleProps {
   action?: ReactNode;
   className?: string;
+  detail?: ReactNode;
   evaluation?: RuleEvaluation;
   labels?: readonly string[];
   note?: ReactNode;
@@ -101,6 +102,7 @@ export function DealRule({
   viewer,
   showAddresses,
   action,
+  detail,
   note,
   className,
 }: DealRuleProps) {
@@ -116,6 +118,7 @@ export function DealRule({
     <RuleBlock
       action={action}
       className={className}
+      detail={detail}
       exit={isExitRule(rule)}
       index={ruleIndex}
       note={note}

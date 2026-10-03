@@ -3,13 +3,12 @@ import { isAddress } from "@solana/kit";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { type FormEvent, useCallback, useState } from "react";
 import { PAGE } from "@/components/shell/app-shell";
+import { ButtonLink } from "@/components/shell/button-link";
 import { WalletButton } from "@/components/shell/wallet-button";
 import { DealList } from "@/features/deal/deal-list";
 import { DealPage } from "@/features/deal/deal-page";
 import { shortAddress } from "@/lib/format";
 import { useWallet } from "@/lib/use-wallet";
-
-const TITLE = "font-display font-semibold tracking-tight";
 
 function Lookup() {
   const navigate = useNavigate();
@@ -30,9 +29,9 @@ function Lookup() {
     [navigate, trimmed, valid]
   );
   return (
-    <form className="flex max-w-xl flex-col gap-2" onSubmit={submit}>
+    <form className="flex w-full max-w-xl flex-col gap-2" onSubmit={submit}>
       <label className="text-cladd-fg-soft text-sm" htmlFor="lookup-wallet">
-        Or look up the deals of any address, read only
+        Or look up any address
       </label>
       <div className="flex flex-wrap items-start gap-2">
         <Input
@@ -55,29 +54,17 @@ function Lookup() {
   );
 }
 
-function ConnectPrompt({ lookup }: { lookup: boolean }) {
+function ConnectPrompt() {
   return (
-    <div className="flex flex-col items-start gap-6">
+    <div className="flex flex-col items-start gap-8">
       <div className="flex flex-col items-start gap-4">
-        <p className="max-w-xl text-cladd-fg-soft">
-          Connect a wallet to see the deals you created, fund, take part in or
-          witness.
+        <p className="text-cladd-fg-soft">
+          Connect a wallet to see your deals.
         </p>
         <WalletButton />
       </div>
-      {lookup ? <Lookup /> : null}
+      <Lookup />
     </div>
-  );
-}
-
-export function HomeDealsEntry() {
-  const { address, ready } = useWallet();
-  return (
-    <section className="flex flex-col gap-4">
-      <h2 className={cn(TITLE, "text-2xl")}>Your deals</h2>
-      {ready && address ? <DealList limit={3} own wallet={address} /> : null}
-      {ready && !address ? <ConnectPrompt lookup={false} /> : null}
-    </section>
   );
 }
 
@@ -87,22 +74,29 @@ export function DealListEntry({ wallet }: { wallet?: string }) {
   const shown = watched ?? address;
   const own = shown !== null && shown === address;
   return (
-    <main className={cn(PAGE, "flex flex-col gap-6 pt-10 sm:pt-16")}>
-      <div className="flex flex-col gap-2">
-        <h1 className={cn(TITLE, "text-4xl")}>
-          {own || !shown ? "Your deals" : `Deals of ${shortAddress(shown)}`}
-        </h1>
-        {shown && !own ? (
-          <p className="text-cladd-fg-soft text-sm">
-            Read only: you are looking at another address.{" "}
-            <Link className="text-cladd-fg underline" to="/deals">
-              Back to your own
-            </Link>
-          </p>
+    <main className={cn(PAGE, "flex flex-col gap-6 pt-10 sm:pt-14")}>
+      <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-4">
+        <div className="flex flex-col gap-2">
+          <h1 className="font-display font-semibold text-4xl tracking-tight">
+            {own || !shown ? "Your deals" : `Deals of ${shortAddress(shown)}`}
+          </h1>
+          {shown && !own ? (
+            <p className="text-cladd-fg-soft text-sm">
+              Read only.{" "}
+              <Link className="text-cladd-fg underline" to="/deals">
+                Your deals
+              </Link>
+            </p>
+          ) : null}
+        </div>
+        {shown ? (
+          <ButtonLink size="xl" to="/new" variant="solid-fill">
+            New deal
+          </ButtonLink>
         ) : null}
       </div>
       {shown ? <DealList own={own} wallet={shown} /> : null}
-      {!shown && ready ? <ConnectPrompt lookup /> : null}
+      {!shown && ready ? <ConnectPrompt /> : null}
     </main>
   );
 }

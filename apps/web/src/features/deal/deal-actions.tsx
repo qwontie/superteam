@@ -12,37 +12,98 @@ import {
 } from "@pact/sdk";
 import { isAddress, address as toAddress } from "@solana/kit";
 import { useNavigate } from "@tanstack/react-router";
-import { type ReactNode, useCallback, useState } from "react";
+import { useCallback, useState } from "react";
 import { type BuildInstruction, TxButton } from "@/components/shell/tx-button";
-import { WalletButton } from "@/components/shell/wallet-button";
 import { dealInvalidation } from "@/features/deal/queries";
-import { checkFact } from "@/lib/checks";
 import { shortAddress } from "@/lib/format";
 import {
   signatureMatters,
   type WalletRoles,
   type WitnessSeat,
 } from "@/lib/pact";
-import { useWallet } from "@/lib/use-wallet";
 
-interface DealActionsProps {
+export type Primary =
+  | { kind: "execute"; rule: number }
+  | { kind: "fund" }
+  | { kind: "sign" }
+  | { kind: "vote"; check: number }
+  | { kind: "close" }
+  | null;
+
+export interface Moves {
+  cancel: boolean;
+  close: boolean;
+  fund: boolean;
+  primary: Primary;
+  sign: number | null;
+  votes: WitnessSeat[];
+}
+
+interface DealActionProps {
   deal: DealState;
-  evaluation: DealEvaluation;
   labels: readonly string[];
-  roles: WalletRoles;
+  moves: Moves;
 }
 
-interface MoveProps {
-  children: ReactNode;
-  text: string;
-  title: string;
-}
+const VOTE_HINT = "One vote. It cannot be changed.";
+
+const firstPrimary = (
+  moves: Omit<Moves, "primary">,
+  executable: readonly number[]
+): Primary => {
+  const [rule] = executable;
+  if (rule !== undefined) {
+    return { kind: "execute", rule };
+  }
+  if (moves.fund) {
+    return { kind: "fund" };
+  }
+  if (moves.sign !== null) {
+    return { kind: "sign" };
+  }
+  const [seat] = moves.votes;
+  if (seat) {
+    return { check: seat.check, kind: "vote" };
+  }
+  return moves.close ? { kind: "close" } : null;
+};
+
+export const planMoves = (
+  deal: DealState,
+  evaluation: DealEvaluation,
+  roles: WalletRoles,
+  connected: boolean
+): Moves => {
+  const funded = connected && deal.status === "funded";
+  const signs =
+    funded &&
+    roles.party !== null &&
+    deal.signals[roles.party] === null &&
+    signatureMatters(deal, roles.party);
+  const moves = {
+    cancel: connected && deal.status === "draft" && roles.creator,
+    close: connected && deal.status === "settled" && roles.creator,
+    fund: connected && deal.status === "draft" && roles.funder,
+    sign: signs ? roles.party : null,
+    votes: funded
+      ? roles.witness.filter(
+          (seat) => deal.votes[seat.check]?.byWitness[seat.position] === null
+        )
+      : [],
+  };
+  return {
+    ...moves,
+    primary: firstPrimary(moves, funded ? evaluation.executable : []),
+  };
+};
 
 export function ExecuteButton({
   deal,
   rule,
+  quiet = false,
 }: {
   deal: DealState;
+  quiet?: boolean;
   rule: number;
 }) {
   const build = useCallback<BuildInstruction>(
@@ -59,6 +120,7 @@ export function ExecuteButton({
     <TxButton
       build={build}
       invalidate={dealInvalidation(deal.address)}
+      quiet={quiet}
       txLabel={`Execute rule ${rule + 1}`}
     >
       Execute
@@ -66,21 +128,7 @@ export function ExecuteButton({
   );
 }
 
-function Move({ title, text, children }: MoveProps) {
-  return (
-    <li className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
-      <div className="flex min-w-0 max-w-md flex-1 basis-56 flex-col gap-1">
-        <span className="font-medium">{title}</span>
-        <span className="text-cladd-fg-soft text-sm">{text}</span>
-      </div>
-      <div className="flex flex-wrap items-start justify-end gap-2">
-        {children}
-      </div>
-    </li>
-  );
-}
-
-function FundMove({ deal }: { deal: DealState }) {
+function FundButton({ deal }: { deal: DealState }) {
   const build = useCallback<BuildInstruction>(
     (signer) =>
       getFundInstruction({ deal: toAddress(deal.address), funder: signer }),
@@ -88,22 +136,18 @@ function FundMove({ deal }: { deal: DealState }) {
   );
   const amount = `${lamportsToSol(deal.spec.amount)} SOL`;
   return (
-    <Move
-      text="The money moves into the vault of this deal. From then on it can leave only through one of the rules."
-      title={`Lock ${amount} in the vault`}
+    <TxButton
+      build={build}
+      hint="Locks the payment in the vault. After that only a rule can move it."
+      invalidate={dealInvalidation(deal.address)}
+      txLabel={`Fund ${amount}`}
     >
-      <TxButton
-        build={build}
-        invalidate={dealInvalidation(deal.address)}
-        txLabel={`Fund ${amount}`}
-      >
-        Fund {amount}
-      </TxButton>
-    </Move>
+      Fund {amount}
+    </TxButton>
   );
 }
 
-function CancelMove({ deal }: { deal: DealState }) {
+function CancelButton({ deal }: { deal: DealState }) {
   const navigate = useNavigate();
   const build = useCallback<BuildInstruction>(
     (signer) =>
@@ -114,29 +158,24 @@ function CancelMove({ deal }: { deal: DealState }) {
     navigate({ to: "/deals" }).catch(() => undefined);
   }, [navigate]);
   return (
-    <Move
-      text="Possible only while nobody has funded it. The deal is deleted from the chain and its rent returns to you."
-      title="Cancel this draft"
+    <TxButton
+      build={build}
+      confirm={{
+        keep: "Keep the deal",
+        text: "The draft is deleted from the chain for good. Nothing was locked, so no money moves.",
+        title: "Cancel this deal?",
+      }}
+      invalidate={dealInvalidation(deal.address)}
+      onDone={leave}
+      quiet
+      txLabel="Cancel deal"
     >
-      <TxButton
-        build={build}
-        confirm={{
-          keep: "Keep the deal",
-          text: "The draft is deleted from the chain for good. Nothing was locked, so no money moves.",
-          title: "Cancel this deal?",
-        }}
-        invalidate={dealInvalidation(deal.address)}
-        onDone={leave}
-        quiet
-        txLabel="Cancel deal"
-      >
-        Cancel deal
-      </TxButton>
-    </Move>
+      Cancel deal
+    </TxButton>
   );
 }
 
-function CloseMove({ deal }: { deal: DealState }) {
+function CloseButton({ deal, quiet }: { deal: DealState; quiet: boolean }) {
   const navigate = useNavigate();
   const build = useCallback<BuildInstruction>(
     (signer) =>
@@ -148,29 +187,25 @@ function CloseMove({ deal }: { deal: DealState }) {
   }, [navigate]);
   const rent = `${lamportsToSol(deal.lamports)} SOL`;
   return (
-    <Move
-      text={`The payout is done. Closing deletes the deal account and returns its rent, ${rent}, to you. The history stays in the transactions on Solana Explorer.`}
-      title="Close the deal and take back the rent"
+    <TxButton
+      build={build}
+      confirm={{
+        keep: "Keep the deal",
+        text: `The deal page disappears and ${rent} of rent returns to your wallet. The transactions stay on chain.`,
+        title: "Close this deal?",
+      }}
+      hint={`Deletes the deal account and returns its rent, ${rent}, to you.`}
+      invalidate={dealInvalidation(deal.address)}
+      onDone={leave}
+      quiet={quiet}
+      txLabel="Close deal"
     >
-      <TxButton
-        build={build}
-        confirm={{
-          keep: "Keep the deal",
-          text: `The deal page disappears and ${rent} of rent returns to your wallet. The transactions stay on chain.`,
-          title: "Close this deal?",
-        }}
-        invalidate={dealInvalidation(deal.address)}
-        onDone={leave}
-        quiet
-        txLabel="Close deal"
-      >
-        Close deal
-      </TxButton>
-    </Move>
+      Close deal
+    </TxButton>
   );
 }
 
-const signEffect = (deal: DealState, party: number) => {
+const signHint = (deal: DealState, party: number) => {
   const enables: number[] = [];
   const blocks: number[] = [];
   for (const [index, rule] of deal.spec.rules.entries()) {
@@ -185,23 +220,25 @@ const signEffect = (deal: DealState, party: number) => {
   }
   const parts: string[] = [];
   if (enables.length > 0) {
-    parts.push(`It is a condition of rule ${enables.join(" and ")}.`);
+    parts.push(`Rule ${enables.join(" and ")} waits for it.`);
   }
   if (blocks.length > 0) {
     parts.push(`It switches off rule ${blocks.join(" and ")}.`);
   }
-  parts.push("A signature cannot be undone.");
+  parts.push("It cannot be undone.");
   return parts.join(" ");
 };
 
-function SignMove({
+function SignButton({
   deal,
   party,
   label,
+  quiet,
 }: {
   deal: DealState;
   label: string;
   party: number;
+  quiet: boolean;
 }) {
   const build = useCallback<BuildInstruction>(
     (signer) =>
@@ -209,15 +246,42 @@ function SignMove({
     [deal.address]
   );
   return (
-    <Move text={signEffect(deal, party)} title={`Sign as ${label}`}>
-      <TxButton
-        build={build}
-        invalidate={dealInvalidation(deal.address)}
-        txLabel={`Sign as ${label}`}
-      >
-        Sign
-      </TxButton>
-    </Move>
+    <TxButton
+      build={build}
+      hint={signHint(deal, party)}
+      invalidate={dealInvalidation(deal.address)}
+      quiet={quiet}
+      txLabel={`Sign as ${label}`}
+    >
+      Sign as {label}
+    </TxButton>
+  );
+}
+
+export function DealAction({ deal, labels, moves }: DealActionProps) {
+  const { primary } = moves;
+  if (!(moves.fund || moves.cancel || moves.close || moves.sign !== null)) {
+    return null;
+  }
+  return (
+    <section
+      aria-label="Your move"
+      className="flex flex-wrap items-start gap-2 sm:justify-end"
+    >
+      {moves.cancel ? <CancelButton deal={deal} /> : null}
+      {moves.fund ? <FundButton deal={deal} /> : null}
+      {moves.sign === null ? null : (
+        <SignButton
+          deal={deal}
+          label={labels[moves.sign] ?? "party"}
+          party={moves.sign}
+          quiet={primary?.kind !== "sign"}
+        />
+      )}
+      {moves.close ? (
+        <CloseButton deal={deal} quiet={primary?.kind !== "close"} />
+      ) : null}
+    </section>
   );
 }
 
@@ -236,19 +300,20 @@ function NomineePick({
   );
 }
 
-function NomineeMove({
+export function VoteAction({
   deal,
   seat,
-  no,
+  quiet,
 }: {
   deal: DealState;
-  no: BuildInstruction;
+  quiet: boolean;
   seat: WitnessSeat;
 }) {
   const [value, setValue] = useState("");
+  const check = deal.spec.checks[seat.check];
+  const binding = typeof check?.binds === "number";
   const nominee = value.trim();
   const valid = isAddress(nominee);
-  const check = deal.spec.checks[seat.check];
   const named = [
     ...new Set(
       (deal.votes[seat.check]?.nominees ?? []).filter(
@@ -261,72 +326,11 @@ function NomineeMove({
       getAttestInstruction({
         check: seat.check,
         deal: toAddress(deal.address),
-        nominee,
+        nominee: binding ? nominee : undefined,
         verdict: true,
         witness: signer,
       }),
-    [deal.address, nominee, seat.check]
-  );
-  if (!check) {
-    return null;
-  }
-  return (
-    <Move
-      text={`You are a witness of this check. Name the winner: the payout goes to the address that ${check.threshold} of ${check.witnesses.length} witnesses agree on. You get one vote and it cannot be changed.`}
-      title={`Who wins? ${checkFact(check).statement}`}
-    >
-      <div className="flex w-full flex-col gap-2">
-        <Input
-          errorMessage={
-            nominee.length > 0 && !valid
-              ? "This is not a Solana address."
-              : undefined
-          }
-          inputClassName="font-mono"
-          onChange={setValue}
-          placeholder="Winner's Solana address"
-          size="xl"
-          value={value}
-        />
-        {named.length > 0 ? (
-          <div className="flex flex-wrap gap-2">
-            {named.map((entry) => (
-              <NomineePick key={entry} nominee={entry} onPick={setValue} />
-            ))}
-          </div>
-        ) : null}
-      </div>
-      <TxButton
-        build={no}
-        invalidate={dealInvalidation(deal.address)}
-        quiet
-        txLabel="Vote no"
-      >
-        Vote no
-      </TxButton>
-      <TxButton
-        build={yes}
-        disabled={!valid}
-        invalidate={dealInvalidation(deal.address)}
-        txLabel="Vote for this winner"
-      >
-        Vote for this winner
-      </TxButton>
-    </Move>
-  );
-}
-
-function VoteMove({ deal, seat }: { deal: DealState; seat: WitnessSeat }) {
-  const check = deal.spec.checks[seat.check];
-  const yes = useCallback<BuildInstruction>(
-    (signer) =>
-      getAttestInstruction({
-        check: seat.check,
-        deal: toAddress(deal.address),
-        verdict: true,
-        witness: signer,
-      }),
-    [deal.address, seat.check]
+    [binding, deal.address, nominee, seat.check]
   );
   const no = useCallback<BuildInstruction>(
     (signer) =>
@@ -341,146 +345,55 @@ function VoteMove({ deal, seat }: { deal: DealState; seat: WitnessSeat }) {
   if (!check) {
     return null;
   }
-  if (typeof check.binds === "number") {
-    return <NomineeMove deal={deal} no={no} seat={seat} />;
-  }
+  const yesLabel = binding ? "Vote for this winner" : "Vote yes";
   return (
-    <Move
-      text="You are a witness of this check. You get one vote and it cannot be changed."
-      title={`Is it true? ${checkFact(check).statement}`}
-    >
-      <TxButton
-        build={no}
-        invalidate={dealInvalidation(deal.address)}
-        quiet
-        txLabel="Vote no"
-      >
-        Vote no
-      </TxButton>
-      <TxButton
-        build={yes}
-        invalidate={dealInvalidation(deal.address)}
-        txLabel="Vote yes"
-      >
-        Vote yes
-      </TxButton>
-    </Move>
-  );
-}
-
-const roleSentence = (roles: WalletRoles, labels: readonly string[]) => {
-  const parts: string[] = [];
-  if (roles.party !== null) {
-    parts.push(`are the ${labels[roles.party] ?? "party"}`);
-  }
-  if (roles.witness.length > 0) {
-    parts.push("are a witness");
-  }
-  if (roles.creator) {
-    parts.push("created this deal");
-  }
-  if (parts.length === 0) {
-    return "You are not named in this deal.";
-  }
-  return `You ${parts.join(" and ")}.`;
-};
-
-const idleSentence = (
-  deal: DealState,
-  evaluation: DealEvaluation,
-  labels: readonly string[]
-) => {
-  if (deal.status === "settled") {
-    return "This deal is settled. Nothing is left to do.";
-  }
-  if (deal.status === "draft") {
-    return `Waiting for the ${labels[deal.spec.funder] ?? "funder"} to lock the payment.`;
-  }
-  if (evaluation.executable.length > 0) {
-    return "A rule is true right now. Press Execute on it and the money moves: anyone can.";
-  }
-  return "Nothing for you to do right now. The rules below show what they are waiting for.";
-};
-
-const buildMoves = (
-  deal: DealState,
-  roles: WalletRoles,
-  labels: readonly string[]
-) => {
-  const moves: ReactNode[] = [];
-  if (deal.status === "draft" && roles.funder) {
-    moves.push(<FundMove deal={deal} key="fund" />);
-  }
-  if (deal.status === "draft" && roles.creator) {
-    moves.push(<CancelMove deal={deal} key="cancel" />);
-  }
-  if (deal.status === "settled" && roles.creator) {
-    moves.push(<CloseMove deal={deal} key="close" />);
-  }
-  if (deal.status !== "funded") {
-    return moves;
-  }
-  if (
-    roles.party !== null &&
-    deal.signals[roles.party] === null &&
-    signatureMatters(deal, roles.party)
-  ) {
-    moves.push(
-      <SignMove
-        deal={deal}
-        key="sign"
-        label={labels[roles.party] ?? "party"}
-        party={roles.party}
-      />
-    );
-  }
-  for (const seat of roles.witness) {
-    if (deal.votes[seat.check]?.byWitness[seat.position] === null) {
-      moves.push(
-        <VoteMove deal={deal} key={`vote-${seat.check}`} seat={seat} />
-      );
-    }
-  }
-  return moves;
-};
-
-export function DealActions({
-  deal,
-  evaluation,
-  roles,
-  labels,
-}: DealActionsProps) {
-  const { address, ready } = useWallet();
-  if (!ready) {
-    return null;
-  }
-  if (!address) {
-    return (
-      <section
-        aria-label="Your move"
-        className="flex flex-wrap items-center justify-between gap-4 rounded-block bg-cladd-surface-cut p-4 shadow-cladd-cut-outline sm:p-5"
-      >
-        <p className="max-w-md text-cladd-fg-soft text-sm">
-          Anyone can read this deal. Connect a wallet to fund, sign, vote or
-          execute a rule.
-        </p>
-        <WalletButton />
-      </section>
-    );
-  }
-  const moves = buildMoves(deal, roles, labels);
-  return (
-    <section
-      aria-label="Your move"
-      className="flex flex-col gap-4 rounded-block bg-cladd-surface-cut p-4 shadow-cladd-cut-outline sm:p-5"
-    >
-      <p className="text-cladd-fg-soft text-sm">
-        {roleSentence(roles, labels)}{" "}
-        {moves.length === 0 ? idleSentence(deal, evaluation, labels) : null}
-      </p>
-      {moves.length > 0 ? (
-        <ul className="flex flex-col gap-5">{moves}</ul>
+    <section aria-label="Your vote" className="flex flex-col gap-2 pt-1">
+      {binding ? (
+        <div className="flex max-w-md flex-col gap-2">
+          <Input
+            errorMessage={
+              nominee.length > 0 && !valid
+                ? "This is not a Solana address."
+                : undefined
+            }
+            inputClassName="font-mono"
+            onChange={setValue}
+            placeholder="Winner's Solana address"
+            size="xl"
+            value={value}
+          />
+          {named.length > 0 ? (
+            <div className="flex flex-wrap gap-2">
+              {named.map((entry) => (
+                <NomineePick key={entry} nominee={entry} onPick={setValue} />
+              ))}
+            </div>
+          ) : null}
+        </div>
       ) : null}
+      <div className="flex flex-wrap items-start gap-2">
+        <TxButton
+          align="start"
+          build={yes}
+          disabled={binding && !valid}
+          hint={VOTE_HINT}
+          invalidate={dealInvalidation(deal.address)}
+          quiet={quiet}
+          txLabel={yesLabel}
+        >
+          {yesLabel}
+        </TxButton>
+        <TxButton
+          align="start"
+          build={no}
+          hint={VOTE_HINT}
+          invalidate={dealInvalidation(deal.address)}
+          quiet
+          txLabel="Vote no"
+        >
+          Vote no
+        </TxButton>
+      </div>
     </section>
   );
 }

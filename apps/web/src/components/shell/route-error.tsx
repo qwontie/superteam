@@ -9,8 +9,7 @@ export function RouteError({ error, reset }: ErrorComponentProps) {
         This screen broke
       </h1>
       <p className="text-cladd-fg-soft">
-        Your deals and your money are not affected: they live on chain, not in
-        this page. Try again, and if it keeps happening send us the line below.
+        Your deals and money are safe on chain. Try again.
       </p>
       <pre className="overflow-x-auto rounded-block bg-cladd-surface-cut p-4 font-mono text-cladd-fg-soft text-xs shadow-cladd-cut-outline">
         {error instanceof Error ? error.message : String(error)}
@@ -33,9 +32,7 @@ export function NotFound() {
       <h1 className="font-display font-semibold text-3xl tracking-tight">
         Nothing at this address
       </h1>
-      <p className="text-cladd-fg-soft">
-        The page you opened does not exist. Deals live under /deals.
-      </p>
+      <p className="text-cladd-fg-soft">This page does not exist.</p>
       <div>
         <ButtonLink size="xl" to="/" variant="solid-fill">
           Back to home

@@ -1,4 +1,10 @@
-import { Button, type ButtonSize, useDialog } from "@cladd-ui/react";
+import {
+  Button,
+  type ButtonSize,
+  cn,
+  Tooltip,
+  useDialog,
+} from "@cladd-ui/react";
 import type { Instruction, TransactionSigner } from "@solana/kit";
 import type { QueryKey } from "@tanstack/react-query";
 import { type ReactNode, useCallback, useState } from "react";
@@ -10,10 +16,12 @@ export type BuildInstruction = (
 ) => Instruction | Promise<Instruction>;
 
 interface TxButtonProps {
+  align?: "start" | "end";
   build: BuildInstruction;
   children: ReactNode;
   confirm?: { keep: string; text: string; title: string };
   disabled?: boolean;
+  hint?: string;
   invalidate?: readonly QueryKey[];
   onDone?: () => void;
   quiet?: boolean;
@@ -34,11 +42,13 @@ const BUILD_FAILED: TxFailure = {
 };
 
 export function TxButton({
+  align = "end",
   build,
   txLabel,
   children,
   confirm,
   disabled = false,
+  hint,
   invalidate,
   onDone,
   quiet = false,
@@ -88,20 +98,34 @@ export function TxButton({
     });
   }, [confirm, dialog, run, txLabel]);
 
+  const trigger = (
+    <Button
+      disabled={disabled || pending !== null}
+      loading={pending === txLabel}
+      onClick={click}
+      size={size}
+      variant={quiet ? "solid" : "solid-fill"}
+    >
+      {children}
+    </Button>
+  );
+
+  const button = hint ? <Tooltip tooltip={hint}>{trigger}</Tooltip> : trigger;
+
   return (
-    <div className="flex flex-col items-end gap-1.5">
-      <Button
-        disabled={disabled || pending !== null}
-        loading={pending === txLabel}
-        onClick={click}
-        size={size}
-        variant={quiet ? "solid" : "solid-fill"}
-      >
-        {children}
-      </Button>
+    <div
+      className={cn(
+        "flex flex-col gap-1.5",
+        align === "end" ? "items-end" : "items-start"
+      )}
+    >
+      {button}
       {failure ? (
         <p
-          className="max-w-64 text-right font-medium text-pact-stop text-xs"
+          className={cn(
+            "max-w-64 font-medium text-pact-stop text-xs",
+            align === "end" && "text-right"
+          )}
           role="alert"
         >
           {failure.title}. {failure.detail}

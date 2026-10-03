@@ -12,15 +12,15 @@ const TAG =
 const planLine = (plan: Plan) => {
   switch (plan.kind) {
     case "pro":
-      return `Pro until ${formatDay(plan.expiresAt ?? 0)}. AI drafts without the free limit.`;
+      return `Pro until ${formatDay(plan.expiresAt ?? 0)}`;
     case "free":
       return plan.expiresAt === null
-        ? "Deals are always free. Pro lifts the limit on AI drafts."
-        : `Pro ended ${formatDay(plan.expiresAt)}. Deals are always free.`;
+        ? "Free plan"
+        : `Pro ended ${formatDay(plan.expiresAt)}`;
     case "unknown":
-      return "Could not read your plan from devnet.";
+      return "Could not read your plan from devnet";
     default:
-      return "Reading your plan from devnet";
+      return "Reading your plan";
   }
 };
 
@@ -34,7 +34,7 @@ function FreeDrafts() {
     return (
       <div className="flex flex-wrap items-center justify-between gap-2">
         <span className="text-cladd-fg-soft text-xs">
-          10 free AI drafts a day.
+          10 free AI drafts a day, no limit on Pro.
         </span>
         <Button loading={signing} onClick={ask} size="xl" variant="transparent">
           Show what is left
@@ -72,47 +72,31 @@ export function PlanTag() {
 
 export function PlanSection() {
   const plan = usePlan();
-  const [extending, setExtending] = useState(false);
-  const toggle = useCallback(() => setExtending((open) => !open), []);
+  const [open, setOpen] = useState(false);
+  const toggle = useCallback(() => setOpen((value) => !value), []);
   if (plan.kind === "none") {
     return null;
   }
   const settled = plan.kind === "pro" || plan.kind === "free";
-  const showControl =
-    plan.kind === "free" || (plan.kind === "pro" && extending);
+  const verb = plan.kind === "pro" ? "Extend" : "Go Pro";
+  const toggleLabel = open ? "Not now" : verb;
   return (
-    <section aria-label="Plan" className="flex flex-col gap-3 px-4 py-3">
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex flex-col gap-1">
-          <span className="flex items-center gap-2 font-medium text-sm">
-            Plan
-            {settled ? (
-              <span
-                className={
-                  plan.kind === "pro"
-                    ? `${TAG} bg-cladd-fg text-cladd-bg`
-                    : `${TAG} text-cladd-fg-soft shadow-[inset_0_0_0_1px_var(--color-cladd-outline)]`
-                }
-              >
-                {plan.kind === "pro" ? "Pro" : "Free"}
-              </span>
-            ) : null}
-          </span>
-          <span className="text-cladd-fg-soft text-xs">{planLine(plan)}</span>
-        </div>
-        {plan.kind === "pro" ? (
+    <section aria-label="Plan" className="flex flex-col gap-3 px-4 py-2.5">
+      <div className="flex items-center justify-between gap-3">
+        <span className="font-medium text-sm">{planLine(plan)}</span>
+        {settled ? (
           <Button
-            aria-expanded={extending}
+            aria-expanded={open}
             className="shrink-0 whitespace-nowrap"
             onClick={toggle}
             size="xl"
           >
-            {extending ? "Not now" : "Extend"}
+            {toggleLabel}
           </Button>
         ) : null}
       </div>
-      {plan.kind === "free" ? <FreeDrafts /> : null}
-      {showControl ? <GoPro /> : null}
+      {open && plan.kind === "free" ? <FreeDrafts /> : null}
+      {open && settled ? <GoPro /> : null}
     </section>
   );
 }

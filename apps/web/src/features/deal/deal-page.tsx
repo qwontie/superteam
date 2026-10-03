@@ -10,12 +10,17 @@ import { FiredNote, StatusPill, VaultAmount } from "@/components/pact/vault";
 import { PAGE } from "@/components/shell/app-shell";
 import { ButtonLink } from "@/components/shell/button-link";
 import { ExplorerLink } from "@/components/shell/explorer-link";
-import { DealActions, ExecuteButton } from "@/features/deal/deal-actions";
+import {
+  DealAction,
+  ExecuteButton,
+  type Moves,
+  planMoves,
+  VoteAction,
+} from "@/features/deal/deal-actions";
+import { DealCheck } from "@/features/deal/deal-check";
 import { DealLog } from "@/features/deal/deal-log";
-import { DealPeople } from "@/features/deal/deal-people";
 import type { LogEntry } from "@/features/deal/events";
 import { useDeal, useDealLive, useDealLog } from "@/features/deal/queries";
-import { actorName } from "@/lib/checks";
 import { shortAddress } from "@/lib/format";
 import { partyLabels, ruleStatus, walletRoles } from "@/lib/pact";
 import { useNow } from "@/lib/use-now";
@@ -27,8 +32,14 @@ interface MessageProps {
   title: string;
 }
 
-const SHELL = cn(PAGE, "flex flex-col gap-8 pt-8 sm:pt-12");
-const H2 = "font-display font-semibold text-xl tracking-tight";
+interface RuleChecksProps {
+  checks: readonly number[];
+  deal: DealState;
+  moves: Moves;
+  viewer: string | null;
+}
+
+const SHELL = cn(PAGE, "flex flex-col gap-7 pt-8 sm:pt-10");
 
 function BackLink() {
   return (
@@ -57,45 +68,56 @@ function Message({ title, text, children }: MessageProps) {
   );
 }
 
-const vaultSentence = (deal: DealState, labels: readonly string[]) => {
-  if (deal.status === "draft") {
-    return `Waiting for the ${labels[deal.spec.funder] ?? "funder"} to lock the payment. The rules below are already final.`;
-  }
-  if (deal.status === "funded") {
-    return "Held by the Pact program. It can leave only through one of the rules below.";
-  }
-  if (deal.settledRule !== null) {
-    return `Rule ${deal.settledRule + 1} fired and paid it out. No one approved it.`;
-  }
-  return "This deal is closed.";
-};
-
 const executedEntry = (log: LogEntry[] | undefined) =>
   log?.find((entry) => entry.event?.kind === "executed") ?? null;
 
-function FiredBy({
-  entry,
-  deal,
-  labels,
-}: {
-  deal: DealState;
-  entry: LogEntry | null;
-  labels: readonly string[];
-}) {
-  if (entry?.event?.kind !== "executed") {
-    return null;
-  }
+const checkHomes = (deal: DealState) => {
+  const seen = new Set<number>();
+  return deal.spec.rules.map((rule) => {
+    const here: number[] = [];
+    for (const condition of rule.when) {
+      if (condition.type === "attested" && !seen.has(condition.check)) {
+        seen.add(condition.check);
+        here.push(condition.check);
+      }
+    }
+    return here;
+  });
+};
+
+function RuleChecks({ checks, deal, moves, viewer }: RuleChecksProps) {
   return (
-    <span className="font-normal">
-      Fired by {actorName(deal.spec, labels, entry.event.executor)}, who could
-      not change where it went.{" "}
-      <ExplorerLink
-        className="decoration-pact-ink/40"
-        path={`/tx/${entry.signature}`}
-      >
-        See the transaction
-      </ExplorerLink>
-    </span>
+    <div className="flex flex-col gap-4">
+      {checks.map((index) => {
+        const check = deal.spec.checks[index];
+        const seat = moves.votes.find((entry) => entry.check === index);
+        if (!check) {
+          return null;
+        }
+        return (
+          <DealCheck
+            action={
+              seat ? (
+                <VoteAction
+                  deal={deal}
+                  quiet={
+                    !(
+                      moves.primary?.kind === "vote" &&
+                      moves.primary.check === index
+                    )
+                  }
+                  seat={seat}
+                />
+              ) : null
+            }
+            check={check}
+            key={check.target}
+            viewer={viewer}
+            votes={deal.votes[index]}
+          />
+        );
+      })}
+    </div>
   );
 }
 
@@ -106,6 +128,8 @@ function DealView({ deal }: { deal: DealState }) {
   const evaluation = useMemo(() => evaluateDeal(deal, now), [deal, now]);
   const labels = useMemo(() => partyLabels(deal.spec), [deal.spec]);
   const roles = useMemo(() => walletRoles(deal, wallet), [deal, wallet]);
+  const homes = useMemo(() => checkHomes(deal), [deal]);
+  const moves = planMoves(deal, evaluation, roles, wallet !== null);
   const flightId = `money-${deal.address}`;
   const fired = executedEntry(log.data);
   const openedUnsettled = useRef(deal.status !== "settled");
@@ -114,8 +138,8 @@ function DealView({ deal }: { deal: DealState }) {
     <LayoutGroup>
       <main className={SHELL}>
         <BackLink />
-        <header className="flex flex-wrap items-start justify-between gap-x-10 gap-y-5">
-          <div className="flex min-w-0 flex-col gap-4">
+        <header className="grid gap-x-10 gap-y-5 sm:grid-cols-[minmax(0,1fr)_auto]">
+          <div className="flex min-w-0 flex-col gap-3">
             <h1 className="break-words font-display font-semibold text-3xl tracking-tight sm:text-4xl">
               {deal.spec.title}
             </h1>
@@ -125,81 +149,85 @@ function DealView({ deal }: { deal: DealState }) {
               size="hero"
               status={deal.status}
             />
-            <p className="max-w-xl text-cladd-fg-soft">
-              {vaultSentence(deal, labels)}
-            </p>
           </div>
-          <div className="flex flex-col items-start gap-2 sm:items-end sm:pt-1.5">
-            <StatusPill status={deal.status} />
-            <ExplorerLink
-              className="font-mono text-cladd-fg-soft text-sm"
-              path={`/address/${deal.address}`}
-            >
-              {shortAddress(deal.address, 6)}
-            </ExplorerLink>
+          <div className="flex flex-col gap-4 sm:items-end sm:justify-between sm:pt-1.5">
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+              <ExplorerLink
+                className="order-2 font-mono text-cladd-fg-soft text-sm sm:order-1"
+                path={`/address/${deal.address}`}
+              >
+                {shortAddress(deal.address, 6)}
+              </ExplorerLink>
+              <StatusPill className="order-1 sm:order-2" status={deal.status} />
+            </div>
+            <DealAction deal={deal} labels={labels} moves={moves} />
           </div>
         </header>
 
         <div className="grid items-start gap-10 lg:grid-cols-[minmax(0,7fr)_minmax(0,4fr)] lg:gap-14">
-          <div className="flex min-w-0 flex-col gap-8">
-            <DealActions
-              deal={deal}
-              evaluation={evaluation}
-              labels={labels}
-              roles={roles}
-            />
-            <section className="flex flex-col gap-3">
-              <div className="flex flex-col gap-1">
-                <h2 className={H2}>Rules</h2>
-                <p className="text-cladd-fg-soft text-sm">
-                  The first rule that is true and gets executed wins. Anyone can
-                  execute it, no one can stop it.
-                </p>
-              </div>
-              <div className="flex flex-col gap-3">
-                {evaluation.rules.map((rule) => {
-                  const status = ruleStatus(deal, rule);
-                  return (
-                    <DealRule
-                      action={
-                        status === "armed" && wallet ? (
-                          <ExecuteButton deal={deal} rule={rule.rule} />
-                        ) : null
-                      }
-                      evaluation={rule}
-                      key={rule.rule}
-                      labels={labels}
-                      note={
-                        status === "fired" ? (
-                          <FiredNote
-                            arriving={openedUnsettled.current}
-                            flightId={flightId}
-                            lamports={deal.spec.amount}
+          <section className="flex min-w-0 flex-col gap-3">
+            <h2 className="sr-only">Rules</h2>
+            {evaluation.rules.map((rule) => {
+              const status = ruleStatus(deal, rule);
+              const checks = homes[rule.rule] ?? [];
+              return (
+                <DealRule
+                  action={
+                    status === "armed" && wallet ? (
+                      <ExecuteButton
+                        deal={deal}
+                        quiet={
+                          !(
+                            moves.primary?.kind === "execute" &&
+                            moves.primary.rule === rule.rule
+                          )
+                        }
+                        rule={rule.rule}
+                      />
+                    ) : null
+                  }
+                  detail={
+                    checks.length > 0 ? (
+                      <RuleChecks
+                        checks={checks}
+                        deal={deal}
+                        moves={moves}
+                        viewer={wallet}
+                      />
+                    ) : null
+                  }
+                  evaluation={rule}
+                  key={rule.rule}
+                  labels={labels}
+                  note={
+                    status === "fired" ? (
+                      <FiredNote
+                        arriving={openedUnsettled.current}
+                        flightId={flightId}
+                        lamports={deal.spec.amount}
+                      >
+                        {fired ? (
+                          <ExplorerLink
+                            className="font-normal decoration-pact-ink/40"
+                            path={`/tx/${fired.signature}`}
                           >
-                            <FiredBy
-                              deal={deal}
-                              entry={fired}
-                              labels={labels}
-                            />
-                          </FiredNote>
-                        ) : null
-                      }
-                      now={now}
-                      ruleIndex={rule.rule}
-                      spec={deal.spec}
-                      status={status}
-                      viewer={wallet}
-                      votes={deal.votes}
-                    />
-                  );
-                })}
-              </div>
-            </section>
-          </div>
-          <aside className="flex min-w-0 flex-col gap-8">
-            <DealPeople deal={deal} labels={labels} viewer={wallet} />
-            <DealLog deal={deal} labels={labels} log={log} />
-          </aside>
+                            See the transaction
+                          </ExplorerLink>
+                        ) : null}
+                      </FiredNote>
+                    ) : null
+                  }
+                  now={now}
+                  ruleIndex={rule.rule}
+                  spec={deal.spec}
+                  status={status}
+                  viewer={wallet}
+                  votes={deal.votes}
+                />
+              );
+            })}
+          </section>
+          <DealLog deal={deal} labels={labels} log={log} />
         </div>
       </main>
     </LayoutGroup>
@@ -217,13 +245,18 @@ export function DealPage({ address }: { address: string }) {
   if (!valid) {
     return (
       <Message
-        text="A deal lives at a Solana address. Check the link you opened."
+        text="Check the link you opened."
         title="This is not a deal address"
       />
     );
   }
   if (deal.isPending) {
-    return <Message title="Reading the deal from devnet" />;
+    return (
+      <main className={SHELL}>
+        <BackLink />
+        <p className="text-cladd-fg-soft">Reading the deal from devnet</p>
+      </main>
+    );
   }
   if (deal.isError) {
     return (
@@ -240,7 +273,7 @@ export function DealPage({ address }: { address: string }) {
   if (deal.data === null) {
     return (
       <Message
-        text="Nothing is stored here on devnet. A cancelled draft and a closed deal are deleted from the chain, so they look the same. Their transactions stay on Solana Explorer."
+        text="Cancelled and closed deals are deleted from the chain. Their transactions stay on Solana Explorer."
         title="No deal at this address"
       >
         <ButtonLink size="xl" to="/deals">

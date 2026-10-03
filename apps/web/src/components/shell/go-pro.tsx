@@ -29,7 +29,7 @@ function PeriodButton({ periods, active, onPick }: PeriodButtonProps) {
   );
 }
 
-export function GoPro() {
+export function GoPro({ quiet = false }: { quiet?: boolean }) {
   const plan = usePlan();
   const [periods, setPeriods] = useState<number>(CHOICES[0]);
   const price = `${lamportsToSol(SUBSCRIPTION_PRICE_LAMPORTS * BigInt(periods))} SOL`;
@@ -65,6 +65,7 @@ export function GoPro() {
         <TxButton
           build={build}
           invalidate={invalidate}
+          quiet={quiet}
           size="xl"
           txLabel={`${verb} for ${periods * PERIOD_DAYS} days`}
         >
@@ -72,8 +73,7 @@ export function GoPro() {
         </TxButton>
       </div>
       <p className="text-cladd-fg-soft text-xs">
-        Paid on chain to the Pact treasury. Deals stay free: no fee is ever
-        taken from a deal.
+        Paid on chain. Deals stay free.
       </p>
     </div>
   );

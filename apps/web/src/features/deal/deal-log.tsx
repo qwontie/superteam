@@ -38,15 +38,15 @@ const describeEvent = (
 ) => {
   switch (event.kind) {
     case "created":
-      return `Deal created for ${sol(event.amount)}`;
+      return "Deal created";
     case "funded":
       return `${labels[deal.spec.funder] ?? "Funder"} locked ${sol(event.amount)} in the vault`;
     case "signaled":
       return `${labels[event.party] ?? `Party ${event.party + 1}`} signed`;
     case "attested":
-      return `${witnessName(deal, event.check, event.witness)} voted ${voteText(event)}: ${event.yes} yes, ${event.no} no`;
+      return `${witnessName(deal, event.check, event.witness)} voted ${voteText(event)}`;
     case "executed":
-      return `Rule ${event.rule + 1} fired: ${sol(event.amount)} left the vault. Executed by ${actorName(deal.spec, labels, event.executor)}, approved by no one`;
+      return `Rule ${event.rule + 1} fired by ${actorName(deal.spec, labels, event.executor)}`;
     case "cancelled":
       return "Deal cancelled";
     case "other":
@@ -62,7 +62,7 @@ const describeEntry = (
   labels: readonly string[]
 ) => {
   if (entry.failed) {
-    return "A transaction failed and changed nothing";
+    return "Failed transaction, nothing changed";
   }
   return entry.event ? describeEvent(entry.event, deal, labels) : "Transaction";
 };
@@ -72,14 +72,10 @@ export function DealLog({ deal, labels, log }: DealLogProps) {
     log.refetch().catch(() => undefined);
   }, [log]);
   return (
-    <section className="flex flex-col gap-3">
-      <h2 className="font-display font-semibold text-xl tracking-tight">
-        Activity
-      </h2>
+    <section className="flex min-w-0 flex-col gap-2">
+      <h2 className="font-medium text-cladd-fg-soft text-sm">Activity</h2>
       {log.isPending ? (
-        <p className="text-cladd-fg-soft text-sm">
-          Reading transactions from devnet
-        </p>
+        <p className="text-cladd-fg-softer text-sm">Reading transactions</p>
       ) : null}
       {log.isError ? (
         <div className="flex flex-col items-start gap-2">
@@ -92,37 +88,32 @@ export function DealLog({ deal, labels, log }: DealLogProps) {
         </div>
       ) : null}
       {log.data?.length === 0 ? (
-        <p className="text-cladd-fg-soft text-sm">No transactions yet.</p>
+        <p className="text-cladd-fg-softer text-sm">No transactions yet</p>
       ) : null}
       {log.data && log.data.length > 0 ? (
         <ol className="flex flex-col">
           {log.data.map((entry) => (
             <li
-              className="flex flex-col gap-1 py-3 shadow-[0_1px_0_var(--color-cladd-bg-outline)] last:shadow-none"
+              className="flex items-baseline justify-between gap-4 py-2.5 text-sm shadow-[0_1px_0_var(--color-cladd-bg-outline)] last:shadow-none"
               key={entry.signature}
             >
-              <span
-                className={
-                  entry.failed ? "text-cladd-fg-soft text-sm" : "text-sm"
-                }
-              >
+              <span className={entry.failed ? "text-cladd-fg-softer" : ""}>
                 {describeEntry(entry, deal, labels)}
               </span>
-              <span className="flex flex-wrap items-center gap-x-3 text-cladd-fg-soft text-xs">
-                {entry.blockTime === null ? null : (
+              <ExplorerLink
+                className="shrink-0 whitespace-nowrap text-cladd-fg-soft text-xs tabular-nums"
+                path={`/tx/${entry.signature}`}
+              >
+                {entry.blockTime === null ? (
+                  shortAddress(entry.signature)
+                ) : (
                   <time
                     dateTime={new Date(entry.blockTime * 1000).toISOString()}
                   >
                     {formatWhen(entry.blockTime)}
                   </time>
                 )}
-                <ExplorerLink
-                  className="font-mono"
-                  path={`/tx/${entry.signature}`}
-                >
-                  {shortAddress(entry.signature, 6)}
-                </ExplorerLink>
-              </span>
+              </ExplorerLink>
             </li>
           ))}
         </ol>

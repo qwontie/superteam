@@ -8,6 +8,7 @@ import type { RuleStatus } from "@/lib/pact";
 interface RuleBlockProps {
   action?: ReactNode;
   className?: string;
+  detail?: ReactNode;
   exit?: boolean;
   index: number;
   note?: ReactNode;
@@ -18,6 +19,7 @@ interface RuleBlockProps {
 
 interface WhenRowProps {
   children: ReactNode;
+  detail?: ReactNode;
   exit: boolean;
   index: number;
   joined: boolean;
@@ -32,12 +34,20 @@ interface ThenRowProps {
   status: RuleStatus;
 }
 
-const STATUS_LABEL: Record<RuleStatus, string | null> = {
+const STATUS_NAME: Record<RuleStatus, string | null> = {
   armed: "Can fire now",
   fired: "Fired",
   idle: null,
   lost: "Did not fire",
   waiting: "Waiting",
+};
+
+const STATUS_LABEL: Record<RuleStatus, string | null> = {
+  armed: "Can fire now",
+  fired: "Fired",
+  idle: null,
+  lost: null,
+  waiting: null,
 };
 
 const STATUS_TEXT: Record<RuleStatus, string> = {
@@ -56,7 +66,14 @@ const SIDE = "order-2 ml-auto flex shrink-0 items-center sm:order-3";
 const SLOT =
   "order-3 flex min-w-0 basis-full flex-wrap items-center gap-x-2 gap-y-1.5 sm:order-2 sm:flex-1 sm:basis-0";
 
-function WhenRow({ children, exit, index, joined, lost }: WhenRowProps) {
+function WhenRow({
+  children,
+  detail,
+  exit,
+  index,
+  joined,
+  lost,
+}: WhenRowProps) {
   return (
     <div
       className={cn(
@@ -81,6 +98,11 @@ function WhenRow({ children, exit, index, joined, lost }: WhenRowProps) {
         ) : null}
         <span className="font-mono tabular-nums">{index + 1}</span>
       </span>
+      {detail ? (
+        <div className="order-4 min-w-0 basis-full pt-1 pb-0.5 sm:pl-14">
+          {detail}
+        </div>
+      ) : null}
       <span
         aria-hidden="true"
         className={cn(
@@ -175,12 +197,13 @@ export function RuleBlock({
   when,
   then,
   action,
+  detail,
   note,
   className,
 }: RuleBlockProps) {
   const joined = status === "armed" || status === "fired";
   const lost = status === "lost";
-  const label = STATUS_LABEL[status];
+  const label = STATUS_NAME[status];
   return (
     <motion.article
       animate={{ rowGap: joined ? "0px" : `${GAP}px` }}
@@ -190,7 +213,13 @@ export function RuleBlock({
       initial={false}
       transition={SNAP}
     >
-      <WhenRow exit={exit} index={index} joined={joined} lost={lost}>
+      <WhenRow
+        detail={detail}
+        exit={exit}
+        index={index}
+        joined={joined}
+        lost={lost}
+      >
         {when}
       </WhenRow>
       <ThenRow action={action} joined={joined} note={note} status={status}>
