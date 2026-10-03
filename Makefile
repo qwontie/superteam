@@ -40,7 +40,7 @@ backend-dev:
 	$(MAKE) -C backend dev
 
 witness:
-	bun run --filter witness start
+	bun run --cwd apps/witness start
 
 keys:
 	bash scripts/keys.sh
