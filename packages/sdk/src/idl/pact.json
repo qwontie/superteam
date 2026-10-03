@@ -121,6 +121,57 @@
       "args": []
     },
     {
+      "name": "close",
+      "discriminator": [
+        98,
+        165,
+        201,
+        177,
+        108,
+        65,
+        206,
+        96
+      ],
+      "accounts": [
+        {
+          "name": "creator",
+          "writable": true,
+          "signer": true,
+          "relations": [
+            "deal"
+          ]
+        },
+        {
+          "name": "deal",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  100,
+                  101,
+                  97,
+                  108
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "deal.creator",
+                "account": "Deal"
+              },
+              {
+                "kind": "account",
+                "path": "deal.deal_id",
+                "account": "Deal"
+              }
+            ]
+          }
+        }
+      ],
+      "args": []
+    },
+    {
       "name": "create_deal",
       "discriminator": [
         198,
@@ -395,6 +446,19 @@
       ]
     },
     {
+      "name": "DealClosed",
+      "discriminator": [
+        38,
+        112,
+        214,
+        184,
+        107,
+        76,
+        191,
+        175
+      ]
+    },
+    {
       "name": "DealCreated",
       "discriminator": [
         27,
@@ -647,6 +711,11 @@
       "code": 6039,
       "name": "OpenSlotNotBound",
       "msg": "The rule pays an open slot that is still empty"
+    },
+    {
+      "code": 6040,
+      "name": "NotSettled",
+      "msg": "Only a settled deal can be closed"
     }
   ],
   "types": [
@@ -894,6 +963,26 @@
           {
             "name": "bump",
             "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "DealClosed",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "deal",
+            "type": "pubkey"
+          },
+          {
+            "name": "creator",
+            "type": "pubkey"
+          },
+          {
+            "name": "lamports",
+            "type": "u64"
           }
         ]
       }

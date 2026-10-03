@@ -82,4 +82,6 @@ pub enum PactError {
     AlreadyBound,
     #[msg("The rule pays an open slot that is still empty")]
     OpenSlotNotBound,
+    #[msg("Only a settled deal can be closed")]
+    NotSettled,
 }

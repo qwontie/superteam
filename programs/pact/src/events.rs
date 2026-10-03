@@ -40,3 +40,10 @@ pub struct Executed {
     pub executor: Pubkey,
     pub amount: u64,
 }
+
+#[event]
+pub struct DealClosed {
+    pub deal: Pubkey,
+    pub creator: Pubkey,
+    pub lamports: u64,
+}

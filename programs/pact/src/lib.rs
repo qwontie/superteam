@@ -54,4 +54,8 @@ pub mod pact {
     pub fn cancel(ctx: Context<Cancel>) -> Result<()> {
         instructions::cancel::handler(ctx)
     }
+
+    pub fn close(ctx: Context<Close>) -> Result<()> {
+        instructions::close::handler(ctx)
+    }
 }

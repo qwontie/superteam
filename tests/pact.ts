@@ -107,6 +107,13 @@ describe("pact", () => {
       .signers([creator])
       .rpc({ commitment: "confirmed" });
 
+  const close = (deal: PublicKey, creator: Keypair = client) =>
+    program.methods
+      .close()
+      .accountsPartial({ creator: creator.publicKey, deal })
+      .signers([creator])
+      .rpc({ commitment: "confirmed" });
+
   const balance = (key: PublicKey) => connection.getBalance(key, "confirmed");
 
   const fundedFreelanceDeal = async () => {
@@ -518,6 +525,27 @@ describe("pact", () => {
 
       const funded = await fundedFreelanceDeal();
       await rejectsWith(cancel(funded), "NotDraft");
+    });
+  });
+
+  describe("close", () => {
+    it("returns the rent of a settled deal to the creator only", async () => {
+      const deal = await fundedFreelanceDeal();
+      await rejectsWith(close(deal), "NotSettled");
+      await signal(deal, client);
+      await execute(deal, 1);
+
+      await rejectsWith(close(deal, freelancer), "NotCreator");
+      const rent = await balance(deal);
+      const creatorBefore = await balance(client.publicKey);
+      await close(deal);
+      assert.equal(await connection.getAccountInfo(deal, "confirmed"), null);
+      assert.equal(await balance(client.publicKey), creatorBefore + rent);
+    });
+
+    it("refuses to close a draft", async () => {
+      const deal = await createDeal(program, client, await freelanceSpec());
+      await rejectsWith(close(deal), "NotSettled");
     });
   });
 });

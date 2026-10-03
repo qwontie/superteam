@@ -127,6 +127,57 @@ export type Pact = {
       "args": []
     },
     {
+      "name": "close",
+      "discriminator": [
+        98,
+        165,
+        201,
+        177,
+        108,
+        65,
+        206,
+        96
+      ],
+      "accounts": [
+        {
+          "name": "creator",
+          "writable": true,
+          "signer": true,
+          "relations": [
+            "deal"
+          ]
+        },
+        {
+          "name": "deal",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  100,
+                  101,
+                  97,
+                  108
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "deal.creator",
+                "account": "deal"
+              },
+              {
+                "kind": "account",
+                "path": "deal.dealId",
+                "account": "deal"
+              }
+            ]
+          }
+        }
+      ],
+      "args": []
+    },
+    {
       "name": "createDeal",
       "discriminator": [
         198,
@@ -401,6 +452,19 @@ export type Pact = {
       ]
     },
     {
+      "name": "dealClosed",
+      "discriminator": [
+        38,
+        112,
+        214,
+        184,
+        107,
+        76,
+        191,
+        175
+      ]
+    },
+    {
       "name": "dealCreated",
       "discriminator": [
         27,
@@ -653,6 +717,11 @@ export type Pact = {
       "code": 6039,
       "name": "openSlotNotBound",
       "msg": "The rule pays an open slot that is still empty"
+    },
+    {
+      "code": 6040,
+      "name": "notSettled",
+      "msg": "Only a settled deal can be closed"
     }
   ],
   "types": [
@@ -900,6 +969,26 @@ export type Pact = {
           {
             "name": "bump",
             "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "dealClosed",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "deal",
+            "type": "pubkey"
+          },
+          {
+            "name": "creator",
+            "type": "pubkey"
+          },
+          {
+            "name": "lamports",
+            "type": "u64"
           }
         ]
       }

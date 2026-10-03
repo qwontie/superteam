@@ -126,5 +126,3 @@ export const bounty = (input: BountyInput): DealSpec => ({
   ],
   title: input.title,
 });
-
-export const freelanceWithCheck = gig;

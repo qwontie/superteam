@@ -16,6 +16,7 @@ import {
   explorerTx,
   fetchDeal,
   getAttestInstruction,
+  getCloseInstruction,
   getCreateDealInstruction,
   getExecuteInstruction,
   getFundInstruction,
@@ -128,6 +129,19 @@ const waitUntil = async (unixSeconds: number): Promise<void> => {
 const balance = async (address: Address) =>
   (await rpc.getBalance(address, { commitment: "confirmed" }).send()).value;
 
+const closeDeal = async (deal: Address) => {
+  const before = await balance(client.address);
+  await send(
+    "close (client)",
+    client,
+    getCloseInstruction({ creator: client, deal })
+  );
+  const back = (await balance(client.address)) - before + 5000n;
+  console.log(
+    `rent back to the client ${lamportsToSol(back)} SOL, deal account closed: ${(await fetchDeal(rpc, deal)) === null}`
+  );
+};
+
 const report = async (deal: Address) => {
   const state = await fetchDeal(rpc, deal);
   if (!state) {
@@ -188,6 +202,7 @@ console.log(
 if (paid.status !== "settled" || paid.settledRule !== 0) {
   throw new Error("run 1 did not settle on rule 0");
 }
+await closeDeal(paidRun.deal);
 
 console.log(
   `\nRun 2: nobody shows up, after a ${REFUND_DEADLINE_SECONDS} s deadline a witness executes the refund`
@@ -215,6 +230,7 @@ console.log(
 if (refunded.status !== "settled" || refunded.settledRule !== 2) {
   throw new Error("run 2 did not settle on rule 2");
 }
+await closeDeal(refund.deal);
 
 console.log(
   "\nRun 3: bounty, 2 of 3 reviewers name the winner, the winner is paid"
@@ -261,3 +277,4 @@ if (
 ) {
   throw new Error("run 3 did not pay the nominated winner");
 }
+await closeDeal(bountyRun.deal);

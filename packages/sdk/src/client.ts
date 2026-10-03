@@ -38,7 +38,8 @@ type InstructionName =
   | "signal"
   | "attest"
   | "execute"
-  | "cancel";
+  | "cancel"
+  | "close";
 
 const instructionDiscriminator = (name: InstructionName) => {
   const instruction = idl.instructions.find((entry) => entry.name === name);
@@ -187,6 +188,15 @@ export const getCancelInstruction = (input: {
 }): Instruction => ({
   accounts: [signerMeta(input.creator, true), writable(input.deal)],
   data: instructionDiscriminator("cancel"),
+  programAddress: PACT_PROGRAM_ID,
+});
+
+export const getCloseInstruction = (input: {
+  creator: TransactionSigner;
+  deal: Address;
+}): Instruction => ({
+  accounts: [signerMeta(input.creator, true), writable(input.deal)],
+  data: instructionDiscriminator("close"),
   programAddress: PACT_PROGRAM_ID,
 });
 

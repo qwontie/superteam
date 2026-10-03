@@ -13,6 +13,7 @@ import {
   findDealAddress,
   findPactError,
   getAttestInstruction,
+  getCloseInstruction,
   getCreateDealInstruction,
   getExecuteInstruction,
   OPEN_SLOT,
@@ -234,6 +235,21 @@ describe("chain client", () => {
     expect(execute.accounts?.slice(2)).toEqual([
       { address: address(CLIENT), role: AccountRole.WRITABLE },
       { address: address(OPEN_SLOT), role: AccountRole.READONLY },
+    ]);
+  });
+
+  test("encodes close exactly like Anchor", () => {
+    const deal = address(WITNESSES[2] as string);
+    const close = getCloseInstruction({ creator, deal });
+    expect(
+      coder.instruction.decode(Buffer.from(close.data as Uint8Array))
+    ).toEqual({
+      data: {},
+      name: "close",
+    });
+    expect(close.accounts?.map((account) => account.role)).toEqual([
+      AccountRole.WRITABLE_SIGNER,
+      AccountRole.WRITABLE,
     ]);
   });
 });
