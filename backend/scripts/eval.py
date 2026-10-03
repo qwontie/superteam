@@ -16,7 +16,6 @@ from services.deal.schemas import (
     DealDraftRequest,
     DealDraftResponse,
     Signed,
-    Strict,
     Unsigned,
 )
 from services.deal.service import prepare, respond
@@ -196,7 +195,16 @@ def expect_hostile(r: DealDraftResponse, _now: int) -> list[str]:
 def expect_bounty(r: DealDraftResponse, _now: int) -> list[str]:
     d = r.draft
     unfunded = [p for i, p in enumerate(d.parties) if i != d.funder]
+    opened = [i for i, p in enumerate(d.parties) if p.open]
+    if env.deal.open_recipient:
+        binds = [c.binds for c in d.checks]
+        return [
+            *need(len(opened) == 1, f"expected one open winner slot, got {opened}"),
+            *need(opened == binds, f"check binds {binds} != open slots {opened}"),
+            *need(d.amount == "8000000000", f"amount {d.amount} != 8 SOL"),
+        ]
     return [
+        *need(not opened, "open slot while open recipients are off"),
         *need(d.amount == "8000000000", f"amount {d.amount} != 8 SOL"),
         *need(bool(d.checks) and len(d.checks[0].witnesses) == 3, "expected 3 judges"),
         *need(has(d, Attested), "no attested rule"),
@@ -325,9 +333,7 @@ async def run_case(case: Case, llm_settings: LlmSettings) -> Outcome:
         problems = [] if ok else [f"{e.code}: {e.message}"]
         return Outcome(case.name, ok, seconds, requests, problems)
     try:
-        DealDraft.model_validate(
-            response.draft.model_dump(), context=Strict(now=now, allowed=ctx.allowed)
-        )
+        DealDraft.model_validate(response.draft.model_dump(), context=ctx.strict())
     except ValidationError as e:
         return Outcome(
             case.name, ok=False, seconds=seconds, requests=requests, problems=[str(e)]
@@ -375,7 +381,9 @@ async def main() -> None:
     )
     parser.add_argument("--repeat", type=int, default=1)
     parser.add_argument("--case", action="append", default=[])
+    parser.add_argument("--open", action="store_true", help="open recipients on")
     args = parser.parse_args()
+    env.deal.open_recipient = args.open
     specs = args.model or [
         f"{env.llm.model}@{env.llm.thinking_budget or env.llm.thinking_level or ''}"
     ]

@@ -37,8 +37,13 @@ class LlmSettings(Section):
     retries: int = 3
 
 
+class DealSettings(Section):
+    open_recipient: bool = False
+
+
 class Settings(BaseSettings):
     log: LogSettings = Field(default_factory=LogSettings)
+    deal: DealSettings = Field(default_factory=DealSettings)
     api: ApiSettings = Field(default_factory=ApiSettings)
     llm: LlmSettings = Field(default_factory=LlmSettings)
     gemini_api_key: SecretStr = SecretStr("")

@@ -21,6 +21,10 @@ class ModelSlot(BaseModel):
             " Never make one up."
         )
     )
+    open: bool = Field(
+        default=False,
+        description="true only for a recipient unknown at creation (bounty winner)",
+    )
 
 
 class ModelAfter(BaseModel):
@@ -62,6 +66,9 @@ class ModelCheck(BaseModel):
     )
     witnesses: list[ModelSlot] = Field(description="1 to 5 people who vote yes or no")
     threshold: int = Field(description="How many yes votes are needed")
+    binds: int | None = Field(
+        default=None, description="Index of the open party this check picks, else null"
+    )
 
 
 class ModelRule(BaseModel):
@@ -134,10 +141,11 @@ def lamports_to_sol(value: str) -> str:
     return format(sol.normalize(), "f")
 
 
-def slot_data(slot: ModelSlot) -> dict[str, str | None]:
+def slot_data(slot: ModelSlot) -> dict[str, str | bool | None]:
     return {
         "label": slot.label.strip(),
         "address": (slot.address or "").strip() or None,
+        "open": slot.open,
     }
 
 
@@ -160,6 +168,7 @@ def check_data(check: ModelCheck) -> dict[str, object]:
         "expect": "",
         "witnesses": [slot_data(w) for w in check.witnesses],
         "threshold": check.threshold,
+        "binds": check.binds,
     }
 
 
@@ -198,7 +207,7 @@ def _model_condition(
 
 def from_draft(draft: DealDraft, zone: ZoneInfo) -> ModelDraft:
     def slot(s: Slot) -> ModelSlot:
-        return ModelSlot(label=s.label, address=s.address)
+        return ModelSlot(label=s.label, address=s.address, open=s.open)
 
     return ModelDraft(
         title=draft.title,
@@ -210,6 +219,7 @@ def from_draft(draft: DealDraft, zone: ZoneInfo) -> ModelDraft:
                 statement=c.target,
                 witnesses=[slot(w) for w in c.witnesses],
                 threshold=c.threshold,
+                binds=c.binds,
             )
             for c in draft.checks
         ],

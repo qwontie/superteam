@@ -13,12 +13,16 @@ SUMMARY_MAX = 200
 QUESTION_MAX = 200
 QUESTIONS_MAX = 5
 BPS_TOTAL = 10_000
+U64_MAX = 2**64 - 1
+CHECKS_BASE = 2
+CHECKS_OPEN = 3
 MAX_HORIZON_SECONDS = 5 * 365 * 24 * 3600
 
 
 class Slot(BaseModel):
     label: str = Field(min_length=1, max_length=LABEL_MAX)
     address: str | None = None
+    open: bool = False
 
 
 class After(BaseModel):
@@ -55,6 +59,7 @@ class Check(BaseModel):
     expect: str = ""
     witnesses: list[Slot] = Field(min_length=1, max_length=5)
     threshold: int = Field(ge=1)
+    binds: int | None = Field(default=None, ge=0)
 
 
 class Rule(BaseModel):
@@ -67,6 +72,7 @@ class Rule(BaseModel):
 class Strict:
     now: int
     allowed: frozenset[str] = field(default_factory=frozenset)
+    open_recipient: bool = False
 
 
 def _byte_len(value: str) -> int:
@@ -97,7 +103,7 @@ class DealDraft(BaseModel):
     parties: list[Slot] = Field(min_length=2, max_length=4)
     funder: int = Field(ge=0)
     amount: str | None = Field(default=None, pattern=r"^[1-9][0-9]{0,19}$")
-    checks: list[Check] = Field(default_factory=list, max_length=2)
+    checks: list[Check] = Field(default_factory=list, max_length=CHECKS_OPEN)
     rules: list[Rule] = Field(min_length=1, max_length=6)
 
     @model_validator(mode="after")
@@ -116,6 +122,11 @@ class DealDraft(BaseModel):
             problems.append(f"title is longer than {TITLE_MAX_BYTES} bytes")
         if self.funder >= len(self.parties):
             problems.append("funder is not a party index")
+        if self.amount is not None and int(self.amount) > U64_MAX:
+            problems.append("amount does not fit in u64")
+        max_checks = CHECKS_OPEN if strict.open_recipient else CHECKS_BASE
+        if len(self.checks) > max_checks:
+            problems.append(f"at most {max_checks} checks")
         problems += _slot_problems(self.parties, "parties", strict.allowed)
         for c, check in enumerate(self.checks):
             problems += self._check_problems(c, check, strict.allowed)
@@ -127,6 +138,49 @@ class DealDraft(BaseModel):
             problems.append(
                 "no exit rule: at least one rule must have only after conditions"
             )
+        problems += self._open_problems(strict.open_recipient)
+        return problems
+
+    def _open_problems(self, enabled: bool) -> list[str]:  # noqa: FBT001
+        open_slots = {i for i, p in enumerate(self.parties) if p.open}
+        binders = [c.binds for c in self.checks if c.binds is not None]
+        if not enabled:
+            off = (
+                "open recipients are not available: use a normal party with"
+                " address null and no binds"
+            )
+            return [off] if open_slots or binders else []
+        problems: list[str] = []
+        if self.funder in open_slots:
+            problems.append("the funder cannot be an open slot")
+        for i in open_slots:
+            if self.parties[i].address is not None:
+                problems.append(f"parties[{i}] is open, its address must be null")
+            if binders.count(i) != 1:
+                problems.append(
+                    f"parties[{i}] is open and needs exactly one binding check"
+                )
+        for c, check in enumerate(self.checks):
+            if check.binds is not None and check.binds not in open_slots:
+                problems.append(f"checks[{c}].binds must point to an open party")
+            if any(w.open for w in check.witnesses):
+                problems.append(f"checks[{c}] witnesses cannot be open slots")
+        return problems + self._open_payout_problems(open_slots)
+
+    def _open_payout_problems(self, open_slots: set[int]) -> list[str]:
+        binding = {
+            party: {c for c, check in enumerate(self.checks) if check.binds == party}
+            for party in open_slots
+        }
+        problems: list[str] = []
+        for r, rule in enumerate(self.rules):
+            attested = {c.check for c in rule.when if isinstance(c, Attested)}
+            problems += [
+                f"rules[{r}] pays open parties[{p.party}] without attested of the"
+                " check that binds it"
+                for p in rule.pay
+                if p.party in open_slots and not binding[p.party] & attested
+            ]
         return problems
 
     @staticmethod

@@ -6,6 +6,8 @@ from zoneinfo import ZoneInfo
 from pydantic import ValidationError
 from pydantic_ai import Agent, ModelRetry, NativeOutput, RunContext
 
+from utils.env import env
+
 from .addresses import addresses_in
 from .model_io import ConversionError, ModelDraft, NotADeal, draft_data, from_draft
 from .schemas import DealDraft, DealDraftRequest, Strict
@@ -19,8 +21,9 @@ reviews your draft as blocks, edits it and signs it. You only suggest.
 Model of a deal:
 - parties: 2 to 4 roles (Client, Freelancer, Contributor A, ...). Referenced by index.
 - funder: index of the party who deposits amount_sol.
-- checks: 0 to 2 manual checks. A check is a statement ("Landing page delivered as
-  agreed") that named witnesses (reviewers, judges, mentors) vote yes or no on.
+- checks: 0 to 2 manual checks (3 when open recipients are on). A check is a
+  statement ("Landing page delivered as agreed") that named witnesses (reviewers,
+  judges, mentors) vote yes or no on.
   threshold yes votes make it pass. Witnesses may include parties.
 - rules: 1 to 6, in priority order. The first rule whose conditions hold and that
   someone executes pays out. Conditions:
@@ -85,9 +88,12 @@ class DealContext:
     now: int
     zone: ZoneInfo
     allowed: frozenset[str]
+    open_recipient: bool = False
 
     def strict(self) -> Strict:
-        return Strict(now=self.now, allowed=self.allowed)
+        return Strict(
+            now=self.now, allowed=self.allowed, open_recipient=self.open_recipient
+        )
 
 
 deal_agent = Agent[DealContext, ModelDraft | NotADeal](
@@ -95,6 +101,27 @@ deal_agent = Agent[DealContext, ModelDraft | NotADeal](
     deps_type=DealContext,
     instructions=INSTRUCTIONS,
 )
+
+
+OPEN_ON = """
+Open recipients are ON. A bounty, contest or prize whose winner is unknown at
+creation gets a winner party with open true and address null, and a manual check
+whose binds is that party index: its witnesses (judges) pick the winner by voting.
+Rules: attested(that check) pays the winner; the exit rule refunds the sponsor
+(funder). Up to 3 prize places: one open party and one binding check per place. The
+funder is never open. Everyone else has open false and binds null.
+""".strip()
+
+OPEN_OFF = """
+Open recipients are OFF: every party has open false and every check binds null. A
+winner unknown at creation (bounty, contest) is a normal party with address null;
+ask how the winner will be chosen and added.
+""".strip()
+
+
+@deal_agent.instructions
+def open_recipient(ctx: RunContext[DealContext]) -> str:
+    return OPEN_ON if ctx.deps.open_recipient else OPEN_OFF
 
 
 def context_for(request: DealDraftRequest, zone: ZoneInfo) -> DealContext:
@@ -107,7 +134,12 @@ def context_for(request: DealDraftRequest, zone: ZoneInfo) -> DealContext:
                 allowed.add(slot.address)
         for check in request.draft.checks:
             allowed.update(w.address for w in check.witnesses if w.address)
-    return DealContext(now=request.now, zone=zone, allowed=frozenset(allowed))
+    return DealContext(
+        now=request.now,
+        zone=zone,
+        allowed=frozenset(allowed),
+        open_recipient=env.deal.open_recipient,
+    )
 
 
 def prompt_for(request: DealDraftRequest, ctx: DealContext) -> str:
