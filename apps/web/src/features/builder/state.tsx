@@ -35,7 +35,7 @@ interface BuilderValue {
   wallet: string | null;
 }
 
-const STORAGE_KEY = "pact.builder.draft.v1";
+const STORAGE_KEY = "pact.builder.draft.v2";
 const CLOCK_STEP_MS = 20_000;
 const EMPTY: Validation = { problems: [], spec: null };
 

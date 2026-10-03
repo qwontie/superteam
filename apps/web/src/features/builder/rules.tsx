@@ -211,7 +211,7 @@ export function Rules() {
         >
           <AnimatePresence initial={false}>
             {free.map((rule, index) => (
-              <Arrive flash key={rule.id}>
+              <Arrive follow key={rule.id}>
                 <SortableRule index={index} rule={rule} />
               </Arrive>
             ))}
@@ -231,7 +231,7 @@ export function Rules() {
           </div>
           <AnimatePresence initial={false}>
             {exit ? (
-              <Arrive flash key={exit.id}>
+              <Arrive follow key={exit.id}>
                 <ExitRule index={free.length} rule={exit} />
               </Arrive>
             ) : null}

@@ -1,10 +1,16 @@
 import { nowSeconds } from "@pact/sdk";
+import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useSearch } from "@tanstack/react-router";
-import { useEffect, useRef } from "react";
+import { type ReactNode, useCallback, useEffect } from "react";
+import { AiProvider, useAi } from "@/features/builder/ai";
 import { type TemplateKey, templateDraft } from "@/features/builder/model";
+import { PromptBox } from "@/features/builder/prompt-box";
 import { Start } from "@/features/builder/start";
 import { BuilderProvider, useBuilder } from "@/features/builder/state";
 import { Workspace } from "@/features/builder/workspace";
+import { usePlan } from "@/lib/use-plan";
+import { type Quota, quotaKey } from "@/lib/use-quota";
+import { useWalletProof } from "@/lib/wallet-proof";
 
 const TEMPLATE_KEYS: readonly string[] = ["gig", "bounty", "silence"];
 
@@ -19,24 +25,59 @@ const useTemplateParam = () => {
     if (TEMPLATE_KEYS.includes(template)) {
       replace(templateDraft(template as TemplateKey, nowSeconds()));
     }
-    navigate({ replace: true, to: "/new" }).catch(() => undefined);
+    navigate({ replace: true, search: {}, to: "/new" }).catch(() => undefined);
   }, [navigate, replace, template]);
 };
 
+function AiBridge({ children }: { children: ReactNode }) {
+  const { wallet } = useBuilder();
+  const plan = usePlan();
+  const { proof, request } = useWalletProof();
+  const queryClient = useQueryClient();
+  const pro = plan.kind === "pro";
+  const getProof = useCallback(() => {
+    if (proof || !pro) {
+      return Promise.resolve(proof);
+    }
+    return request();
+  }, [pro, proof, request]);
+  const onQuota = useCallback(
+    (quota: Quota) => {
+      if (wallet) {
+        queryClient.setQueryData(quotaKey(wallet), quota);
+      }
+    },
+    [queryClient, wallet]
+  );
+  return (
+    <AiProvider getProof={getProof} onQuota={onQuota}>
+      {children}
+    </AiProvider>
+  );
+}
+
 function BuilderScreen() {
-  const { draft } = useBuilder();
-  const origin = useRef<HTMLElement>(null);
+  const { draft, locked } = useBuilder();
+  const { origin } = useAi();
   useTemplateParam();
   if (!draft) {
-    return <Start prompt={null} />;
+    return <Start prompt={<PromptBox variant="start" />} />;
   }
-  return <Workspace origin={origin} prompt={null} streaming={false} />;
+  return (
+    <Workspace
+      origin={origin}
+      prompt={<PromptBox variant="side" />}
+      streaming={locked}
+    />
+  );
 }
 
 export function BuilderEntry() {
   return (
     <BuilderProvider>
-      <BuilderScreen />
+      <AiBridge>
+        <BuilderScreen />
+      </AiBridge>
     </BuilderProvider>
   );
 }

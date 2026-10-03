@@ -7,6 +7,7 @@ import {
   PopoverRoot,
   PopoverTrigger,
 } from "@cladd-ui/react";
+import type { CheckKind } from "@pact/sdk";
 import { Eye, Plus, Trash2 } from "lucide-react";
 import { AnimatePresence } from "motion/react";
 import { useCallback } from "react";
@@ -36,6 +37,26 @@ import {
 import { anchors } from "@/features/builder/problems";
 import { useBuilder, useDraft } from "@/features/builder/state";
 
+const KIND_TEXT: Record<CheckKind, string> = {
+  github_checks: "witness nodes confirm the checks on a commit are green",
+  github_pr_merged: "witness nodes confirm a pull request is merged",
+  http_contains: "witness nodes confirm a page contains a text",
+  manual: "reviewers confirm a statement",
+};
+const TARGET_HINT: Record<CheckKind, string> = {
+  github_checks: "owner/repo@ref",
+  github_pr_merged: "owner/repo#number",
+  http_contains: "https://the.page/to/read",
+  manual:
+    "What do they confirm? For example: the landing page is live and matches the brief",
+};
+const TARGET_LABEL: Record<CheckKind, string> = {
+  github_checks: "Repository and ref",
+  github_pr_merged: "Pull request",
+  http_contains: "Page address",
+  manual: "What the reviewers confirm",
+};
+const EXPECT_MAX = 64;
 const LABEL_MAX = 40;
 const TARGET_MAX = 128;
 
@@ -191,6 +212,11 @@ function CheckBlock({ check, index }: { check: DraftCheck; index: number }) {
       edit((d) => updateCheck(d, check.id, (c) => ({ ...c, target }))),
     [check.id, edit]
   );
+  const setExpect = useCallback(
+    (expect: string) =>
+      edit((d) => updateCheck(d, check.id, (c) => ({ ...c, expect }))),
+    [check.id, edit]
+  );
   const setThreshold = useCallback(
     (threshold: number) =>
       edit((d) => updateCheck(d, check.id, (c) => ({ ...c, threshold }))),
@@ -222,9 +248,7 @@ function CheckBlock({ check, index }: { check: DraftCheck; index: number }) {
           Check {index + 1}
         </h3>
         <span className="text-cladd-fg-soft text-sm">
-          {check.binds === null
-            ? "reviewers confirm a statement"
-            : "reviewers name the winner"}
+          {check.binds === null ? KIND_TEXT[check.kind] : "names the winner"}
         </span>
         {editable ? (
           <Button
@@ -241,13 +265,24 @@ function CheckBlock({ check, index }: { check: DraftCheck; index: number }) {
       </div>
       <Input
         disabled={!editable}
-        inputComponentProps={{ "aria-label": "What the reviewers confirm" }}
+        inputComponentProps={{ "aria-label": TARGET_LABEL[check.kind] }}
         maxLength={TARGET_MAX}
         onChange={setTarget}
-        placeholder="What do they confirm? For example: the landing page is live and matches the brief"
+        placeholder={TARGET_HINT[check.kind]}
         size="xl"
         value={check.target}
       />
+      {check.kind === "http_contains" ? (
+        <Input
+          disabled={!editable}
+          inputComponentProps={{ "aria-label": "Text the page must contain" }}
+          maxLength={EXPECT_MAX}
+          onChange={setExpect}
+          placeholder="Text the page must contain"
+          size="xl"
+          value={check.expect}
+        />
+      ) : null}
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
         <span className="flex items-center gap-2 text-sm">
           <span className="text-cladd-fg-soft">Needs</span>
@@ -326,7 +361,7 @@ export function Checks() {
       </div>
       <AnimatePresence initial={false}>
         {draft.checks.map((check, index) => (
-          <Arrive flash key={check.id}>
+          <Arrive flash follow key={check.id}>
             <CheckBlock check={check} index={index} />
           </Arrive>
         ))}

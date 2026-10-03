@@ -15,7 +15,7 @@ import { GripVertical, Lock, Plus, Trash2 } from "lucide-react";
 import { Fragment, type ReactNode, useCallback } from "react";
 import { RuleBlock } from "@/components/pact/rule-block";
 import { FiredNote } from "@/components/pact/vault";
-import { ArrivePiece } from "@/features/builder/arrive";
+import { ArrivePiece, LandingFlash } from "@/features/builder/arrive";
 import { ConditionPiece } from "@/features/builder/condition-piece";
 import { readRule } from "@/features/builder/describe";
 import {
@@ -231,7 +231,7 @@ function RuleBody({ action, gutter, index, rule }: RuleBodyProps) {
       <div className="flex min-w-0 flex-1 flex-col gap-2">
         <div
           className={cn(
-            "rounded-block outline-2 outline-offset-2 transition-[outline-color] duration-150",
+            "relative rounded-block outline-2 outline-offset-2 transition-[outline-color] duration-150",
             welcome ? "outline-dashed outline-cladd-fg" : "outline-transparent"
           )}
           id={anchorId(anchors.rule(rule.id))}
@@ -276,6 +276,7 @@ function RuleBody({ action, gutter, index, rule }: RuleBodyProps) {
               </>
             }
           />
+          <LandingFlash />
         </div>
         <p className="px-1 text-cladd-fg-soft text-sm">
           {readRule(rule, draft)}

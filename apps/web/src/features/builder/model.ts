@@ -1,5 +1,6 @@
 import {
   bounty,
+  type CheckKind,
   type DealSpec,
   gig,
   LIMITS,
@@ -29,7 +30,9 @@ export interface Reviewer {
 
 export interface DraftCheck {
   binds: string | null;
+  expect: string;
   id: string;
+  kind: CheckKind;
   reviewers: Reviewer[];
   target: string;
   threshold: number;
@@ -77,7 +80,7 @@ export type WireCondition =
 export interface WireCheck {
   binds: number | null;
   expect: string;
-  kind: "manual";
+  kind: CheckKind;
   target: string;
   threshold: number;
   witnesses: WireSlot[];
@@ -192,7 +195,9 @@ export const draftFromWire = (
     const id = idAt(ids.checks, index);
     return {
       binds: check.binds === null ? null : idAt(ids.parties, check.binds),
+      expect: check.expect,
       id,
+      kind: check.kind,
       reviewers: check.witnesses.map((slot, position) => ({
         address: slot.address ?? "",
         id: `${id}-r${position}`,
@@ -271,8 +276,8 @@ export const draftToSpec = (draft: Draft, wallet: string | null): DealSpec => ({
   amount: amountLamports(draft.amount) ?? "",
   checks: draft.checks.map((check) => ({
     binds: check.binds === null ? null : partyIndex(draft, check.binds),
-    expect: "",
-    kind: "manual" as const,
+    expect: check.expect.trim(),
+    kind: check.kind,
     target: check.target.trim(),
     threshold: check.threshold,
     witnesses: check.reviewers.map((reviewer) => reviewer.address.trim()),
@@ -316,8 +321,8 @@ export const draftToWire = (
     amount: spec.amount || null,
     checks: draft.checks.map((check, index) => ({
       binds: spec.checks[index]?.binds ?? null,
-      expect: "",
-      kind: "manual",
+      expect: check.expect.trim(),
+      kind: check.kind,
       target: check.target.trim() || "To be described",
       threshold: Math.max(1, check.threshold),
       witnesses: check.reviewers.map((reviewer, position) => ({
@@ -760,7 +765,9 @@ export const addCheck = (draft: Draft): Draft => {
       ...draft.checks,
       {
         binds: null,
+        expect: "",
         id,
+        kind: "manual",
         reviewers: [{ address: "", id: newId(), label: "Reviewer 1" }],
         target: "",
         threshold: 1,

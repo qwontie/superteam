@@ -17,6 +17,7 @@ type Entrance = "none" | "manual" | "stream";
 
 interface ArrivalValue {
   origin: RefObject<HTMLElement | null>;
+  parent: Entrance;
   ready: boolean;
   streaming: boolean;
 }
@@ -24,6 +25,7 @@ interface ArrivalValue {
 const NO_ORIGIN: RefObject<HTMLElement | null> = { current: null };
 const START_SCALE = 0.4;
 const FALLBACK_DROP = -28;
+const FOLLOW_MARGIN = 120;
 const PIECE_DELAY = 0.26;
 const PIECE_STEP = 0.09;
 const FLASH_SECONDS = 1.1;
@@ -32,6 +34,7 @@ const EXIT = { opacity: 0, scale: 0.94 };
 
 const ArrivalContext = createContext<ArrivalValue>({
   origin: NO_ORIGIN,
+  parent: "none",
   ready: false,
   streaming: false,
 });
@@ -47,20 +50,20 @@ export function ArrivalProvider({
 }) {
   const [ready, setReady] = useState(false);
   useEffect(() => setReady(true), []);
-  const value = useMemo(
-    () => ({ origin, ready, streaming }),
+  const value = useMemo<ArrivalValue>(
+    () => ({ origin, parent: "none", ready, streaming }),
     [origin, ready, streaming]
   );
   return <ArrivalContext value={value}>{children}</ArrivalContext>;
 }
 
-const useEntrance = (): Entrance => {
-  const { ready, streaming } = useContext(ArrivalContext);
+const useEntrance = (inherit = false): Entrance => {
+  const { parent, ready, streaming } = useContext(ArrivalContext);
   const [entrance] = useState<Entrance>(() => {
     if (!ready) {
-      return "none";
+      return inherit && parent === "stream" ? "stream" : "none";
     }
-    return streaming ? "stream" : "manual";
+    return streaming && !inherit ? "stream" : "manual";
   });
   return entrance;
 };
@@ -74,15 +77,24 @@ export function Arrive({
   children,
   className,
   flash = false,
+  follow = false,
 }: {
   children: ReactNode;
   className?: string;
   flash?: boolean;
+  follow?: boolean;
 }) {
-  const { origin } = useContext(ArrivalContext);
+  const outer = useContext(ArrivalContext);
+  const { origin } = outer;
   const entrance = useEntrance();
   const reduced = useReducedMotion();
   const node = useRef<HTMLDivElement>(null);
+  const [settled, setSettled] = useState(false);
+  useEffect(() => setSettled(true), []);
+  const inner = useMemo<ArrivalValue>(
+    () => ({ ...outer, parent: entrance, ready: settled }),
+    [entrance, outer, settled]
+  );
 
   useLayoutEffect(() => {
     const element = node.current;
@@ -102,7 +114,12 @@ export function Arrive({
       );
       return () => pop.stop();
     }
-    const to = centerOf(element.getBoundingClientRect());
+    const landing = element.getBoundingClientRect();
+    const to = centerOf(landing);
+    const below = landing.bottom + FOLLOW_MARGIN - window.innerHeight;
+    if (follow && below > 0) {
+      window.scrollBy({ behavior: "smooth", top: below });
+    }
     const source = origin.current?.getBoundingClientRect();
     const from = source
       ? centerOf(source)
@@ -119,7 +136,7 @@ export function Arrive({
       { ...FLIGHT, filter: QUICK, opacity: QUICK }
     );
     return () => flight.stop();
-  }, [entrance, origin, reduced]);
+  }, [entrance, follow, origin, reduced]);
 
   return (
     <motion.div
@@ -128,21 +145,30 @@ export function Arrive({
       ref={node}
       transition={QUICK}
     >
-      {children}
-      {flash && entrance === "stream" && !reduced ? (
-        <motion.span
-          animate={{ opacity: [0, 1, 0] }}
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-0 rounded-block shadow-[inset_0_0_0_1.5px_var(--color-cladd-fg)]"
-          initial={{ opacity: 0 }}
-          transition={{
-            delay: PIECE_DELAY,
-            duration: FLASH_SECONDS,
-            times: FLASH_TIMES,
-          }}
-        />
-      ) : null}
+      <ArrivalContext value={inner}>{children}</ArrivalContext>
+      {flash ? <LandingFlash own={entrance} /> : null}
     </motion.div>
+  );
+}
+
+export function LandingFlash({ own }: { own?: Entrance }) {
+  const inherited = useEntrance(true);
+  const reduced = useReducedMotion();
+  if ((own ?? inherited) !== "stream" || reduced) {
+    return null;
+  }
+  return (
+    <motion.span
+      animate={{ opacity: [0, 1, 0] }}
+      aria-hidden="true"
+      className="pointer-events-none absolute inset-0 rounded-block shadow-[inset_0_0_0_1.5px_var(--color-cladd-fg)]"
+      initial={{ opacity: 0 }}
+      transition={{
+        delay: PIECE_DELAY,
+        duration: FLASH_SECONDS,
+        times: FLASH_TIMES,
+      }}
+    />
   );
 }
 
@@ -155,7 +181,7 @@ export function ArrivePiece({
   className?: string;
   position?: number;
 }) {
-  const entrance = useEntrance();
+  const entrance = useEntrance(true);
   const reduced = useReducedMotion();
   if (entrance === "none" || reduced) {
     return <span className={className}>{children}</span>;

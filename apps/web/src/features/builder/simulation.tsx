@@ -104,8 +104,8 @@ const simSpec = (draft: Draft, votes: CheckVotes[]): DealSpec => {
     amount: amountLamports(draft.amount) ?? "0",
     checks: draft.checks.map((check) => ({
       binds: check.binds === null ? null : partyIndex(draft, check.binds),
-      expect: "",
-      kind: "manual",
+      expect: check.expect,
+      kind: check.kind,
       target: check.target,
       threshold: check.threshold,
       witnesses: check.reviewers.map((reviewer) => reviewer.id),
