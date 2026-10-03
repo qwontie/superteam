@@ -7,6 +7,7 @@ import { ButtonLink } from "@/components/shell/button-link";
 import { DevnetBadge } from "@/components/shell/devnet-badge";
 import { ExplorerLink } from "@/components/shell/explorer-link";
 import { Logo } from "@/components/shell/logo";
+import { NetworkBanner } from "@/components/shell/network-banner";
 import { WalletButton } from "@/components/shell/wallet-button";
 import { shortAddress } from "@/lib/format";
 
@@ -48,6 +49,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           </div>
         </div>
       </header>
+      <NetworkBanner className={PAGE} />
       <div className="flex flex-1 flex-col">{children}</div>
       <footer className="mt-16 shadow-[0_-1px_0_var(--color-cladd-bg-outline)]">
         <div

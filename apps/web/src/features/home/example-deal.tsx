@@ -1,4 +1,4 @@
-import { Button, cn } from "@cladd-ui/react";
+import { Button } from "@cladd-ui/react";
 import {
   type DealState,
   evaluateDeal,
@@ -10,9 +10,9 @@ import {
 import { RotateCcw } from "lucide-react";
 import { AnimatePresence, LayoutGroup, motion } from "motion/react";
 import { useCallback, useMemo, useState } from "react";
-import { Amount } from "@/components/pact/amount";
 import { DealRule } from "@/components/pact/deal-rule";
-import { FLIGHT, QUICK } from "@/components/pact/motion";
+import { QUICK } from "@/components/pact/motion";
+import { FiredNote, StatusPill, VaultAmount } from "@/components/pact/vault";
 import { ruleStatus } from "@/lib/pact";
 import { useNow } from "@/lib/use-now";
 
@@ -145,24 +145,11 @@ export function ExampleDeal() {
         <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
           <div className="flex min-h-[4.5rem] flex-col justify-end gap-1.5">
             <span className="text-cladd-fg-soft text-sm">{spec.title}</span>
-            {settled ? (
-              <motion.span
-                animate={{ opacity: 1 }}
-                className="font-display font-semibold text-4xl text-cladd-fg-softer leading-none tracking-[-0.03em]"
-                initial={{ opacity: 0 }}
-                transition={QUICK}
-              >
-                Vault is empty
-              </motion.span>
-            ) : (
-              <motion.span
-                className="inline-flex"
-                layoutId={MONEY}
-                transition={FLIGHT}
-              >
-                <Amount lamports={AMOUNT} size="lg" />
-              </motion.span>
-            )}
+            <VaultAmount
+              flightId={MONEY}
+              lamports={AMOUNT}
+              status={deal.status}
+            />
           </div>
           <div className="flex items-center gap-2">
             <AnimatePresence>
@@ -180,16 +167,7 @@ export function ExampleDeal() {
                 </motion.div>
               ) : null}
             </AnimatePresence>
-            <span
-              className={cn(
-                "inline-flex h-7 items-center gap-2 rounded-full px-3 font-medium text-xs transition-colors duration-300",
-                settled
-                  ? "bg-pact-money text-pact-ink"
-                  : "text-pact-money shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--color-pact-money)_40%,transparent)]"
-              )}
-            >
-              {settled ? "Settled" : "Locked in the vault"}
-            </span>
+            <StatusPill status={deal.status} />
           </div>
         </div>
 
@@ -208,21 +186,7 @@ export function ExampleDeal() {
                 labels={LABELS}
                 note={
                   status === "fired" ? (
-                    <motion.p
-                      animate={{ opacity: 1, y: 0 }}
-                      className="flex flex-wrap items-center gap-x-2 gap-y-1 font-medium text-pact-ink text-sm"
-                      initial={{ opacity: 0, y: 6 }}
-                      transition={{ ...QUICK, delay: 0.45 }}
-                    >
-                      <motion.span
-                        className="inline-flex"
-                        layoutId={MONEY}
-                        transition={FLIGHT}
-                      >
-                        <Amount lamports={AMOUNT} size="md" tone="ink" />
-                      </motion.span>
-                      left the vault. No one approved it.
-                    </motion.p>
+                    <FiredNote flightId={MONEY} lamports={AMOUNT} />
                   ) : null
                 }
                 now={now}

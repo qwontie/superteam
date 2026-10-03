@@ -2,7 +2,7 @@ import {
   type Condition,
   type DealSpec,
   type DealState,
-  PACT_IDL,
+  pactErrorByCode,
   type Rule,
   type RuleEvaluation,
 } from "@pact/sdk";
@@ -26,14 +26,6 @@ export interface DescribeOptions {
 
 const TOTAL_BPS = 10_000n;
 const DEFAULT_LABELS = ["Client", "Freelancer", "Party 3", "Party 4"];
-
-interface IdlError {
-  code: number;
-  msg?: string;
-  name: string;
-}
-
-const idlErrors = (PACT_IDL as { errors?: IdlError[] }).errors ?? [];
 
 export const partyLabel = (index: number, labels?: readonly string[]) =>
   labels?.[index] ?? DEFAULT_LABELS[index] ?? `Party ${index + 1}`;
@@ -120,5 +112,49 @@ export const ruleStatus = (
 export const payoutLamports = (amount: bigint | string, bps: number) =>
   (BigInt(amount) * BigInt(bps)) / TOTAL_BPS;
 
-export const programError = (code: number) =>
-  idlErrors.find((entry) => entry.code === code) ?? null;
+export const programError = (code: number) => pactErrorByCode(code);
+
+export const partyLabels = (spec: DealSpec): string[] =>
+  spec.parties.map((_, index) => {
+    if (index === spec.funder) {
+      return spec.parties.length === 2 ? "Client" : "Funder";
+    }
+    return spec.parties.length === 2 ? "Freelancer" : `Party ${index + 1}`;
+  });
+
+export interface WitnessSeat {
+  check: number;
+  position: number;
+}
+
+export interface WalletRoles {
+  creator: boolean;
+  funder: boolean;
+  named: boolean;
+  party: number | null;
+  witness: WitnessSeat[];
+}
+
+export const walletRoles = (
+  deal: Pick<DealState, "creator" | "spec">,
+  wallet: string | null
+): WalletRoles => {
+  const partyIndex = wallet ? deal.spec.parties.indexOf(wallet) : -1;
+  const witness: WitnessSeat[] = [];
+  if (wallet) {
+    for (const [check, entry] of deal.spec.checks.entries()) {
+      const position = entry.witnesses.indexOf(wallet);
+      if (position >= 0) {
+        witness.push({ check, position });
+      }
+    }
+  }
+  const creator = wallet !== null && deal.creator === wallet;
+  return {
+    creator,
+    funder: partyIndex >= 0 && partyIndex === deal.spec.funder,
+    named: creator || partyIndex >= 0 || witness.length > 0,
+    party: partyIndex >= 0 ? partyIndex : null,
+    witness,
+  };
+};

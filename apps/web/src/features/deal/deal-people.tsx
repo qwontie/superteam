@@ -1,0 +1,163 @@
+import { cn } from "@cladd-ui/react";
+import type { Check, CheckVotes, DealState, Vote } from "@pact/sdk";
+import { Check as CheckIcon, Minus, X } from "lucide-react";
+import { Party, PartyAvatar } from "@/components/pact/party";
+import { formatWhen, shortAddress } from "@/lib/format";
+
+interface PeopleProps {
+  deal: DealState;
+  labels: readonly string[];
+  viewer: string | null;
+}
+
+interface CheckCardProps {
+  check: Check;
+  index: number;
+  viewer: string | null;
+  votes: CheckVotes | undefined;
+}
+
+const KIND_TEXT: Record<Check["kind"], string> = {
+  github_checks: "Witness nodes confirm the GitHub checks are green",
+  http_contains: "Witness nodes confirm the page contains the agreed text",
+  manual: "The people below vote by hand",
+};
+
+const VOTE_TEXT: Record<"yes" | "no" | "none", string> = {
+  no: "Voted no",
+  none: "No vote yet",
+  yes: "Voted yes",
+};
+
+const voteKey = (vote: Vote) => vote ?? "none";
+
+function VoteMark({ vote }: { vote: Vote }) {
+  const key = voteKey(vote);
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1.5 font-medium text-xs",
+        key === "yes" && "text-pact-proof",
+        key === "no" && "text-pact-stop",
+        key === "none" && "text-cladd-fg-softer"
+      )}
+    >
+      <span
+        aria-hidden="true"
+        className={cn(
+          "grid size-4 place-items-center rounded-[5px]",
+          key === "yes" && "bg-pact-proof text-pact-ink",
+          key === "no" && "bg-pact-stop text-pact-ink",
+          key === "none" && "shadow-[inset_0_0_0_1.5px_currentColor]"
+        )}
+      >
+        {key === "yes" ? <CheckIcon size={11} strokeWidth={3} /> : null}
+        {key === "no" ? <X size={11} strokeWidth={3} /> : null}
+        {key === "none" ? <Minus size={9} strokeWidth={3} /> : null}
+      </span>
+      {VOTE_TEXT[key]}
+    </span>
+  );
+}
+
+const partyNote = (deal: DealState, index: number) => {
+  const signedAt = deal.signals[index] ?? null;
+  const parts: string[] = [];
+  if (index === deal.spec.funder) {
+    parts.push(deal.status === "draft" ? "funds the deal" : "funded the deal");
+  }
+  if (signedAt !== null) {
+    parts.push(`signed ${formatWhen(signedAt)}`);
+  } else if (deal.status === "funded") {
+    parts.push("has not signed");
+  }
+  return parts.join(", ");
+};
+
+function CheckCard({ check, index, votes, viewer }: CheckCardProps) {
+  const yes = votes?.yes ?? 0;
+  const no = votes?.no ?? 0;
+  return (
+    <li className="flex flex-col gap-3 rounded-block bg-cladd-surface p-4 shadow-cladd-outline">
+      <div className="flex flex-col gap-1">
+        <span className="font-medium">{check.target}</span>
+        {check.expect ? (
+          <span className="break-all font-mono text-cladd-fg-soft text-xs">
+            expects: {check.expect}
+          </span>
+        ) : null}
+        <span className="text-cladd-fg-soft text-sm">
+          {KIND_TEXT[check.kind]}. {check.threshold} of{" "}
+          {check.witnesses.length} must say yes: {yes} yes, {no} no so far.
+        </span>
+      </div>
+      <ul className="flex flex-col gap-2">
+        {check.witnesses.map((witness, position) => (
+          <li
+            className="flex items-center justify-between gap-3"
+            key={witness}
+          >
+            <span className="flex min-w-0 items-center gap-2 text-sm">
+              <PartyAvatar seed={witness} size={20} />
+              <span className="truncate">Witness {position + 1}</span>
+              <span className="font-mono text-cladd-fg-soft text-xs">
+                {shortAddress(witness)}
+              </span>
+              {viewer === witness ? (
+                <span className="rounded-full bg-cladd-fg px-1.5 py-px font-semibold text-[0.65rem] text-cladd-bg uppercase">
+                  You
+                </span>
+              ) : null}
+            </span>
+            <VoteMark vote={votes?.byWitness[position] ?? null} />
+          </li>
+        ))}
+      </ul>
+      <span className="sr-only">Check {index + 1}</span>
+    </li>
+  );
+}
+
+export function DealPeople({ deal, labels, viewer }: PeopleProps) {
+  return (
+    <>
+      <section className="flex flex-col gap-3">
+        <h2 className="font-display font-semibold text-xl tracking-tight">
+          People
+        </h2>
+        <ul className="flex flex-col gap-2.5">
+          {deal.spec.parties.map((party, index) => (
+            <li className="flex flex-col items-start gap-1" key={party}>
+              <Party
+                address={party}
+                label={labels[index] ?? `Party ${index + 1}`}
+                you={viewer === party}
+              />
+              <span className="pl-1 text-cladd-fg-soft text-xs">
+                {partyNote(deal, index)}
+              </span>
+            </li>
+          ))}
+        </ul>
+      </section>
+      {deal.spec.checks.length > 0 ? (
+        <section className="flex flex-col gap-3">
+          <h2 className="font-display font-semibold text-xl tracking-tight">
+            Checks
+          </h2>
+          <ul className="flex flex-col gap-3">
+            {deal.spec.checks.map((check, index) => (
+              <CheckCard
+                check={check}
+                index={index}
+                key={check.target}
+                viewer={viewer}
+                votes={deal.votes[index]}
+              />
+            ))}
+          </ul>
+        </section>
+      ) : null}
+    </>
+  );
+}

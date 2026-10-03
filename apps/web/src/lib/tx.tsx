@@ -101,7 +101,7 @@ export const describeTxError = (error: unknown): TxFailure => {
     return {
       code,
       detail: known
-        ? `${known.name}: ${known.msg ?? humanName(known.name)}.`
+        ? `${known.name}: ${known.message || humanName(known.name)}.`
         : `The program returned error ${code}.`,
       kind: "program",
       name: known?.name,
