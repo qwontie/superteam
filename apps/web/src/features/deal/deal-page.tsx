@@ -227,7 +227,7 @@ export function DealPage({ address }: { address: string }) {
   if (deal.data === null) {
     return (
       <Message
-        text="Nothing is stored here on devnet. A draft that its creator cancelled is deleted from the chain, so it looks the same."
+        text="Nothing is stored here on devnet. A cancelled draft and a closed deal are deleted from the chain, so they look the same. Their transactions stay on Solana Explorer."
         title="No deal at this address"
       >
         <ButtonLink size="xl" to="/deals">

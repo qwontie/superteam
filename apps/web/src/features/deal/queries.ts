@@ -34,11 +34,24 @@ export const dealInvalidation = (address: string) => [
   ["balance"] as const,
 ];
 
+const NOT_A_DEAL = "is not a pact deal account";
+
+const readDeal = async (client: AppClient, address: string) => {
+  try {
+    return await fetchDeal(client.rpc, toAddress(address));
+  } catch (error) {
+    if (error instanceof Error && error.message.includes(NOT_A_DEAL)) {
+      return null;
+    }
+    throw error;
+  }
+};
+
 export function useDeal(address: string) {
   const client = useAppClient();
   return useQuery<DealState | null>({
     enabled: isAddress(address),
-    queryFn: () => fetchDeal(client.rpc, toAddress(address)),
+    queryFn: () => readDeal(client, address),
     queryKey: dealKeys.one(address),
     refetchInterval: DEAL_REFRESH_MS,
   });

@@ -4,6 +4,7 @@ import {
   type DealState,
   getAttestInstruction,
   getCancelInstruction,
+  getCloseInstruction,
   getExecuteInstruction,
   getFundInstruction,
   getSignalInstruction,
@@ -213,6 +214,39 @@ function CancelMove({ deal }: { deal: DealState }) {
         txLabel="Cancel deal"
       >
         Cancel deal
+      </TxButton>
+    </Move>
+  );
+}
+
+function CloseMove({ deal }: { deal: DealState }) {
+  const navigate = useNavigate();
+  const build = useCallback<Build>(
+    (signer) =>
+      getCloseInstruction({ creator: signer, deal: toAddress(deal.address) }),
+    [deal.address]
+  );
+  const leave = useCallback(() => {
+    navigate({ to: "/deals" }).catch(() => undefined);
+  }, [navigate]);
+  const rent = `${lamportsToSol(deal.lamports)} SOL`;
+  return (
+    <Move
+      text={`The payout is done. Closing deletes the deal account and returns its rent, ${rent}, to you. The history stays in the transactions on Solana Explorer.`}
+      title="Close the deal and take back the rent"
+    >
+      <TxButton
+        build={build}
+        confirm={{
+          text: `The deal page disappears and ${rent} of rent returns to your wallet. The transactions stay on chain.`,
+          title: "Close this deal?",
+        }}
+        deal={deal}
+        onDone={leave}
+        quiet
+        txLabel="Close deal"
+      >
+        Close deal
       </TxButton>
     </Move>
   );
@@ -452,6 +486,9 @@ const buildMoves = (
   }
   if (deal.status === "draft" && roles.creator) {
     moves.push(<CancelMove deal={deal} key="cancel" />);
+  }
+  if (deal.status === "settled" && roles.creator) {
+    moves.push(<CloseMove deal={deal} key="close" />);
   }
   if (deal.status !== "funded") {
     return moves;
