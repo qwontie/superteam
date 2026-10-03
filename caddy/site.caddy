@@ -5,6 +5,11 @@
 		}
 	}
 
+	handle_path /proof/* {
+		header Cache-Control "no-store"
+		reverse_proxy pact-demo:80
+	}
+
 	handle /api/* {
 		encode zstd gzip
 		reverse_proxy pact-api:8000

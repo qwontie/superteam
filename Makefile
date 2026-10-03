@@ -1,7 +1,7 @@
 SHELL := /bin/bash
 export PATH := $(HOME)/.local/share/solana/install/active_release/bin:$(HOME)/.avm/bin:$(HOME)/.cargo/bin:$(HOME)/.local/bin:$(HOME)/.bun/bin:$(PATH)
 
-.PHONY: setup install fmt check build test dev backend-dev witness keys balances airdrop topup deploy-devnet smoke-devnet pre-deploy deploy prod prod-logs
+.PHONY: setup install fmt check build test dev backend-dev witness keys balances airdrop topup deploy-devnet smoke-devnet pre-deploy deploy prod prod-logs prod-witness-logs demo-deals demo-deals-status demo-clean demo-vote demo-deliver demo-undeliver demo-wallets demo-topup
 
 PROD_HOST ?= personal-main-contabo
 PROD_DIR ?= /root/superteam
@@ -72,3 +72,30 @@ prod:
 
 prod-logs:
 	ssh -t $(PROD_HOST) 'cd $(PROD_DIR) && docker compose logs -f --tail=100'
+
+prod-witness-logs:
+	ssh -t $(PROD_HOST) 'cd $(PROD_DIR) && docker compose logs -f --tail=50 witness1 witness2 witness3'
+
+demo-deals:
+	source scripts/env.sh && bun scripts/demo-deals.ts create $(KINDS)
+
+demo-deals-status:
+	source scripts/env.sh && bun scripts/demo-deals.ts status
+
+demo-clean:
+	source scripts/env.sh && bun scripts/demo-deals.ts clean
+
+demo-vote:
+	source scripts/env.sh && bun scripts/demo-deals.ts vote $(DEAL) $(AS) $(NOMINEE)
+
+demo-deliver:
+	source scripts/env.sh && bun scripts/demo-deals.ts deliver "$(TEXT)"
+
+demo-undeliver:
+	source scripts/env.sh && bun scripts/demo-deals.ts undeliver
+
+demo-wallets:
+	source scripts/env.sh && bun scripts/demo-wallets.ts check
+
+demo-topup:
+	source scripts/env.sh && bun scripts/demo-wallets.ts topup

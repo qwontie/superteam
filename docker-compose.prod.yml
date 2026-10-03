@@ -1,3 +1,16 @@
+x-witness: &witness
+  build:
+    context: .
+    dockerfile: apps/witness/Dockerfile
+  image: pact/witness
+  profiles: [services]
+  restart: always
+  environment:
+    RPC_URL: ${RPC_URL:?RPC_URL is required for the witness nodes}
+    POLL_SECONDS: ${WITNESS_POLL_SECONDS:-20}
+    WITNESS_KEYPAIR: /run/secrets/witness
+    GITHUB_TOKEN: ${WITNESS_GITHUB_TOKEN:-}
+
 services:
   api:
     networks:
@@ -12,6 +25,44 @@ services:
       caddy:
         aliases:
           - pact-web
+
+  witness1:
+    <<: *witness
+    secrets:
+      - source: witness1
+        target: witness
+
+  witness2:
+    <<: *witness
+    secrets:
+      - source: witness2
+        target: witness
+
+  witness3:
+    <<: *witness
+    secrets:
+      - source: witness3
+        target: witness
+
+  demo-page:
+    image: caddy:2-alpine
+    profiles: [services]
+    restart: always
+    command: [caddy, file-server, --root, /srv, --listen, ":80"]
+    volumes:
+      - ${DEMO_PAGE_DIR:-/root/superteam-demo-page}:/srv:ro
+    networks:
+      caddy:
+        aliases:
+          - pact-demo
+
+secrets:
+  witness1:
+    file: ${WITNESS_KEYS_DIR:-./.keys}/witness1.json
+  witness2:
+    file: ${WITNESS_KEYS_DIR:-./.keys}/witness2.json
+  witness3:
+    file: ${WITNESS_KEYS_DIR:-./.keys}/witness3.json
 
 networks:
   caddy:
