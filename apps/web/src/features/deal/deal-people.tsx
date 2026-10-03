@@ -19,6 +19,7 @@ interface CheckCardProps {
 
 const KIND_TEXT: Record<Check["kind"], string> = {
   github_checks: "Witness nodes confirm the GitHub checks are green",
+  github_pr_merged: "Witness nodes confirm the pull request is merged",
   http_contains: "Witness nodes confirm the page contains the agreed text",
   manual: "The people below vote by hand",
 };

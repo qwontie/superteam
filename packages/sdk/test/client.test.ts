@@ -8,8 +8,10 @@ import {
   SolanaError,
 } from "@solana/kit";
 import {
+  DEAL_ACCOUNT_SIZE,
   decodeDeal,
   explorerTx,
+  fetchAllDeals,
   findDealAddress,
   findPactError,
   getAttestInstruction,
@@ -32,6 +34,45 @@ import {
 const coder = new BorshCoder(PACT_IDL as Idl);
 const key = (value: string) => new web3.PublicKey(value);
 const creator = createNoopSigner(address(CLIENT));
+
+const anchorDeal = (checkKind = 0) =>
+  coder.accounts.encode("Deal", {
+    amount: new BN(10_000_000),
+    bump: 254,
+    checks: [
+      {
+        binds: null,
+        expect: "",
+        kind: checkKind,
+        no: 0b010,
+        nominees: WITNESSES.map(() => key("11111111111111111111111111111111")),
+        target: "Landing page delivered as agreed",
+        threshold: 2,
+        witnesses: WITNESSES.map(key),
+        yes: 0b101,
+      },
+    ],
+    creator: key(CLIENT),
+    deal_id: new BN(9),
+    funder: 0,
+    parties: [key(CLIENT), key(FREELANCER)],
+    rules: demoSpec().rules.map((rule) => ({
+      pay: rule.pay,
+      when: rule.when.map((condition) => {
+        if (condition.type === "after") {
+          return { After: { ts: new BN(condition.ts) } };
+        }
+        if (condition.type === "attested") {
+          return { Attested: { check: condition.check } };
+        }
+        return { Signed: { party: condition.party } };
+      }),
+    })),
+    settled_rule: 0,
+    signals: [new BN(1_790_000_100), null],
+    status: { Settled: {} },
+    title: "Landing page",
+  });
 
 describe("chain client", () => {
   test("derives the deal address like the program", async () => {
@@ -124,45 +165,7 @@ describe("chain client", () => {
   });
 
   test("decodes a deal account written by Anchor", async () => {
-    const bytes = await coder.accounts.encode("Deal", {
-      amount: new BN(10_000_000),
-      bump: 254,
-      checks: [
-        {
-          binds: null,
-          expect: "",
-          kind: 0,
-          no: 0b010,
-          nominees: WITNESSES.map(() =>
-            key("11111111111111111111111111111111")
-          ),
-          target: "Landing page delivered as agreed",
-          threshold: 2,
-          witnesses: WITNESSES.map(key),
-          yes: 0b101,
-        },
-      ],
-      creator: key(CLIENT),
-      deal_id: new BN(9),
-      funder: 0,
-      parties: [key(CLIENT), key(FREELANCER)],
-      rules: demoSpec().rules.map((rule) => ({
-        pay: rule.pay,
-        when: rule.when.map((condition) => {
-          if (condition.type === "after") {
-            return { After: { ts: new BN(condition.ts) } };
-          }
-          if (condition.type === "attested") {
-            return { Attested: { check: condition.check } };
-          }
-          return { Signed: { party: condition.party } };
-        }),
-      })),
-      settled_rule: 0,
-      signals: [new BN(1_790_000_100), null],
-      status: { Settled: {} },
-      title: "Landing page",
-    });
+    const bytes = await anchorDeal();
     const deal = decodeDeal(address(WITNESSES[0] as string), bytes, 123n);
     expect(deal.status).toBe("settled");
     expect(deal.settledRule).toBe(0);
@@ -250,6 +253,34 @@ describe("chain client", () => {
     expect(close.accounts?.map((account) => account.role)).toEqual([
       AccountRole.WRITABLE_SIGNER,
       AccountRole.WRITABLE,
+    ]);
+  });
+
+  test("fetchAllDeals skips accounts it cannot decode", async () => {
+    const padded = (bytes: Uint8Array) => {
+      const account = new Uint8Array(DEAL_ACCOUNT_SIZE);
+      account.set(bytes);
+      return account;
+    };
+    const entry = (pubkey: string, bytes: Uint8Array) => ({
+      account: {
+        data: [Buffer.from(bytes).toString("base64"), "base64"],
+        lamports: 1n,
+      },
+      pubkey: address(pubkey),
+    });
+    const rpc = {
+      getProgramAccounts: () => ({
+        send: async () => [
+          entry(WITNESSES[0] as string, padded(await anchorDeal())),
+          entry(WITNESSES[1] as string, padded(await anchorDeal(9))),
+          entry(WITNESSES[2] as string, await anchorDeal()),
+        ],
+      }),
+    } as unknown as Parameters<typeof fetchAllDeals>[0];
+    const deals = await fetchAllDeals(rpc);
+    expect(deals.map((deal) => deal.address)).toEqual([
+      address(WITNESSES[0] as string),
     ]);
   });
 });

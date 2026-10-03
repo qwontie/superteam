@@ -73,7 +73,12 @@ const conditionArg = (condition: DealSpec["rules"][number]["when"][number]) => {
   }
 };
 
-const KIND_CODES = { github_checks: 2, http_contains: 1, manual: 0 } as const;
+const KIND_CODES = {
+  github_checks: 2,
+  github_pr_merged: 3,
+  http_contains: 1,
+  manual: 0,
+} as const;
 
 export const createArgs = (spec: DealSpec) => ({
   amount: new BN(spec.amount),
@@ -99,11 +104,13 @@ export const createArgs = (spec: DealSpec) => ({
 export const createDeal = async (
   program: Program<Pact>,
   creator: Keypair,
-  spec: DealSpec
+  spec: DealSpec,
+  adjust: (args: ReturnType<typeof createArgs>) => void = () => undefined
 ) => {
   const dealId = new BN(nextDealId);
   nextDealId += 1;
   const args = createArgs(spec);
+  adjust(args);
   const deal = dealPda(program.programId, creator.publicKey, dealId);
   await program.methods
     .createDeal(

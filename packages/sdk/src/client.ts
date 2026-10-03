@@ -216,6 +216,18 @@ export const decodeDeal = (
   return accountToState(dealAddress, account, lamports);
 };
 
+const tryDecodeDeal = (
+  dealAddress: Address,
+  data: ReadonlyUint8Array,
+  lamports: bigint
+) => {
+  try {
+    return decodeDeal(dealAddress, data, lamports);
+  } catch {
+    return null;
+  }
+};
+
 export const fetchDeal = async (
   rpc: Rpc<GetAccountInfoApi>,
   dealAddress: Address
@@ -242,8 +254,12 @@ export const fetchAllDeals = async (
   const deals: DealState[] = [];
   for (const { pubkey, account } of accounts) {
     const data = base64.encode(account.data[0] as Base64EncodedBytes);
-    if (data.length === DEAL_ACCOUNT_SIZE && isDealAccount(data)) {
-      deals.push(decodeDeal(pubkey, data, account.lamports));
+    const deal =
+      data.length === DEAL_ACCOUNT_SIZE
+        ? tryDecodeDeal(pubkey, data, account.lamports)
+        : null;
+    if (deal) {
+      deals.push(deal);
     }
   }
   return deals;

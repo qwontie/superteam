@@ -418,6 +418,22 @@ describe("pact", () => {
       }, "FunderOutOfRange");
     });
 
+    it("accepts the four check kinds and refuses an unknown one", async () => {
+      const spec = await freelanceSpec();
+      const check = spec.checks[0] as DealSpec["checks"][number];
+      check.kind = "github_pr_merged";
+      check.target = "qwontie/superteam#12";
+      const deal = await createDeal(program, client, spec);
+      const account = await program.account.deal.fetch(deal, "confirmed");
+      assert.equal(account.checks[0]?.kind, 3);
+      await rejectsWith(
+        createDeal(program, client, await freelanceSpec(), (args) => {
+          (args.checks[0] as { kind: number }).kind = 4;
+        }),
+        "UnknownCheckKind"
+      );
+    });
+
     it("refuses a bad threshold and duplicate witnesses", async () => {
       await createRefused((spec) => {
         (spec.checks[0] as DealSpec["checks"][number]).threshold = 0;
