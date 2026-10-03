@@ -1,7 +1,7 @@
 SHELL := /bin/bash
 export PATH := $(HOME)/.local/share/solana/install/active_release/bin:$(HOME)/.avm/bin:$(HOME)/.cargo/bin:$(HOME)/.local/bin:$(HOME)/.bun/bin:$(PATH)
 
-.PHONY: setup install fmt check build test dev witness keys balances airdrop topup deploy-devnet
+.PHONY: setup install fmt check build test dev witness keys balances airdrop topup deploy-devnet ping-devnet
 
 setup:
 	bash scripts/setup.sh
@@ -48,3 +48,6 @@ topup:
 
 deploy-devnet: build
 	bash scripts/deploy-devnet.sh
+
+ping-devnet:
+	bash scripts/ping-devnet.sh
