@@ -4,6 +4,7 @@ import type { UseQueryResult } from "@tanstack/react-query";
 import { useCallback } from "react";
 import { ExplorerLink } from "@/components/shell/explorer-link";
 import type { DealEvent, LogEntry } from "@/features/deal/events";
+import { actorName, witnessLabel } from "@/lib/checks";
 import { formatWhen, shortAddress } from "@/lib/format";
 
 interface DealLogProps {
@@ -18,7 +19,9 @@ const sol = (lamports: bigint) => `${lamportsToSol(lamports)} SOL`;
 
 const witnessName = (deal: DealState, check: number, witness: string) => {
   const position = deal.spec.checks[check]?.witnesses.indexOf(witness) ?? -1;
-  return position >= 0 ? `Witness ${position + 1}` : shortAddress(witness);
+  return position >= 0
+    ? witnessLabel(deal.spec.checks[check], position)
+    : shortAddress(witness);
 };
 
 const voteText = (event: Extract<DealEvent, { kind: "attested" }>) => {
@@ -43,7 +46,7 @@ const describeEvent = (
     case "attested":
       return `${witnessName(deal, event.check, event.witness)} voted ${voteText(event)}: ${event.yes} yes, ${event.no} no`;
     case "executed":
-      return `Rule ${event.rule + 1} fired: ${sol(event.amount)} left the vault. Executed by ${shortAddress(event.executor)}, approved by no one`;
+      return `Rule ${event.rule + 1} fired: ${sol(event.amount)} left the vault. Executed by ${actorName(deal.spec, labels, event.executor)}, approved by no one`;
     case "cancelled":
       return "Deal cancelled";
     case "other":

@@ -1,7 +1,8 @@
 import { cn } from "@cladd-ui/react";
 import type { Check, CheckVotes, DealState, Vote } from "@pact/sdk";
-import { Check as CheckIcon, Minus, X } from "lucide-react";
+import { ArrowUpRight, Check as CheckIcon, Minus, X } from "lucide-react";
 import { Party, PartyAvatar } from "@/components/pact/party";
+import { checkFact, witnessLabel } from "@/lib/checks";
 import { formatWhen, shortAddress } from "@/lib/format";
 import { signatureMatters } from "@/lib/pact";
 
@@ -17,13 +18,6 @@ interface CheckCardProps {
   viewer: string | null;
   votes: CheckVotes | undefined;
 }
-
-const KIND_TEXT: Record<Check["kind"], string> = {
-  github_checks: "Witness nodes confirm the GitHub checks are green",
-  github_pr_merged: "Witness nodes confirm the pull request is merged",
-  http_contains: "Witness nodes confirm the page contains the agreed text",
-  manual: "The people below vote by hand",
-};
 
 const VOTE_TEXT: Record<"yes" | "no" | "none", string> = {
   no: "Voted no",
@@ -82,17 +76,17 @@ const partyNote = (deal: DealState, index: number) => {
 function CheckCard({ check, index, votes, viewer }: CheckCardProps) {
   const yes = votes?.yes ?? 0;
   const no = votes?.no ?? 0;
+  const fact = checkFact(check);
+  const who = fact.automated ? "nodes" : "witnesses";
   return (
     <li className="flex flex-col gap-3 rounded-block bg-cladd-surface p-4 shadow-cladd-outline">
-      <div className="flex flex-col gap-1">
-        <span className="font-medium">{check.target}</span>
-        {check.expect ? (
-          <span className="break-all font-mono text-cladd-fg-soft text-xs">
-            expects: {check.expect}
-          </span>
+      <div className="flex flex-col gap-1.5">
+        <span className="break-words font-medium">{fact.statement}</span>
+        {fact.linkText ? (
+          <CheckSource href={fact.href} text={fact.linkText} />
         ) : null}
         <span className="text-cladd-fg-soft text-sm">
-          {KIND_TEXT[check.kind]}. {check.threshold} of {check.witnesses.length}{" "}
+          {fact.method}. {check.threshold} of {check.witnesses.length} {who}{" "}
           {typeof check.binds === "number"
             ? "must name the same winner"
             : "must say yes"}
@@ -104,7 +98,7 @@ function CheckCard({ check, index, votes, viewer }: CheckCardProps) {
           <li className="flex items-center justify-between gap-3" key={witness}>
             <span className="flex min-w-0 items-center gap-2 text-sm">
               <PartyAvatar seed={witness} size={20} />
-              <span className="truncate">Witness {position + 1}</span>
+              <span className="truncate">{witnessLabel(check, position)}</span>
               <span className="font-mono text-cladd-fg-soft text-xs">
                 {shortAddress(witness)}
               </span>
@@ -127,6 +121,27 @@ function CheckCard({ check, index, votes, viewer }: CheckCardProps) {
       </ul>
       <span className="sr-only">Check {index + 1}</span>
     </li>
+  );
+}
+
+function CheckSource({ href, text }: { href: string | null; text: string }) {
+  if (!href) {
+    return (
+      <span className="break-all font-mono text-cladd-fg-soft text-xs">
+        {text}
+      </span>
+    );
+  }
+  return (
+    <a
+      className="inline-flex items-start gap-1 self-start break-all font-mono text-pact-proof text-xs underline decoration-pact-proof/40 hover:decoration-current"
+      href={href}
+      rel="noopener noreferrer"
+      target="_blank"
+    >
+      {text}
+      <ArrowUpRight aria-hidden="true" className="mt-0.5 shrink-0" size={12} />
+    </a>
   );
 }
 

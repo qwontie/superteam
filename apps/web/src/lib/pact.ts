@@ -8,6 +8,7 @@ import {
   type Rule,
   type RuleEvaluation,
 } from "@pact/sdk";
+import { checkFact } from "@/lib/checks";
 import { formatCountdown, formatWhen } from "@/lib/format";
 
 export type ConditionRole = "time" | "people" | "proof";
@@ -54,23 +55,21 @@ const describeAttested = (
   }
   const votes = allVotes?.[checkIndex];
   const total = check.witnesses.length;
-  const single = total === 1;
-  const quorum = single
-    ? "the witness"
-    : `${check.threshold} of ${total} witnesses`;
+  const fact = checkFact(check);
+  const who = fact.automated ? "node" : "witness";
+  const label =
+    total === 1
+      ? `the ${who} ${fact.verb.one}`
+      : `${check.threshold} of ${total} ${who === "node" ? "nodes" : "witnesses"} ${fact.verb.many}`;
   if (typeof check.binds === "number") {
     const leader = votes ? leadingNominee(votes) : null;
     return {
       detail: votes ? `${leader?.votes ?? 0} agree so far` : null,
-      label: `${quorum} ${single ? "names" : "name"} the winner`,
+      label,
       role,
     };
   }
-  return {
-    detail: votes ? `${votes.yes} so far` : null,
-    label: `${quorum} ${single ? "says" : "say"} yes`,
-    role,
-  };
+  return { detail: votes ? `${votes.yes} so far` : null, label, role };
 };
 
 export const describeCondition = (

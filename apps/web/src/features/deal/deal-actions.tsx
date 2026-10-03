@@ -16,6 +16,7 @@ import { type ReactNode, useCallback, useState } from "react";
 import { type BuildInstruction, TxButton } from "@/components/shell/tx-button";
 import { WalletButton } from "@/components/shell/wallet-button";
 import { dealInvalidation } from "@/features/deal/queries";
+import { checkFact } from "@/lib/checks";
 import { shortAddress } from "@/lib/format";
 import {
   signatureMatters,
@@ -272,7 +273,7 @@ function NomineeMove({
   return (
     <Move
       text={`You are a witness of this check. Name the winner: the payout goes to the address that ${check.threshold} of ${check.witnesses.length} witnesses agree on. You get one vote and it cannot be changed.`}
-      title={`Who wins? "${check.target}"`}
+      title={`Who wins? ${checkFact(check).statement}`}
     >
       <div className="flex w-full flex-col gap-2">
         <Input
@@ -346,7 +347,7 @@ function VoteMove({ deal, seat }: { deal: DealState; seat: WitnessSeat }) {
   return (
     <Move
       text="You are a witness of this check. You get one vote and it cannot be changed."
-      title={`Is it true? "${check.target}"`}
+      title={`Is it true? ${checkFact(check).statement}`}
     >
       <TxButton
         build={no}

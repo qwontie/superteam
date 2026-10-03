@@ -15,6 +15,7 @@ import { DealLog } from "@/features/deal/deal-log";
 import { DealPeople } from "@/features/deal/deal-people";
 import type { LogEntry } from "@/features/deal/events";
 import { useDeal, useDealLive, useDealLog } from "@/features/deal/queries";
+import { actorName } from "@/lib/checks";
 import { shortAddress } from "@/lib/format";
 import { partyLabels, ruleStatus, walletRoles } from "@/lib/pact";
 import { useNow } from "@/lib/use-now";
@@ -72,14 +73,22 @@ const vaultSentence = (deal: DealState, labels: readonly string[]) => {
 const executedEntry = (log: LogEntry[] | undefined) =>
   log?.find((entry) => entry.event?.kind === "executed") ?? null;
 
-function FiredBy({ entry }: { entry: LogEntry | null }) {
+function FiredBy({
+  entry,
+  deal,
+  labels,
+}: {
+  deal: DealState;
+  entry: LogEntry | null;
+  labels: readonly string[];
+}) {
   if (entry?.event?.kind !== "executed") {
     return null;
   }
   return (
     <span className="font-normal">
-      Fired by {shortAddress(entry.event.executor)}, who could not change where
-      it went.{" "}
+      Fired by {actorName(deal.spec, labels, entry.event.executor)}, who could
+      not change where it went.{" "}
       <ExplorerLink
         className="decoration-pact-ink/40"
         path={`/tx/${entry.signature}`}
@@ -167,7 +176,11 @@ function DealView({ deal }: { deal: DealState }) {
                             flightId={flightId}
                             lamports={deal.spec.amount}
                           >
-                            <FiredBy entry={fired} />
+                            <FiredBy
+                              deal={deal}
+                              entry={fired}
+                              labels={labels}
+                            />
                           </FiredNote>
                         ) : null
                       }
