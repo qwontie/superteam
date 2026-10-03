@@ -12,11 +12,20 @@ interface DealLogProps {
   log: UseQueryResult<LogEntry[]>;
 }
 
+const EVENT_WORDS = /([a-z])([A-Z])/g;
+
 const sol = (lamports: bigint) => `${lamportsToSol(lamports)} SOL`;
 
 const witnessName = (deal: DealState, check: number, witness: string) => {
   const position = deal.spec.checks[check]?.witnesses.indexOf(witness) ?? -1;
   return position >= 0 ? `Witness ${position + 1}` : shortAddress(witness);
+};
+
+const voteText = (event: Extract<DealEvent, { kind: "attested" }>) => {
+  if (!event.verdict) {
+    return "no";
+  }
+  return event.nominee ? `for ${shortAddress(event.nominee)}` : "yes";
 };
 
 const describeEvent = (
@@ -32,11 +41,13 @@ const describeEvent = (
     case "signaled":
       return `${labels[event.party] ?? `Party ${event.party + 1}`} signed`;
     case "attested":
-      return `${witnessName(deal, event.check, event.witness)} voted ${event.verdict ? "yes" : "no"}: ${event.yes} yes, ${event.no} no`;
+      return `${witnessName(deal, event.check, event.witness)} voted ${voteText(event)}: ${event.yes} yes, ${event.no} no`;
     case "executed":
       return `Rule ${event.rule + 1} fired: ${sol(event.amount)} left the vault. Executed by ${shortAddress(event.executor)}, approved by no one`;
     case "cancelled":
       return "Deal cancelled";
+    case "other":
+      return event.name.replace(EVENT_WORDS, "$1 $2");
     default:
       return event satisfies never;
   }
@@ -50,9 +61,7 @@ const describeEntry = (
   if (entry.failed) {
     return "A transaction failed and changed nothing";
   }
-  return entry.event
-    ? describeEvent(entry.event, deal, labels)
-    : "Transaction";
+  return entry.event ? describeEvent(entry.event, deal, labels) : "Transaction";
 };
 
 export function DealLog({ deal, labels, log }: DealLogProps) {
@@ -98,7 +107,9 @@ export function DealLog({ deal, labels, log }: DealLogProps) {
               </span>
               <span className="flex flex-wrap items-center gap-x-3 text-cladd-fg-soft text-xs">
                 {entry.blockTime === null ? null : (
-                  <time dateTime={new Date(entry.blockTime * 1000).toISOString()}>
+                  <time
+                    dateTime={new Date(entry.blockTime * 1000).toISOString()}
+                  >
                     {formatWhen(entry.blockTime)}
                   </time>
                 )}

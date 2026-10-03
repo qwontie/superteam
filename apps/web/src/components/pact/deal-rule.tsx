@@ -1,4 +1,5 @@
 import type {
+  CheckVotes,
   DealSpec,
   Payout as PayoutShare,
   RuleEvaluation,
@@ -32,7 +33,7 @@ interface DealRuleProps {
   spec: DealSpec;
   status?: RuleStatus;
   viewer?: string | null;
-  yesVotes?: readonly number[];
+  votes?: readonly CheckVotes[];
 }
 
 interface PayoutProps {
@@ -96,7 +97,7 @@ export function DealRule({
   status,
   labels,
   now,
-  yesVotes,
+  votes,
   viewer,
   showAddresses,
   action,
@@ -109,7 +110,7 @@ export function DealRule({
   }
   const conditions = rule.when.map((condition) => ({
     key: JSON.stringify(condition),
-    text: describeCondition(condition, spec, { labels, now, yesVotes }),
+    text: describeCondition(condition, spec, { labels, now, votes }),
   }));
   return (
     <RuleBlock

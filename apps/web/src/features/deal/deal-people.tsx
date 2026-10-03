@@ -61,6 +61,9 @@ function VoteMark({ vote }: { vote: Vote }) {
 }
 
 const partyNote = (deal: DealState, index: number) => {
+  if (deal.spec.parties[index] === null) {
+    return "open slot: the witnesses name who gets it";
+  }
   const signedAt = deal.signals[index] ?? null;
   const parts: string[] = [];
   if (index === deal.spec.funder) {
@@ -87,16 +90,16 @@ function CheckCard({ check, index, votes, viewer }: CheckCardProps) {
           </span>
         ) : null}
         <span className="text-cladd-fg-soft text-sm">
-          {KIND_TEXT[check.kind]}. {check.threshold} of{" "}
-          {check.witnesses.length} must say yes: {yes} yes, {no} no so far.
+          {KIND_TEXT[check.kind]}. {check.threshold} of {check.witnesses.length}{" "}
+          {typeof check.binds === "number"
+            ? "must name the same winner"
+            : "must say yes"}
+          : {yes} yes, {no} no so far.
         </span>
       </div>
       <ul className="flex flex-col gap-2">
         {check.witnesses.map((witness, position) => (
-          <li
-            className="flex items-center justify-between gap-3"
-            key={witness}
-          >
+          <li className="flex items-center justify-between gap-3" key={witness}>
             <span className="flex min-w-0 items-center gap-2 text-sm">
               <PartyAvatar seed={witness} size={20} />
               <span className="truncate">Witness {position + 1}</span>
@@ -109,7 +112,14 @@ function CheckCard({ check, index, votes, viewer }: CheckCardProps) {
                 </span>
               ) : null}
             </span>
-            <VoteMark vote={votes?.byWitness[position] ?? null} />
+            <span className="flex flex-col items-end gap-0.5">
+              <VoteMark vote={votes?.byWitness[position] ?? null} />
+              {votes?.nominees[position] ? (
+                <span className="font-mono text-cladd-fg-soft text-xs">
+                  for {shortAddress(votes.nominees[position] ?? "")}
+                </span>
+              ) : null}
+            </span>
           </li>
         ))}
       </ul>
@@ -127,7 +137,10 @@ export function DealPeople({ deal, labels, viewer }: PeopleProps) {
         </h2>
         <ul className="flex flex-col gap-2.5">
           {deal.spec.parties.map((party, index) => (
-            <li className="flex flex-col items-start gap-1" key={party}>
+            <li
+              className="flex flex-col items-start gap-1"
+              key={party ?? `open-${index}`}
+            >
               <Party
                 address={party}
                 label={labels[index] ?? `Party ${index + 1}`}

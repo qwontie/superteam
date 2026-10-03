@@ -1,4 +1,4 @@
-import { Button, useDialog } from "@cladd-ui/react";
+import { Button, Input, useDialog } from "@cladd-ui/react";
 import {
   type DealEvaluation,
   type DealState,
@@ -11,6 +11,7 @@ import {
 } from "@pact/sdk";
 import {
   type Instruction,
+  isAddress,
   type TransactionSigner,
   address as toAddress,
 } from "@solana/kit";
@@ -18,6 +19,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { type ReactNode, useCallback, useState } from "react";
 import { WalletButton } from "@/components/shell/wallet-button";
 import { dealInvalidation } from "@/features/deal/queries";
+import { shortAddress } from "@/lib/format";
 import type { WalletRoles, WitnessSeat } from "@/lib/pact";
 import { type TxFailure, useSendTx } from "@/lib/tx";
 import { useWallet } from "@/lib/use-wallet";
@@ -29,6 +31,7 @@ interface TxButtonProps {
   children: ReactNode;
   confirm?: { text: string; title: string };
   deal: DealState;
+  disabled?: boolean;
   onDone?: () => void;
   quiet?: boolean;
   txLabel: string;
@@ -59,6 +62,7 @@ export function TxButton({
   txLabel,
   children,
   confirm,
+  disabled = false,
   onDone,
   quiet = false,
 }: TxButtonProps) {
@@ -104,7 +108,7 @@ export function TxButton({
   return (
     <div className="flex flex-col items-end gap-1.5">
       <Button
-        disabled={pending !== null}
+        disabled={disabled || pending !== null}
         loading={pending === txLabel}
         onClick={click}
         size="xl"
@@ -260,6 +264,96 @@ function SignMove({
   );
 }
 
+function NomineePick({
+  nominee,
+  onPick,
+}: {
+  nominee: string;
+  onPick: (nominee: string) => void;
+}) {
+  const pick = useCallback(() => onPick(nominee), [nominee, onPick]);
+  return (
+    <Button onClick={pick} size="lg">
+      Agree with {shortAddress(nominee)}
+    </Button>
+  );
+}
+
+function NomineeMove({
+  deal,
+  seat,
+  no,
+}: {
+  deal: DealState;
+  no: Build;
+  seat: WitnessSeat;
+}) {
+  const [value, setValue] = useState("");
+  const nominee = value.trim();
+  const valid = isAddress(nominee);
+  const check = deal.spec.checks[seat.check];
+  const named = [
+    ...new Set(
+      (deal.votes[seat.check]?.nominees ?? []).filter(
+        (entry): entry is string => entry !== null
+      )
+    ),
+  ];
+  const yes = useCallback<Build>(
+    (signer) =>
+      getAttestInstruction({
+        check: seat.check,
+        deal: toAddress(deal.address),
+        nominee,
+        verdict: true,
+        witness: signer,
+      }),
+    [deal.address, nominee, seat.check]
+  );
+  if (!check) {
+    return null;
+  }
+  return (
+    <Move
+      text={`You are a witness of this check. Name the winner: the payout goes to the address that ${check.threshold} of ${check.witnesses.length} witnesses agree on. You get one vote and it cannot be changed.`}
+      title={`Who wins? "${check.target}"`}
+    >
+      <div className="flex w-full flex-col gap-2">
+        <Input
+          errorMessage={
+            nominee.length > 0 && !valid
+              ? "This is not a Solana address."
+              : undefined
+          }
+          inputClassName="font-mono"
+          onChange={setValue}
+          placeholder="Winner's Solana address"
+          size="xl"
+          value={value}
+        />
+        {named.length > 0 ? (
+          <div className="flex flex-wrap gap-2">
+            {named.map((entry) => (
+              <NomineePick key={entry} nominee={entry} onPick={setValue} />
+            ))}
+          </div>
+        ) : null}
+      </div>
+      <TxButton build={no} deal={deal} quiet txLabel="Vote no">
+        Vote no
+      </TxButton>
+      <TxButton
+        build={yes}
+        deal={deal}
+        disabled={!valid}
+        txLabel="Vote for this winner"
+      >
+        Vote for this winner
+      </TxButton>
+    </Move>
+  );
+}
+
 function VoteMove({ deal, seat }: { deal: DealState; seat: WitnessSeat }) {
   const check = deal.spec.checks[seat.check];
   const yes = useCallback<Build>(
@@ -284,6 +378,9 @@ function VoteMove({ deal, seat }: { deal: DealState; seat: WitnessSeat }) {
   );
   if (!check) {
     return null;
+  }
+  if (typeof check.binds === "number") {
+    return <NomineeMove deal={deal} no={no} seat={seat} />;
   }
   return (
     <Move
@@ -334,7 +431,11 @@ const idleSentence = (
   return "Nothing for you to do right now. The rules below show what they are waiting for.";
 };
 
-const buildMoves = (deal: DealState, roles: WalletRoles, labels: readonly string[]) => {
+const buildMoves = (
+  deal: DealState,
+  roles: WalletRoles,
+  labels: readonly string[]
+) => {
   const moves: ReactNode[] = [];
   if (deal.status === "draft" && roles.funder) {
     moves.push(<FundMove deal={deal} key="fund" />);
@@ -357,7 +458,9 @@ const buildMoves = (deal: DealState, roles: WalletRoles, labels: readonly string
   }
   for (const seat of roles.witness) {
     if (deal.votes[seat.check]?.byWitness[seat.position] === null) {
-      moves.push(<VoteMove deal={deal} key={`vote-${seat.check}`} seat={seat} />);
+      moves.push(
+        <VoteMove deal={deal} key={`vote-${seat.check}`} seat={seat} />
+      );
     }
   }
   return moves;

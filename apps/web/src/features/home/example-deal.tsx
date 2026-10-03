@@ -2,7 +2,7 @@ import { Button } from "@cladd-ui/react";
 import {
   type DealState,
   evaluateDeal,
-  freelanceWithCheck,
+  gig,
   nowSeconds,
   solToLamports,
   votesFromBitmaps,
@@ -89,7 +89,7 @@ export function ExampleDeal() {
 
   const spec = useMemo(
     () =>
-      freelanceWithCheck({
+      gig({
         amount: AMOUNT,
         check: {
           target: "Landing page delivered as agreed",
@@ -119,7 +119,6 @@ export function ExampleDeal() {
   );
 
   const evaluation = useMemo(() => evaluateDeal(deal, now), [deal, now]);
-  const yesVotes = deal.votes.map((votes) => votes.yes);
 
   const flipVote = useCallback((bit: number) => {
     // biome-ignore lint/suspicious/noBitwiseOperators: votes are an on-chain bitmap
@@ -194,7 +193,7 @@ export function ExampleDeal() {
                 showAddresses={false}
                 spec={spec}
                 status={status}
-                yesVotes={yesVotes}
+                votes={deal.votes}
               />
             );
           })}

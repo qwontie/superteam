@@ -4,7 +4,7 @@ import { isAddress } from "@solana/kit";
 import { Link } from "@tanstack/react-router";
 import { ArrowLeft } from "lucide-react";
 import { LayoutGroup } from "motion/react";
-import { type ReactNode, useCallback, useMemo } from "react";
+import { type ReactNode, useCallback, useMemo, useRef } from "react";
 import { DealRule } from "@/components/pact/deal-rule";
 import { FiredNote, StatusPill, VaultAmount } from "@/components/pact/vault";
 import { PAGE } from "@/components/shell/app-shell";
@@ -78,8 +78,8 @@ function FiredBy({ entry }: { entry: LogEntry | null }) {
   }
   return (
     <span className="font-normal">
-      Fired by {shortAddress(entry.event.executor)}, who could not change
-      where it went.{" "}
+      Fired by {shortAddress(entry.event.executor)}, who could not change where
+      it went.{" "}
       <ExplorerLink
         className="decoration-pact-ink/40"
         path={`/tx/${entry.signature}`}
@@ -97,15 +97,15 @@ function DealView({ deal }: { deal: DealState }) {
   const evaluation = useMemo(() => evaluateDeal(deal, now), [deal, now]);
   const labels = useMemo(() => partyLabels(deal.spec), [deal.spec]);
   const roles = useMemo(() => walletRoles(deal, wallet), [deal, wallet]);
-  const yesVotes = deal.votes.map((votes) => votes.yes);
   const flightId = `money-${deal.address}`;
   const fired = executedEntry(log.data);
+  const openedUnsettled = useRef(deal.status !== "settled");
 
   return (
     <LayoutGroup>
       <main className={SHELL}>
         <BackLink />
-        <header className="flex flex-wrap items-end justify-between gap-x-10 gap-y-5">
+        <header className="flex flex-wrap items-start justify-between gap-x-10 gap-y-5">
           <div className="flex min-w-0 flex-col gap-4">
             <h1 className="break-words font-display font-semibold text-3xl tracking-tight sm:text-4xl">
               {deal.spec.title}
@@ -120,7 +120,7 @@ function DealView({ deal }: { deal: DealState }) {
               {vaultSentence(deal, labels)}
             </p>
           </div>
-          <div className="flex flex-col items-start gap-2 sm:items-end">
+          <div className="flex flex-col items-start gap-2 sm:items-end sm:pt-1.5">
             <StatusPill status={deal.status} />
             <ExplorerLink
               className="font-mono text-cladd-fg-soft text-sm"
@@ -143,8 +143,8 @@ function DealView({ deal }: { deal: DealState }) {
               <div className="flex flex-col gap-1">
                 <h2 className={H2}>Rules</h2>
                 <p className="text-cladd-fg-soft text-sm">
-                  The first rule that is true and gets executed wins. Anyone
-                  can execute it, no one can stop it.
+                  The first rule that is true and gets executed wins. Anyone can
+                  execute it, no one can stop it.
                 </p>
               </div>
               <div className="flex flex-col gap-3">
@@ -163,6 +163,7 @@ function DealView({ deal }: { deal: DealState }) {
                       note={
                         status === "fired" ? (
                           <FiredNote
+                            arriving={openedUnsettled.current}
                             flightId={flightId}
                             lamports={deal.spec.amount}
                           >
@@ -175,7 +176,7 @@ function DealView({ deal }: { deal: DealState }) {
                       spec={deal.spec}
                       status={status}
                       viewer={wallet}
-                      yesVotes={yesVotes}
+                      votes={deal.votes}
                     />
                   );
                 })}

@@ -22,7 +22,11 @@ export function NetworkBanner({ className }: { className?: string }) {
           "flex items-start gap-3 py-2.5 font-medium text-sm"
         )}
       >
-        <TriangleAlert aria-hidden="true" className="mt-0.5 shrink-0" size={16} />
+        <TriangleAlert
+          aria-hidden="true"
+          className="mt-0.5 shrink-0"
+          size={16}
+        />
         {TEXT[problem]}
       </div>
     </div>

@@ -1,7 +1,9 @@
 import {
+  type CheckVotes,
   type Condition,
   type DealSpec,
   type DealState,
+  leadingNominee,
   pactErrorByCode,
   type Rule,
   type RuleEvaluation,
@@ -21,7 +23,7 @@ export interface ConditionText {
 export interface DescribeOptions {
   labels?: readonly string[];
   now?: number;
-  yesVotes?: readonly number[];
+  votes?: readonly CheckVotes[];
 }
 
 const TOTAL_BPS = 10_000n;
@@ -38,6 +40,37 @@ export const conditionRole = (condition: Condition): ConditionRole => {
     return "proof";
   }
   return "people";
+};
+
+const describeAttested = (
+  checkIndex: number,
+  spec: DealSpec,
+  allVotes: readonly CheckVotes[] | undefined
+): ConditionText => {
+  const role: ConditionRole = "proof";
+  const check = spec.checks[checkIndex];
+  if (!check) {
+    return { detail: null, label: "missing check", role };
+  }
+  const votes = allVotes?.[checkIndex];
+  const total = check.witnesses.length;
+  const single = total === 1;
+  const quorum = single
+    ? "the witness"
+    : `${check.threshold} of ${total} witnesses`;
+  if (typeof check.binds === "number") {
+    const leader = votes ? leadingNominee(votes) : null;
+    return {
+      detail: votes ? `${leader?.votes ?? 0} agree so far` : null,
+      label: `${quorum} ${single ? "names" : "name"} the winner`,
+      role,
+    };
+  }
+  return {
+    detail: votes ? `${votes.yes} so far` : null,
+    label: `${quorum} ${single ? "says" : "say"} yes`,
+    role,
+  };
 };
 
 export const describeCondition = (
@@ -69,22 +102,8 @@ export const describeCondition = (
         label: `${partyLabel(condition.party, options.labels)} has not signed`,
         role,
       };
-    case "attested": {
-      const check = spec.checks[condition.check];
-      if (!check) {
-        return { detail: null, label: "missing check", role };
-      }
-      const yes = options.yesVotes?.[condition.check];
-      const total = check.witnesses.length;
-      return {
-        detail: yes === undefined ? null : `${yes} so far`,
-        label:
-          total === 1
-            ? "the witness says yes"
-            : `${check.threshold} of ${total} witnesses say yes`,
-        role,
-      };
-    }
+    case "attested":
+      return describeAttested(condition.check, spec, options.votes);
     default:
       return condition satisfies never;
   }
@@ -114,13 +133,26 @@ export const payoutLamports = (amount: bigint | string, bps: number) =>
 
 export const programError = (code: number) => pactErrorByCode(code);
 
-export const partyLabels = (spec: DealSpec): string[] =>
-  spec.parties.map((_, index) => {
-    if (index === spec.funder) {
-      return spec.parties.length === 2 ? "Client" : "Funder";
+export const partyLabels = (spec: DealSpec): string[] => {
+  const bound = new Set(
+    spec.checks
+      .map((check) => check.binds)
+      .filter((slot): slot is number => typeof slot === "number")
+  );
+  const pair = spec.parties.length === 2;
+  return spec.parties.map((_, index) => {
+    if (bound.has(index)) {
+      return bound.size === 1 ? "Winner" : `Winner ${index}`;
     }
-    return spec.parties.length === 2 ? "Freelancer" : `Party ${index + 1}`;
+    if (index === spec.funder) {
+      if (bound.size > 0) {
+        return "Sponsor";
+      }
+      return pair ? "Client" : "Funder";
+    }
+    return pair ? "Freelancer" : `Party ${index + 1}`;
   });
+};
 
 export interface WitnessSeat {
   check: number;

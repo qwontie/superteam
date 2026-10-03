@@ -2,8 +2,8 @@ import { type DealState, fetchAllDeals, fetchDeal } from "@pact/sdk";
 import {
   isAddress,
   type Signature,
-  signature as toSignature,
   address as toAddress,
+  signature as toSignature,
 } from "@solana/kit";
 import {
   type QueryClient,
@@ -82,6 +82,21 @@ const fetchEntry = async (
   };
 };
 
+const loadChunks = async (
+  infos: SignatureInfo[],
+  load: (info: SignatureInfo) => Promise<LogEntry>,
+  start = 0
+): Promise<LogEntry[]> => {
+  if (start >= infos.length) {
+    return [];
+  }
+  const head = await Promise.all(
+    infos.slice(start, start + LOG_CHUNK).map(load)
+  );
+  const rest = await loadChunks(infos, load, start + LOG_CHUNK);
+  return [...head, ...rest];
+};
+
 const fetchLog = async (
   client: AppClient,
   queryClient: QueryClient,
@@ -98,21 +113,13 @@ const fetchLog = async (
     failed: entry.err !== null,
     signature: toSignature(entry.signature),
   }));
-  const entries: LogEntry[] = [];
-  for (let start = 0; start < infos.length; start += LOG_CHUNK) {
-    const chunk = infos.slice(start, start + LOG_CHUNK);
-    const loaded = await Promise.all(
-      chunk.map((info) =>
-        queryClient.fetchQuery({
-          queryFn: () => fetchEntry(client, info),
-          queryKey: dealKeys.tx(info.signature),
-          staleTime: Number.POSITIVE_INFINITY,
-        })
-      )
-    );
-    entries.push(...loaded);
-  }
-  return entries;
+  const load = (info: SignatureInfo) =>
+    queryClient.fetchQuery({
+      queryFn: () => fetchEntry(client, info),
+      queryKey: dealKeys.tx(info.signature),
+      staleTime: Number.POSITIVE_INFINITY,
+    });
+  return loadChunks(infos, load);
 };
 
 export function useDealLog(address: string, enabled: boolean) {

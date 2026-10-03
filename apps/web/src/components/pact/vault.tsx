@@ -18,6 +18,7 @@ interface VaultAmountProps {
 }
 
 interface FiredNoteProps {
+  arriving?: boolean;
   children?: ReactNode;
   flightId: string;
   lamports: bigint | string;
@@ -93,13 +94,18 @@ export function VaultAmount({
   );
 }
 
-export function FiredNote({ lamports, flightId, children }: FiredNoteProps) {
+export function FiredNote({
+  lamports,
+  flightId,
+  children,
+  arriving = true,
+}: FiredNoteProps) {
   return (
     <motion.p
       animate={{ opacity: 1, y: 0 }}
       className="flex flex-wrap items-center gap-x-2 gap-y-1 font-medium text-pact-ink text-sm"
-      initial={{ opacity: 0, y: 6 }}
-      transition={{ ...QUICK, delay: 0.45 }}
+      initial={arriving ? { opacity: 0, y: 6 } : false}
+      transition={{ ...QUICK, delay: arriving ? 0.45 : 0 }}
     >
       <motion.span
         className="inline-flex"
