@@ -17,11 +17,12 @@ import {
 } from "@solana/kit-plugin-wallet/react";
 import { Link } from "@tanstack/react-router";
 import { ArrowUpRight, Copy, LogOut, Rows3, Wallet } from "lucide-react";
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import { Amount } from "@/components/pact/amount";
 import { PartyAvatar } from "@/components/pact/party";
 import { PlanSection, PlanTag } from "@/components/shell/plan-section";
 import { shortAddress } from "@/lib/format";
+import { isPhone, walletBrowseLinks } from "@/lib/mobile-wallets";
 import { explorerUrl } from "@/lib/solana";
 import { describeTxError } from "@/lib/tx";
 import { useAppClient } from "@/lib/use-app-client";
@@ -55,6 +56,54 @@ function WalletRow({ wallet, busy, onPick }: WalletRowProps) {
     >
       {wallet.name}
     </ListButton>
+  );
+}
+
+function NoWallet() {
+  const [links] = useState(() =>
+    isPhone()
+      ? walletBrowseLinks(window.location.href, window.location.origin)
+      : []
+  );
+  if (links.length === 0) {
+    return (
+      <div className="flex flex-col gap-2 p-4">
+        <p className="font-medium text-sm">No Solana wallet found</p>
+        <p className="text-cladd-fg-soft text-sm">
+          Install Phantom, Solflare or Backpack in this browser, switch it to
+          devnet and reload the page.
+        </p>
+      </div>
+    );
+  }
+  return (
+    <div className="flex flex-col">
+      <div className="flex flex-col gap-1.5 px-4 pt-4 pb-2">
+        <p className="font-medium text-sm">Open Pact in your wallet app</p>
+        <p className="text-cladd-fg-soft text-sm">
+          A phone browser cannot reach your wallet. Open this page inside the
+          wallet and connect there.
+        </p>
+      </div>
+      <List className="p-1.5">
+        {links.map((link) => (
+          <ListButton
+            as="a"
+            href={link.href}
+            icon={<ArrowUpRight aria-hidden="true" size={16} />}
+            key={link.name}
+            rel="noopener noreferrer"
+            size="xl"
+          >
+            Open in {link.name}
+          </ListButton>
+        ))}
+      </List>
+      <p className="px-4 pb-4 text-cladd-fg-soft text-xs">
+        Pact runs on Solana devnet: switch the wallet to devnet in its settings
+        first.
+      </p>
+    </div>
   );
 }
 
@@ -97,13 +146,7 @@ function ConnectMenu() {
       </PopoverTrigger>
       <Popover className="w-72" offset={8} position="bottom-end">
         {wallets.length === 0 ? (
-          <div className="flex flex-col gap-2 p-4">
-            <p className="font-medium text-sm">No Solana wallet found</p>
-            <p className="text-cladd-fg-soft text-sm">
-              Install Phantom, Solflare or Backpack in this browser, switch it
-              to devnet and reload the page.
-            </p>
-          </div>
+          <NoWallet />
         ) : (
           <List className="p-1.5">
             {wallets.map((wallet) => (
