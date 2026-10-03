@@ -8,50 +8,969 @@
   },
   "instructions": [
     {
-      "name": "ping",
+      "name": "attest",
       "discriminator": [
-        173,
-        0,
-        94,
-        236,
-        73,
-        133,
-        225,
-        153
+        83,
+        148,
+        120,
+        119,
+        144,
+        139,
+        117,
+        160
       ],
       "accounts": [
         {
-          "name": "caller",
+          "name": "witness",
           "signer": true
+        },
+        {
+          "name": "deal",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  100,
+                  101,
+                  97,
+                  108
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "deal.creator",
+                "account": "Deal"
+              },
+              {
+                "kind": "account",
+                "path": "deal.deal_id",
+                "account": "Deal"
+              }
+            ]
+          }
+        }
+      ],
+      "args": [
+        {
+          "name": "check",
+          "type": "u8"
+        },
+        {
+          "name": "verdict",
+          "type": "bool"
+        }
+      ]
+    },
+    {
+      "name": "cancel",
+      "discriminator": [
+        232,
+        219,
+        223,
+        41,
+        219,
+        236,
+        220,
+        190
+      ],
+      "accounts": [
+        {
+          "name": "creator",
+          "writable": true,
+          "signer": true,
+          "relations": [
+            "deal"
+          ]
+        },
+        {
+          "name": "deal",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  100,
+                  101,
+                  97,
+                  108
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "deal.creator",
+                "account": "Deal"
+              },
+              {
+                "kind": "account",
+                "path": "deal.deal_id",
+                "account": "Deal"
+              }
+            ]
+          }
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "create_deal",
+      "discriminator": [
+        198,
+        212,
+        144,
+        151,
+        97,
+        56,
+        149,
+        113
+      ],
+      "accounts": [
+        {
+          "name": "creator",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "deal",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  100,
+                  101,
+                  97,
+                  108
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "creator"
+              },
+              {
+                "kind": "arg",
+                "path": "deal_id"
+              }
+            ]
+          }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "deal_id",
+          "type": "u64"
+        },
+        {
+          "name": "title",
+          "type": "string"
+        },
+        {
+          "name": "parties",
+          "type": {
+            "vec": "pubkey"
+          }
+        },
+        {
+          "name": "funder",
+          "type": "u8"
+        },
+        {
+          "name": "amount",
+          "type": "u64"
+        },
+        {
+          "name": "checks",
+          "type": {
+            "vec": {
+              "defined": {
+                "name": "CheckSpec"
+              }
+            }
+          }
+        },
+        {
+          "name": "rules",
+          "type": {
+            "vec": {
+              "defined": {
+                "name": "Rule"
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "execute",
+      "discriminator": [
+        130,
+        221,
+        242,
+        154,
+        13,
+        193,
+        189,
+        29
+      ],
+      "accounts": [
+        {
+          "name": "executor",
+          "signer": true
+        },
+        {
+          "name": "deal",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  100,
+                  101,
+                  97,
+                  108
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "deal.creator",
+                "account": "Deal"
+              },
+              {
+                "kind": "account",
+                "path": "deal.deal_id",
+                "account": "Deal"
+              }
+            ]
+          }
+        }
+      ],
+      "args": [
+        {
+          "name": "rule",
+          "type": "u8"
+        }
+      ]
+    },
+    {
+      "name": "fund",
+      "discriminator": [
+        218,
+        188,
+        111,
+        221,
+        152,
+        113,
+        174,
+        7
+      ],
+      "accounts": [
+        {
+          "name": "funder",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "deal",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  100,
+                  101,
+                  97,
+                  108
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "deal.creator",
+                "account": "Deal"
+              },
+              {
+                "kind": "account",
+                "path": "deal.deal_id",
+                "account": "Deal"
+              }
+            ]
+          }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "signal",
+      "discriminator": [
+        106,
+        129,
+        52,
+        212,
+        183,
+        190,
+        163,
+        21
+      ],
+      "accounts": [
+        {
+          "name": "party",
+          "signer": true
+        },
+        {
+          "name": "deal",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  100,
+                  101,
+                  97,
+                  108
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "deal.creator",
+                "account": "Deal"
+              },
+              {
+                "kind": "account",
+                "path": "deal.deal_id",
+                "account": "Deal"
+              }
+            ]
+          }
         }
       ],
       "args": []
     }
   ],
+  "accounts": [
+    {
+      "name": "Deal",
+      "discriminator": [
+        125,
+        223,
+        160,
+        234,
+        71,
+        162,
+        182,
+        219
+      ]
+    }
+  ],
   "events": [
     {
-      "name": "Pinged",
+      "name": "Attested",
       "discriminator": [
-        50,
-        38,
-        24,
-        188,
-        75,
-        109,
-        130,
-        119
+        184,
+        102,
+        113,
+        199,
+        220,
+        197,
+        96,
+        50
       ]
+    },
+    {
+      "name": "DealCreated",
+      "discriminator": [
+        27,
+        18,
+        50,
+        52,
+        104,
+        175,
+        46,
+        101
+      ]
+    },
+    {
+      "name": "DealFunded",
+      "discriminator": [
+        64,
+        84,
+        19,
+        153,
+        179,
+        255,
+        127,
+        144
+      ]
+    },
+    {
+      "name": "Executed",
+      "discriminator": [
+        8,
+        232,
+        139,
+        132,
+        197,
+        45,
+        29,
+        164
+      ]
+    },
+    {
+      "name": "Signaled",
+      "discriminator": [
+        61,
+        209,
+        52,
+        36,
+        211,
+        226,
+        143,
+        82
+      ]
+    }
+  ],
+  "errors": [
+    {
+      "code": 6000,
+      "name": "TitleLength",
+      "msg": "Title must be 1 to 48 bytes"
+    },
+    {
+      "code": 6001,
+      "name": "PartyCount",
+      "msg": "A deal needs 2 to 4 parties"
+    },
+    {
+      "code": 6002,
+      "name": "DuplicateParty",
+      "msg": "The same party appears twice"
+    },
+    {
+      "code": 6003,
+      "name": "FunderOutOfRange",
+      "msg": "Funder index is not a party"
+    },
+    {
+      "code": 6004,
+      "name": "ZeroAmount",
+      "msg": "Amount must be above zero"
+    },
+    {
+      "code": 6005,
+      "name": "CheckCount",
+      "msg": "A deal has at most 2 checks"
+    },
+    {
+      "code": 6006,
+      "name": "UnknownCheckKind",
+      "msg": "Unknown check kind"
+    },
+    {
+      "code": 6007,
+      "name": "TargetLength",
+      "msg": "Check target must be 1 to 128 bytes"
+    },
+    {
+      "code": 6008,
+      "name": "ExpectLength",
+      "msg": "Check expect must be at most 64 bytes"
+    },
+    {
+      "code": 6009,
+      "name": "WitnessCount",
+      "msg": "A check needs 1 to 5 witnesses"
+    },
+    {
+      "code": 6010,
+      "name": "DuplicateWitness",
+      "msg": "The same witness appears twice"
+    },
+    {
+      "code": 6011,
+      "name": "BadThreshold",
+      "msg": "Threshold must be between 1 and the number of witnesses"
+    },
+    {
+      "code": 6012,
+      "name": "RuleCount",
+      "msg": "A deal needs 1 to 6 rules"
+    },
+    {
+      "code": 6013,
+      "name": "ConditionCount",
+      "msg": "A rule needs 1 to 4 conditions"
+    },
+    {
+      "code": 6014,
+      "name": "PayoutCount",
+      "msg": "A rule needs 1 to 4 payouts"
+    },
+    {
+      "code": 6015,
+      "name": "SharesNotWhole",
+      "msg": "Shares of a rule must add up to 10000"
+    },
+    {
+      "code": 6016,
+      "name": "PartyOutOfRange",
+      "msg": "Party index out of range"
+    },
+    {
+      "code": 6017,
+      "name": "CheckOutOfRange",
+      "msg": "Check index out of range"
+    },
+    {
+      "code": 6018,
+      "name": "RuleOutOfRange",
+      "msg": "Rule index out of range"
+    },
+    {
+      "code": 6019,
+      "name": "NoExitRule",
+      "msg": "No exit rule made only of time conditions"
+    },
+    {
+      "code": 6020,
+      "name": "ExitNotInFuture",
+      "msg": "The exit rule must open in the future"
+    },
+    {
+      "code": 6021,
+      "name": "NotDraft",
+      "msg": "Deal is not a draft"
+    },
+    {
+      "code": 6022,
+      "name": "NotFunded",
+      "msg": "Deal is not funded"
+    },
+    {
+      "code": 6023,
+      "name": "WrongFunder",
+      "msg": "Signer is not the funder of this deal"
+    },
+    {
+      "code": 6024,
+      "name": "NotCreator",
+      "msg": "Signer is not the creator of this deal"
+    },
+    {
+      "code": 6025,
+      "name": "NotAParty",
+      "msg": "Signer is not a party of this deal"
+    },
+    {
+      "code": 6026,
+      "name": "AlreadySignaled",
+      "msg": "This party has already signaled"
+    },
+    {
+      "code": 6027,
+      "name": "NotAWitness",
+      "msg": "Signer is not a witness of this check"
+    },
+    {
+      "code": 6028,
+      "name": "AlreadyVoted",
+      "msg": "This witness has already voted"
+    },
+    {
+      "code": 6029,
+      "name": "ConditionNotMet",
+      "msg": "A condition of this rule does not hold"
+    },
+    {
+      "code": 6030,
+      "name": "WrongPayoutAccounts",
+      "msg": "Payout accounts must be the deal parties, in order and writable"
     }
   ],
   "types": [
     {
-      "name": "Pinged",
+      "name": "Attested",
       "type": {
         "kind": "struct",
         "fields": [
           {
-            "name": "caller",
+            "name": "deal",
             "type": "pubkey"
+          },
+          {
+            "name": "check",
+            "type": "u8"
+          },
+          {
+            "name": "witness",
+            "type": "pubkey"
+          },
+          {
+            "name": "verdict",
+            "type": "bool"
+          },
+          {
+            "name": "yes",
+            "type": "u8"
+          },
+          {
+            "name": "no",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Check",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "kind",
+            "type": "u8"
+          },
+          {
+            "name": "target",
+            "type": "string"
+          },
+          {
+            "name": "expect",
+            "type": "string"
+          },
+          {
+            "name": "witnesses",
+            "type": {
+              "vec": "pubkey"
+            }
+          },
+          {
+            "name": "threshold",
+            "type": "u8"
+          },
+          {
+            "name": "yes",
+            "type": "u8"
+          },
+          {
+            "name": "no",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "CheckSpec",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "kind",
+            "type": "u8"
+          },
+          {
+            "name": "target",
+            "type": "string"
+          },
+          {
+            "name": "expect",
+            "type": "string"
+          },
+          {
+            "name": "witnesses",
+            "type": {
+              "vec": "pubkey"
+            }
+          },
+          {
+            "name": "threshold",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Condition",
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "After",
+            "fields": [
+              {
+                "name": "ts",
+                "type": "i64"
+              }
+            ]
+          },
+          {
+            "name": "Signed",
+            "fields": [
+              {
+                "name": "party",
+                "type": "u8"
+              }
+            ]
+          },
+          {
+            "name": "Unsigned",
+            "fields": [
+              {
+                "name": "party",
+                "type": "u8"
+              }
+            ]
+          },
+          {
+            "name": "Attested",
+            "fields": [
+              {
+                "name": "check",
+                "type": "u8"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "Deal",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "creator",
+            "type": "pubkey"
+          },
+          {
+            "name": "deal_id",
+            "type": "u64"
+          },
+          {
+            "name": "title",
+            "type": "string"
+          },
+          {
+            "name": "parties",
+            "type": {
+              "vec": "pubkey"
+            }
+          },
+          {
+            "name": "funder",
+            "type": "u8"
+          },
+          {
+            "name": "amount",
+            "type": "u64"
+          },
+          {
+            "name": "status",
+            "type": {
+              "defined": {
+                "name": "DealStatus"
+              }
+            }
+          },
+          {
+            "name": "settled_rule",
+            "type": {
+              "option": "u8"
+            }
+          },
+          {
+            "name": "signals",
+            "type": {
+              "vec": {
+                "option": "i64"
+              }
+            }
+          },
+          {
+            "name": "checks",
+            "type": {
+              "vec": {
+                "defined": {
+                  "name": "Check"
+                }
+              }
+            }
+          },
+          {
+            "name": "rules",
+            "type": {
+              "vec": {
+                "defined": {
+                  "name": "Rule"
+                }
+              }
+            }
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "DealCreated",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "deal",
+            "type": "pubkey"
+          },
+          {
+            "name": "creator",
+            "type": "pubkey"
+          },
+          {
+            "name": "deal_id",
+            "type": "u64"
+          },
+          {
+            "name": "amount",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "DealFunded",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "deal",
+            "type": "pubkey"
+          },
+          {
+            "name": "funder",
+            "type": "pubkey"
+          },
+          {
+            "name": "amount",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "DealStatus",
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "Draft"
+          },
+          {
+            "name": "Funded"
+          },
+          {
+            "name": "Settled"
+          },
+          {
+            "name": "Cancelled"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Executed",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "deal",
+            "type": "pubkey"
+          },
+          {
+            "name": "rule",
+            "type": "u8"
+          },
+          {
+            "name": "executor",
+            "type": "pubkey"
+          },
+          {
+            "name": "amount",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Payout",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "party",
+            "type": "u8"
+          },
+          {
+            "name": "bps",
+            "type": "u16"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Rule",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "when",
+            "type": {
+              "vec": {
+                "defined": {
+                  "name": "Condition"
+                }
+              }
+            }
+          },
+          {
+            "name": "pay",
+            "type": {
+              "vec": {
+                "defined": {
+                  "name": "Payout"
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "Signaled",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "deal",
+            "type": "pubkey"
+          },
+          {
+            "name": "party",
+            "type": "u8"
+          },
+          {
+            "name": "ts",
+            "type": "i64"
           }
         ]
       }

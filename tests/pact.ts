@@ -4,25 +4,403 @@ import {
   getProvider,
   type Program,
   setProvider,
+  type web3,
   workspace,
 } from "@anchor-lang/core";
-import { describe, it } from "mocha";
+import { before, describe, it } from "mocha";
+import type { DealSpec } from "../packages/sdk/src/spec.ts";
+import {
+  freelanceWithCheck,
+  silenceIsConsent,
+} from "../packages/sdk/src/templates.ts";
 import type { Pact } from "../target/types/pact";
+import {
+  chainNow,
+  createDeal,
+  fundedKeypair,
+  payoutAccounts,
+  rejectsWith,
+  timeTravel,
+} from "./helpers.ts";
+
+type Keypair = web3.Keypair;
+type PublicKey = web3.PublicKey;
+
+const AMOUNT = 100_000_000n;
+const HOUR = 3600;
 
 describe("pact", () => {
   setProvider(AnchorProvider.env());
   const provider = getProvider() as AnchorProvider;
   const program = workspace.pact as Program<Pact>;
+  const { connection } = provider;
 
-  it("answers ping", async () => {
-    const signature = await program.methods
-      .ping()
-      .accounts({ caller: provider.wallet.publicKey })
-      .rpc({ commitment: "confirmed" });
-    const tx = await provider.connection.getTransaction(signature, {
-      commitment: "confirmed",
-      maxSupportedTransactionVersion: 0,
+  let client: Keypair;
+  let freelancer: Keypair;
+  let witnesses: Keypair[];
+  let stranger: Keypair;
+
+  before(async () => {
+    [client, freelancer, stranger, ...witnesses] = await Promise.all(
+      Array.from({ length: 6 }, () => fundedKeypair(provider))
+    );
+  });
+
+  const freelanceSpec = async (deadlineIn = 2 * HOUR) =>
+    freelanceWithCheck({
+      amount: AMOUNT,
+      check: {
+        target: "Landing page delivered as agreed",
+        witnesses: witnesses.map((witness) => witness.publicKey.toBase58()),
+      },
+      client: client.publicKey.toBase58(),
+      deadline: (await chainNow(provider)) + deadlineIn,
+      freelancer: freelancer.publicKey.toBase58(),
+      title: "Landing page",
     });
-    assert.equal(tx?.meta?.err, null);
+
+  const fund = (deal: PublicKey, funder: Keypair = client) =>
+    program.methods
+      .fund()
+      .accountsPartial({ deal, funder: funder.publicKey })
+      .signers([funder])
+      .rpc({ commitment: "confirmed" });
+
+  const signal = (deal: PublicKey, party: Keypair) =>
+    program.methods
+      .signal()
+      .accountsPartial({ deal, party: party.publicKey })
+      .signers([party])
+      .rpc({ commitment: "confirmed" });
+
+  const attest = (
+    deal: PublicKey,
+    witness: Keypair,
+    verdict: boolean,
+    check = 0
+  ) =>
+    program.methods
+      .attest(check, verdict)
+      .accountsPartial({ deal, witness: witness.publicKey })
+      .signers([witness])
+      .rpc({ commitment: "confirmed" });
+
+  const execute = (
+    deal: PublicKey,
+    rule: number,
+    recipients = payoutAccounts([client.publicKey, freelancer.publicKey])
+  ) =>
+    program.methods
+      .execute(rule)
+      .accountsPartial({ deal, executor: stranger.publicKey })
+      .remainingAccounts(recipients)
+      .signers([stranger])
+      .rpc({ commitment: "confirmed" });
+
+  const cancel = (deal: PublicKey, creator: Keypair = client) =>
+    program.methods
+      .cancel()
+      .accountsPartial({ creator: creator.publicKey, deal })
+      .signers([creator])
+      .rpc({ commitment: "confirmed" });
+
+  const balance = (key: PublicKey) => connection.getBalance(key, "confirmed");
+
+  const fundedFreelanceDeal = async () => {
+    const deal = await createDeal(program, client, await freelanceSpec());
+    await fund(deal);
+    return deal;
+  };
+
+  const assertSettled = async (deal: PublicKey, rule: number) => {
+    const account = await program.account.deal.fetch(deal, "confirmed");
+    assert.deepEqual(account.status, { settled: {} });
+    assert.equal(account.settledRule, rule);
+    const info = await connection.getAccountInfo(deal, "confirmed");
+    assert.ok(info);
+    const rent = await connection.getMinimumBalanceForRentExemption(
+      info.data.length
+    );
+    assert.equal(info.lamports, rent);
+  };
+
+  describe("template: freelance with a check", () => {
+    it("pays the freelancer once 2 of 3 witnesses say yes", async () => {
+      const deal = await createDeal(program, client, await freelanceSpec());
+      const draft = await program.account.deal.fetch(deal, "confirmed");
+      assert.deepEqual(draft.status, { draft: {} });
+      assert.equal(draft.rules.length, 3);
+
+      const dealBefore = await balance(deal);
+      await fund(deal);
+      assert.equal(await balance(deal), dealBefore + Number(AMOUNT));
+
+      const [first, second, third] = witnesses as [Keypair, Keypair, Keypair];
+      await attest(deal, first, true);
+      await attest(deal, second, false);
+      await rejectsWith(execute(deal, 0), "ConditionNotMet");
+      await attest(deal, third, true);
+
+      const freelancerBefore = await balance(freelancer.publicKey);
+      const signature = await execute(deal, 0);
+      assert.equal(
+        await balance(freelancer.publicKey),
+        freelancerBefore + Number(AMOUNT)
+      );
+      await assertSettled(deal, 0);
+
+      const tx = await connection.getTransaction(signature, {
+        commitment: "confirmed",
+        maxSupportedTransactionVersion: 0,
+      });
+      console.log(
+        `      execute used ${tx?.meta?.computeUnitsConsumed} compute units`
+      );
+    });
+
+    it("pays the freelancer when the client approves early", async () => {
+      const deal = await fundedFreelanceDeal();
+      await signal(deal, client);
+      const freelancerBefore = await balance(freelancer.publicKey);
+      await execute(deal, 1);
+      assert.equal(
+        await balance(freelancer.publicKey),
+        freelancerBefore + Number(AMOUNT)
+      );
+      await assertSettled(deal, 1);
+    });
+  });
+
+  describe("template: silence is consent", () => {
+    const silenceSpec = async (): Promise<[DealSpec, number]> => {
+      const now = await chainNow(provider);
+      const spec = silenceIsConsent({
+        amount: AMOUNT,
+        client: client.publicKey.toBase58(),
+        deliveryDeadline: now + HOUR,
+        finalExit: now + 3 * HOUR,
+        freelancer: freelancer.publicKey.toBase58(),
+        reviewEnd: now + 2 * HOUR,
+        title: "Logo",
+      });
+      return [spec, now];
+    };
+
+    it("pays the freelancer when the client stays silent after delivery", async () => {
+      const [spec, start] = await silenceSpec();
+      const deal = await createDeal(program, client, spec);
+      await fund(deal);
+      await signal(deal, freelancer);
+      await rejectsWith(signal(deal, freelancer), "AlreadySignaled");
+      await rejectsWith(execute(deal, 1), "ConditionNotMet");
+
+      await timeTravel(provider, start + 2 * HOUR + 1);
+      await rejectsWith(execute(deal, 2), "ConditionNotMet");
+      const freelancerBefore = await balance(freelancer.publicKey);
+      await execute(deal, 1);
+      assert.equal(
+        await balance(freelancer.publicKey),
+        freelancerBefore + Number(AMOUNT)
+      );
+      await assertSettled(deal, 1);
+    });
+
+    it("refunds the client when nothing is delivered", async () => {
+      const [spec, start] = await silenceSpec();
+      const deal = await createDeal(program, client, spec);
+      await fund(deal);
+      await rejectsWith(execute(deal, 2), "ConditionNotMet");
+
+      await timeTravel(provider, start + HOUR + 1);
+      const clientBefore = await balance(client.publicKey);
+      await execute(deal, 2);
+      assert.equal(
+        await balance(client.publicKey),
+        clientBefore + Number(AMOUNT)
+      );
+      await assertSettled(deal, 2);
+    });
+  });
+
+  describe("exit rule", () => {
+    it("refunds the client after the deadline, executed by anyone", async () => {
+      const deal = await fundedFreelanceDeal();
+      await rejectsWith(execute(deal, 2), "ConditionNotMet");
+      const account = await program.account.deal.fetch(deal, "confirmed");
+      const exit = account.rules[2]?.when[0]?.after?.ts.toNumber();
+      assert.ok(exit);
+
+      await timeTravel(provider, exit);
+      const clientBefore = await balance(client.publicKey);
+      await execute(deal, 2);
+      assert.equal(
+        await balance(client.publicKey),
+        clientBefore + Number(AMOUNT)
+      );
+      await assertSettled(deal, 2);
+    });
+  });
+
+  describe("refusals", () => {
+    const createRefused = async (
+      change: (spec: DealSpec) => void,
+      code: string
+    ) => {
+      const spec = await freelanceSpec();
+      change(spec);
+      await rejectsWith(createDeal(program, client, spec), code);
+    };
+
+    it("refuses a deal without an exit rule", async () => {
+      await createRefused((spec) => {
+        spec.rules = spec.rules.slice(0, 2);
+      }, "NoExitRule");
+    });
+
+    it("refuses an exit rule that is not in the future", async () => {
+      const now = await chainNow(provider);
+      await createRefused((spec) => {
+        spec.rules[2] = {
+          pay: [{ bps: 10_000, party: 0 }],
+          when: [{ ts: now - 10, type: "after" }],
+        };
+      }, "ExitNotInFuture");
+    });
+
+    it("refuses shares that do not add up to 10000", async () => {
+      await createRefused((spec) => {
+        spec.rules[0] = {
+          pay: [{ bps: 9000, party: 1 }],
+          when: [{ check: 0, type: "attested" }],
+        };
+      }, "SharesNotWhole");
+    });
+
+    it("refuses indexes out of range", async () => {
+      await createRefused((spec) => {
+        spec.rules[1] = {
+          pay: [{ bps: 10_000, party: 1 }],
+          when: [{ party: 2, type: "signed" }],
+        };
+      }, "PartyOutOfRange");
+      await createRefused((spec) => {
+        spec.rules[0] = {
+          pay: [{ bps: 10_000, party: 1 }],
+          when: [{ check: 1, type: "attested" }],
+        };
+      }, "CheckOutOfRange");
+      await createRefused((spec) => {
+        spec.funder = 2;
+      }, "FunderOutOfRange");
+    });
+
+    it("refuses a bad threshold and duplicate witnesses", async () => {
+      await createRefused((spec) => {
+        (spec.checks[0] as DealSpec["checks"][number]).threshold = 0;
+      }, "BadThreshold");
+      await createRefused((spec) => {
+        (spec.checks[0] as DealSpec["checks"][number]).threshold = 4;
+      }, "BadThreshold");
+      await createRefused((spec) => {
+        const check = spec.checks[0] as DealSpec["checks"][number];
+        check.witnesses = [
+          check.witnesses[0] as string,
+          check.witnesses[0] as string,
+        ];
+      }, "DuplicateWitness");
+    });
+
+    it("refuses a deposit from anyone but the funder", async () => {
+      const deal = await createDeal(program, client, await freelanceSpec());
+      await rejectsWith(fund(deal, freelancer), "WrongFunder");
+      await fund(deal);
+      await rejectsWith(fund(deal), "NotDraft");
+    });
+
+    it("refuses a signal before funding, from a stranger, and twice", async () => {
+      const deal = await createDeal(program, client, await freelanceSpec());
+      await rejectsWith(signal(deal, client), "NotFunded");
+      await fund(deal);
+      await rejectsWith(signal(deal, stranger), "NotAParty");
+      await signal(deal, freelancer);
+      await rejectsWith(signal(deal, freelancer), "AlreadySignaled");
+    });
+
+    it("refuses a vote from a non-witness and a second vote", async () => {
+      const deal = await fundedFreelanceDeal();
+      await rejectsWith(attest(deal, stranger, true), "NotAWitness");
+      await rejectsWith(attest(deal, client, true), "NotAWitness");
+      await rejectsWith(
+        attest(deal, witnesses[0] as Keypair, true, 1),
+        "CheckOutOfRange"
+      );
+      await attest(deal, witnesses[0] as Keypair, true);
+      await rejectsWith(
+        attest(deal, witnesses[0] as Keypair, false),
+        "AlreadyVoted"
+      );
+    });
+
+    it("refuses to execute a rule whose condition is false", async () => {
+      const deal = await fundedFreelanceDeal();
+      await rejectsWith(execute(deal, 0), "ConditionNotMet");
+      await rejectsWith(execute(deal, 1), "ConditionNotMet");
+      await rejectsWith(execute(deal, 2), "ConditionNotMet");
+      await rejectsWith(execute(deal, 3), "RuleOutOfRange");
+    });
+
+    it("refuses to execute twice", async () => {
+      const deal = await fundedFreelanceDeal();
+      await signal(deal, client);
+      await execute(deal, 1);
+      await rejectsWith(execute(deal, 1), "NotFunded");
+    });
+
+    it("refuses payout accounts that are not the parties in order", async () => {
+      const deal = await fundedFreelanceDeal();
+      await signal(deal, client);
+      await rejectsWith(
+        execute(
+          deal,
+          1,
+          payoutAccounts([freelancer.publicKey, client.publicKey])
+        ),
+        "WrongPayoutAccounts"
+      );
+      await rejectsWith(
+        execute(deal, 1, payoutAccounts([client.publicKey])),
+        "WrongPayoutAccounts"
+      );
+      await rejectsWith(
+        execute(
+          deal,
+          1,
+          payoutAccounts([client.publicKey, stranger.publicKey])
+        ),
+        "WrongPayoutAccounts"
+      );
+      await rejectsWith(
+        execute(deal, 1, [
+          { isSigner: false, isWritable: true, pubkey: client.publicKey },
+          { isSigner: false, isWritable: false, pubkey: freelancer.publicKey },
+        ]),
+        "WrongPayoutAccounts"
+      );
+    });
+
+    it("refuses to execute a draft", async () => {
+      const deal = await createDeal(program, client, await freelanceSpec());
+      await rejectsWith(execute(deal, 1), "NotFunded");
+    });
+
+    it("cancels a draft for the creator only, and never after funding", async () => {
+      const draft = await createDeal(program, client, await freelanceSpec());
+      await rejectsWith(cancel(draft, freelancer), "NotCreator");
+      await cancel(draft);
+      assert.equal(await connection.getAccountInfo(draft, "confirmed"), null);
+
+      const funded = await fundedFreelanceDeal();
+      await rejectsWith(cancel(funded), "NotDraft");
+    });
   });
 });
