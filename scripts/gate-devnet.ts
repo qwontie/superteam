@@ -16,11 +16,7 @@ import {
   signTransactionMessageWithSigners,
 } from "@solana/kit";
 import { Connection, PublicKey } from "@solana/web3.js";
-import {
-  CrossbarClient,
-  CrossbarNetwork,
-  OracleJob,
-} from "@switchboard-xyz/common";
+import { CrossbarClient, CrossbarNetwork } from "@switchboard-xyz/common";
 import { AnchorUtils, Queue } from "@switchboard-xyz/on-demand";
 import {
   explorerAddress,
@@ -39,10 +35,13 @@ import {
   solToLamports,
   validateDealSpec,
 } from "../packages/sdk/src";
+import {
+  GATE_CROSSBAR_URL,
+  storeGateFeed,
+} from "../packages/sdk/src/gate-feed";
 import { cluster, PROD_URL, rpc, send } from "./demo-common";
 
-const CROSSBAR_URL =
-  process.env.CROSSBAR_URL ?? "https://crossbar.switchboardlabs.xyz";
+const CROSSBAR_URL = process.env.CROSSBAR_URL ?? GATE_CROSSBAR_URL;
 const PROOF_URL = `${PROD_URL}/proof/delivery.html`;
 const PAGE_HEADING = "Delivery page";
 const AMOUNT = solToLamports(process.env.GATE_SOL ?? "0.01");
@@ -72,36 +71,6 @@ const keypairFile = (name: string) => {
   );
 };
 
-const escapeRegex = (text: string) =>
-  text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-
-const containsFeed = (needle: string, minOracleSamples: number) => ({
-  jobs: [
-    OracleJob.fromObject({
-      tasks: [
-        { httpTask: { url: PROOF_URL } },
-        {
-          regexExtractTask: {
-            groupNumber: 1,
-            pattern: `(?s)(?:.*?(${escapeRegex(needle)}))?`,
-          },
-        },
-        {
-          stringMapTask: {
-            caseSensitive: true,
-            defaultValue: "0",
-            mappings: [{ key: needle, value: "1" }],
-          },
-        },
-      ],
-    }),
-  ],
-  maxJobRangePct: 0,
-  minJobResponses: 1,
-  minOracleSamples,
-  name: `pact gate: page contains ${needle}`.slice(0, 64),
-});
-
 const crossbar = new CrossbarClient(CROSSBAR_URL, true);
 crossbar.setNetwork(CrossbarNetwork.SolanaDevnet);
 const connection = new Connection(clusterUrl, "confirmed");
@@ -110,12 +79,13 @@ const queue = new Queue(
   new PublicKey(SWITCHBOARD_DEVNET_QUEUE)
 );
 
-const storeFeed = async (needle: string, samples: number) => {
-  const { feedId } = await crossbar.storeOracleFeed(
-    containsFeed(needle, samples)
-  );
-  return feedId.startsWith("0x") ? feedId : `0x${feedId}`;
-};
+const storeFeed = async (needle: string, oracles: number) =>
+  (
+    await storeGateFeed(PROOF_URL, needle, {
+      crossbarUrl: CROSSBAR_URL,
+      oracles,
+    })
+  ).feedHash;
 
 const fetchQuote = async (
   feed: string,

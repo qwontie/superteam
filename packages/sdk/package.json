@@ -4,7 +4,8 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./gate-feed": "./src/gate-feed.ts"
   },
   "scripts": {
     "test": "bun test",
