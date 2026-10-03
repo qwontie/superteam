@@ -1,7 +1,7 @@
 SHELL := /bin/bash
 export PATH := $(HOME)/.local/share/solana/install/active_release/bin:$(HOME)/.avm/bin:$(HOME)/.cargo/bin:$(HOME)/.local/bin:$(HOME)/.bun/bin:$(PATH)
 
-.PHONY: setup install fmt check build test dev witness keys balances airdrop topup deploy-devnet ping-devnet
+.PHONY: setup install fmt check build test dev backend-dev witness keys balances airdrop topup deploy-devnet ping-devnet
 
 setup:
 	bash scripts/setup.sh
@@ -12,6 +12,7 @@ install:
 fmt:
 	cargo fmt --all
 	bunx biome check --write .
+	$(MAKE) -C backend fmt
 
 build:
 	bash scripts/program-key.sh
@@ -24,12 +25,16 @@ check: build
 	bunx biome check .
 	bunx tsc -p tsconfig.json
 	bun run --workspaces --if-present typecheck
+	$(MAKE) -C backend check
 
 test: build
 	anchor test --skip-build
 
 dev:
 	bun run --filter web dev
+
+backend-dev:
+	$(MAKE) -C backend dev
 
 witness:
 	bun run --filter witness start

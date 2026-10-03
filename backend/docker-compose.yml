@@ -1,0 +1,18 @@
+services:
+  api:
+    build: backend
+    image: pact/backend
+    profiles: [api, services]
+    restart: unless-stopped
+    env_file:
+      - path: .env
+        required: false
+      - path: backend/.env
+        required: false
+    environment:
+      RUN_ENVIRONMENT: prod
+      TZ: ${TZ:-UTC}
+    volumes:
+      - ./backend/src:/app/src
+    command: [api]
+
