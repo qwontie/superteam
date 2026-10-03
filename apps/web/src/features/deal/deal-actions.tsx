@@ -95,6 +95,7 @@ export function TxButton({
       return;
     }
     dialog.confirm({
+      cancelButtonText: "Keep the deal",
       confirmButtonColor: "stop",
       confirmButtonText: txLabel,
       onConfirm: () => {
@@ -216,6 +217,15 @@ function CancelMove({ deal }: { deal: DealState }) {
     </Move>
   );
 }
+
+const signatureMatters = (deal: DealState, party: number) =>
+  deal.spec.rules.some((rule) =>
+    rule.when.some(
+      (condition) =>
+        (condition.type === "signed" || condition.type === "unsigned") &&
+        condition.party === party
+    )
+  );
 
 const signEffect = (deal: DealState, party: number) => {
   const enables: number[] = [];
@@ -446,7 +456,11 @@ const buildMoves = (
   if (deal.status !== "funded") {
     return moves;
   }
-  if (roles.party !== null && deal.signals[roles.party] === null) {
+  if (
+    roles.party !== null &&
+    deal.signals[roles.party] === null &&
+    signatureMatters(deal, roles.party)
+  ) {
     moves.push(
       <SignMove
         deal={deal}

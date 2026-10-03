@@ -66,6 +66,9 @@ function ConnectMenu() {
   const pick = useCallback(
     (wallet: WalletOption) => {
       connect(wallet).catch((error: unknown) => {
+        if (error instanceof Error && error.name === "AbortError") {
+          return;
+        }
         const failure = describeTxError(error);
         toast({
           color: failure.kind === "rejected" ? "neutral" : "stop",

@@ -81,7 +81,9 @@ function ReviewerToggle({
 }
 
 export function ExampleDeal() {
-  const [deadline] = useState(() => nowSeconds() + DEADLINE_DAYS * DAY);
+  const [deadline] = useState(
+    () => nowSeconds() + DEADLINE_DAYS * DAY + DAY / 2
+  );
   const [play, setPlay] = useState<Play>(START);
   const clock = useNow();
   const now = play.jumped ? clock + JUMP_DAYS * DAY : clock;
