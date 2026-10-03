@@ -190,3 +190,15 @@ export const walletRoles = (
     witness,
   };
 };
+
+export const signatureMatters = (
+  deal: Pick<DealState, "spec">,
+  party: number
+) =>
+  deal.spec.rules.some((rule) =>
+    rule.when.some(
+      (condition) =>
+        (condition.type === "signed" || condition.type === "unsigned") &&
+        condition.party === party
+    )
+  );

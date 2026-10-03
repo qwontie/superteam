@@ -3,6 +3,7 @@ import type { Check, CheckVotes, DealState, Vote } from "@pact/sdk";
 import { Check as CheckIcon, Minus, X } from "lucide-react";
 import { Party, PartyAvatar } from "@/components/pact/party";
 import { formatWhen, shortAddress } from "@/lib/format";
+import { signatureMatters } from "@/lib/pact";
 
 interface PeopleProps {
   deal: DealState;
@@ -72,7 +73,7 @@ const partyNote = (deal: DealState, index: number) => {
   }
   if (signedAt !== null) {
     parts.push(`signed ${formatWhen(signedAt)}`);
-  } else if (deal.status === "funded") {
+  } else if (deal.status === "funded" && signatureMatters(deal, index)) {
     parts.push("has not signed");
   }
   return parts.join(", ");

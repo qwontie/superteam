@@ -10,6 +10,12 @@ const whenFormatter = new Intl.DateTimeFormat("en-US", {
   month: "short",
 });
 
+const dayFormatter = new Intl.DateTimeFormat("en-US", {
+  day: "numeric",
+  month: "short",
+  year: "numeric",
+});
+
 const pad = (value: number) => value.toString().padStart(2, "0");
 
 export const shortAddress = (value: string, size = 4) =>
@@ -19,6 +25,9 @@ export const shortAddress = (value: string, size = 4) =>
 
 export const formatWhen = (unixSeconds: number) =>
   whenFormatter.format(new Date(unixSeconds * 1000));
+
+export const formatDay = (unixSeconds: number) =>
+  dayFormatter.format(new Date(unixSeconds * 1000));
 
 export const formatCountdown = (seconds: number) => {
   const left = Math.max(0, Math.floor(seconds));

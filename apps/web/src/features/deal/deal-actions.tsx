@@ -1,4 +1,4 @@
-import { Button, Input, useDialog } from "@cladd-ui/react";
+import { Button, Input } from "@cladd-ui/react";
 import {
   type DealEvaluation,
   type DealState,
@@ -10,33 +10,19 @@ import {
   getSignalInstruction,
   lamportsToSol,
 } from "@pact/sdk";
-import {
-  type Instruction,
-  isAddress,
-  type TransactionSigner,
-  address as toAddress,
-} from "@solana/kit";
+import { isAddress, address as toAddress } from "@solana/kit";
 import { useNavigate } from "@tanstack/react-router";
 import { type ReactNode, useCallback, useState } from "react";
+import { type BuildInstruction, TxButton } from "@/components/shell/tx-button";
 import { WalletButton } from "@/components/shell/wallet-button";
 import { dealInvalidation } from "@/features/deal/queries";
 import { shortAddress } from "@/lib/format";
-import type { WalletRoles, WitnessSeat } from "@/lib/pact";
-import { type TxFailure, useSendTx } from "@/lib/tx";
+import {
+  signatureMatters,
+  type WalletRoles,
+  type WitnessSeat,
+} from "@/lib/pact";
 import { useWallet } from "@/lib/use-wallet";
-
-type Build = (signer: TransactionSigner) => Instruction;
-
-interface TxButtonProps {
-  build: Build;
-  children: ReactNode;
-  confirm?: { text: string; title: string };
-  deal: DealState;
-  disabled?: boolean;
-  onDone?: () => void;
-  quiet?: boolean;
-  txLabel: string;
-}
 
 interface DealActionsProps {
   deal: DealState;
@@ -51,85 +37,6 @@ interface MoveProps {
   title: string;
 }
 
-const NO_SIGNER: TxFailure = {
-  detail: "Connect a wallet that can sign transactions.",
-  kind: "wallet",
-  title: "This wallet cannot sign",
-};
-
-export function TxButton({
-  deal,
-  build,
-  txLabel,
-  children,
-  confirm,
-  disabled = false,
-  onDone,
-  quiet = false,
-}: TxButtonProps) {
-  const { send, pending } = useSendTx();
-  const { connected } = useWallet();
-  const dialog = useDialog();
-  const [failure, setFailure] = useState<TxFailure | null>(null);
-
-  const run = useCallback(async () => {
-    const signer = connected?.signer;
-    if (!signer) {
-      setFailure(NO_SIGNER);
-      return;
-    }
-    setFailure(null);
-    const outcome = await send([build(signer)], {
-      invalidate: dealInvalidation(deal.address),
-      label: txLabel,
-    });
-    if (outcome.ok) {
-      onDone?.();
-    } else {
-      setFailure(outcome.failure);
-    }
-  }, [build, connected, deal.address, onDone, send, txLabel]);
-
-  const click = useCallback(() => {
-    if (!confirm) {
-      run().catch(() => undefined);
-      return;
-    }
-    dialog.confirm({
-      cancelButtonText: "Keep the deal",
-      confirmButtonColor: "stop",
-      confirmButtonText: txLabel,
-      onConfirm: () => {
-        run().catch(() => undefined);
-      },
-      text: confirm.text,
-      title: confirm.title,
-    });
-  }, [confirm, dialog, run, txLabel]);
-
-  return (
-    <div className="flex flex-col items-end gap-1.5">
-      <Button
-        disabled={disabled || pending !== null}
-        loading={pending === txLabel}
-        onClick={click}
-        size="xl"
-        variant={quiet ? "solid" : "solid-fill"}
-      >
-        {children}
-      </Button>
-      {failure ? (
-        <p
-          className="max-w-64 text-right font-medium text-pact-stop text-xs"
-          role="alert"
-        >
-          {failure.title}. {failure.detail}
-        </p>
-      ) : null}
-    </div>
-  );
-}
-
 export function ExecuteButton({
   deal,
   rule,
@@ -137,7 +44,7 @@ export function ExecuteButton({
   deal: DealState;
   rule: number;
 }) {
-  const build = useCallback<Build>(
+  const build = useCallback<BuildInstruction>(
     (signer) =>
       getExecuteInstruction({
         deal: toAddress(deal.address),
@@ -148,7 +55,11 @@ export function ExecuteButton({
     [deal.address, deal.spec.parties, rule]
   );
   return (
-    <TxButton build={build} deal={deal} txLabel={`Execute rule ${rule + 1}`}>
+    <TxButton
+      build={build}
+      invalidate={dealInvalidation(deal.address)}
+      txLabel={`Execute rule ${rule + 1}`}
+    >
       Execute
     </TxButton>
   );
@@ -169,7 +80,7 @@ function Move({ title, text, children }: MoveProps) {
 }
 
 function FundMove({ deal }: { deal: DealState }) {
-  const build = useCallback<Build>(
+  const build = useCallback<BuildInstruction>(
     (signer) =>
       getFundInstruction({ deal: toAddress(deal.address), funder: signer }),
     [deal.address]
@@ -180,7 +91,11 @@ function FundMove({ deal }: { deal: DealState }) {
       text="The money moves into the vault of this deal. From then on it can leave only through one of the rules."
       title={`Lock ${amount} in the vault`}
     >
-      <TxButton build={build} deal={deal} txLabel={`Fund ${amount}`}>
+      <TxButton
+        build={build}
+        invalidate={dealInvalidation(deal.address)}
+        txLabel={`Fund ${amount}`}
+      >
         Fund {amount}
       </TxButton>
     </Move>
@@ -189,7 +104,7 @@ function FundMove({ deal }: { deal: DealState }) {
 
 function CancelMove({ deal }: { deal: DealState }) {
   const navigate = useNavigate();
-  const build = useCallback<Build>(
+  const build = useCallback<BuildInstruction>(
     (signer) =>
       getCancelInstruction({ creator: signer, deal: toAddress(deal.address) }),
     [deal.address]
@@ -205,10 +120,11 @@ function CancelMove({ deal }: { deal: DealState }) {
       <TxButton
         build={build}
         confirm={{
+          keep: "Keep the deal",
           text: "The draft is deleted from the chain for good. Nothing was locked, so no money moves.",
           title: "Cancel this deal?",
         }}
-        deal={deal}
+        invalidate={dealInvalidation(deal.address)}
         onDone={leave}
         quiet
         txLabel="Cancel deal"
@@ -221,7 +137,7 @@ function CancelMove({ deal }: { deal: DealState }) {
 
 function CloseMove({ deal }: { deal: DealState }) {
   const navigate = useNavigate();
-  const build = useCallback<Build>(
+  const build = useCallback<BuildInstruction>(
     (signer) =>
       getCloseInstruction({ creator: signer, deal: toAddress(deal.address) }),
     [deal.address]
@@ -238,10 +154,11 @@ function CloseMove({ deal }: { deal: DealState }) {
       <TxButton
         build={build}
         confirm={{
+          keep: "Keep the deal",
           text: `The deal page disappears and ${rent} of rent returns to your wallet. The transactions stay on chain.`,
           title: "Close this deal?",
         }}
-        deal={deal}
+        invalidate={dealInvalidation(deal.address)}
         onDone={leave}
         quiet
         txLabel="Close deal"
@@ -251,15 +168,6 @@ function CloseMove({ deal }: { deal: DealState }) {
     </Move>
   );
 }
-
-const signatureMatters = (deal: DealState, party: number) =>
-  deal.spec.rules.some((rule) =>
-    rule.when.some(
-      (condition) =>
-        (condition.type === "signed" || condition.type === "unsigned") &&
-        condition.party === party
-    )
-  );
 
 const signEffect = (deal: DealState, party: number) => {
   const enables: number[] = [];
@@ -294,14 +202,18 @@ function SignMove({
   label: string;
   party: number;
 }) {
-  const build = useCallback<Build>(
+  const build = useCallback<BuildInstruction>(
     (signer) =>
       getSignalInstruction({ deal: toAddress(deal.address), party: signer }),
     [deal.address]
   );
   return (
     <Move text={signEffect(deal, party)} title={`Sign as ${label}`}>
-      <TxButton build={build} deal={deal} txLabel={`Sign as ${label}`}>
+      <TxButton
+        build={build}
+        invalidate={dealInvalidation(deal.address)}
+        txLabel={`Sign as ${label}`}
+      >
         Sign
       </TxButton>
     </Move>
@@ -329,7 +241,7 @@ function NomineeMove({
   no,
 }: {
   deal: DealState;
-  no: Build;
+  no: BuildInstruction;
   seat: WitnessSeat;
 }) {
   const [value, setValue] = useState("");
@@ -343,7 +255,7 @@ function NomineeMove({
       )
     ),
   ];
-  const yes = useCallback<Build>(
+  const yes = useCallback<BuildInstruction>(
     (signer) =>
       getAttestInstruction({
         check: seat.check,
@@ -383,13 +295,18 @@ function NomineeMove({
           </div>
         ) : null}
       </div>
-      <TxButton build={no} deal={deal} quiet txLabel="Vote no">
+      <TxButton
+        build={no}
+        invalidate={dealInvalidation(deal.address)}
+        quiet
+        txLabel="Vote no"
+      >
         Vote no
       </TxButton>
       <TxButton
         build={yes}
-        deal={deal}
         disabled={!valid}
+        invalidate={dealInvalidation(deal.address)}
         txLabel="Vote for this winner"
       >
         Vote for this winner
@@ -400,7 +317,7 @@ function NomineeMove({
 
 function VoteMove({ deal, seat }: { deal: DealState; seat: WitnessSeat }) {
   const check = deal.spec.checks[seat.check];
-  const yes = useCallback<Build>(
+  const yes = useCallback<BuildInstruction>(
     (signer) =>
       getAttestInstruction({
         check: seat.check,
@@ -410,7 +327,7 @@ function VoteMove({ deal, seat }: { deal: DealState; seat: WitnessSeat }) {
       }),
     [deal.address, seat.check]
   );
-  const no = useCallback<Build>(
+  const no = useCallback<BuildInstruction>(
     (signer) =>
       getAttestInstruction({
         check: seat.check,
@@ -431,10 +348,19 @@ function VoteMove({ deal, seat }: { deal: DealState; seat: WitnessSeat }) {
       text="You are a witness of this check. You get one vote and it cannot be changed."
       title={`Is it true? "${check.target}"`}
     >
-      <TxButton build={no} deal={deal} quiet txLabel="Vote no">
+      <TxButton
+        build={no}
+        invalidate={dealInvalidation(deal.address)}
+        quiet
+        txLabel="Vote no"
+      >
         Vote no
       </TxButton>
-      <TxButton build={yes} deal={deal} txLabel="Vote yes">
+      <TxButton
+        build={yes}
+        invalidate={dealInvalidation(deal.address)}
+        txLabel="Vote yes"
+      >
         Vote yes
       </TxButton>
     </Move>

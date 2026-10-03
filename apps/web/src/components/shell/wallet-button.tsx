@@ -20,6 +20,7 @@ import { ArrowUpRight, Copy, LogOut, Rows3, Wallet } from "lucide-react";
 import { useCallback } from "react";
 import { Amount } from "@/components/pact/amount";
 import { PartyAvatar } from "@/components/pact/party";
+import { PlanSection, PlanTag } from "@/components/shell/plan-section";
 import { shortAddress } from "@/lib/format";
 import { explorerUrl } from "@/lib/solana";
 import { describeTxError } from "@/lib/tx";
@@ -141,14 +142,19 @@ function AccountMenu({ address }: { address: string }) {
       <PopoverTrigger>
         <Button aria-label="Account menu" loading={isRunning} size="xl">
           <PartyAvatar seed={address} size={20} />
-          <span className="font-mono text-sm">{shortAddress(address)}</span>
+          <span className="whitespace-nowrap font-mono text-sm">
+            {shortAddress(address)}
+          </span>
+          <span className="hidden sm:inline-flex">
+            <PlanTag />
+          </span>
         </Button>
       </PopoverTrigger>
-      <Popover className="w-72" offset={8} position="bottom-end">
+      <Popover className="w-80" offset={8} position="bottom-end">
         <div className="flex flex-col gap-1 px-4 pt-4 pb-3">
           <span className="text-cladd-fg-soft text-xs">Balance on devnet</span>
           {typeof balance.data === "bigint" ? (
-            <Amount lamports={balance.data} size="lg" />
+            <Amount lamports={balance.data} precision={4} size="lg" />
           ) : (
             <span className="h-9 w-32 rounded-chip bg-cladd-surface-hover" />
           )}
@@ -158,6 +164,8 @@ function AccountMenu({ address }: { address: string }) {
             </span>
           ) : null}
         </div>
+        <ListSeparator />
+        <PlanSection />
         <ListSeparator />
         <List className="p-1.5">
           <PopoverClose>

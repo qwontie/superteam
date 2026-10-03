@@ -7,6 +7,7 @@ export type AmountSize = "sm" | "md" | "lg" | "hero";
 interface AmountProps {
   className?: string;
   lamports: bigint | string;
+  precision?: number;
   size?: AmountSize;
   tone?: Tone;
 }
@@ -27,12 +28,14 @@ const UNIT: Record<AmountSize, string> = {
 
 export function Amount({
   lamports,
+  precision,
   size = "md",
   tone,
   className,
 }: AmountProps) {
   const resolved = useTone(tone);
-  const [whole, fraction] = lamportsToSol(lamports).split(".");
+  const [whole, exact] = lamportsToSol(lamports).split(".");
+  const fraction = precision === undefined ? exact : exact?.slice(0, precision);
   const soft = resolved === "ink" ? "opacity-60" : "text-cladd-fg-soft";
   return (
     <span
