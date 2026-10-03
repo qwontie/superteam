@@ -1,7 +1,7 @@
 SHELL := /bin/bash
 export PATH := $(HOME)/.local/share/solana/install/active_release/bin:$(HOME)/.avm/bin:$(HOME)/.cargo/bin:$(HOME)/.local/bin:$(HOME)/.bun/bin:$(PATH)
 
-.PHONY: setup install fmt check build test dev backend-dev witness keys balances airdrop topup deploy-devnet smoke-devnet pre-deploy deploy prod prod-logs prod-witness-logs demo-deals demo-deals-status demo-clean demo-vote demo-deliver demo-undeliver demo-wallets demo-topup
+.PHONY: setup install fmt check build test dev backend-dev witness keys balances airdrop topup deploy-devnet smoke-devnet pre-deploy deploy prod prod-logs prod-witness-logs demo-deals demo-deals-status demo-clean demo-vote demo-deliver demo-undeliver demo-wallets demo-topup demo-preflight
 
 PROD_HOST ?= personal-main-contabo
 PROD_DIR ?= /root/superteam
@@ -99,3 +99,6 @@ demo-wallets:
 
 demo-topup:
 	source scripts/env.sh && bun scripts/demo-wallets.ts topup
+
+demo-preflight:
+	source scripts/env.sh && bun scripts/demo-preflight.ts

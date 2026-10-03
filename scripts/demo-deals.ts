@@ -265,14 +265,12 @@ const writeList = async (deals: DemoDeal[]) => {
 
 const createAll = async (kinds: Kind[]) => {
   const signers = await wallets();
-  const created: DemoDeal[] = [];
   for (const kind of kinds) {
     // biome-ignore lint/performance/noAwaitInLoops: deals are created one after another from the same wallet
     const deal = await createOne(kind, signers);
-    created.push(deal);
     save([...load(), deal]);
   }
-  await writeList(created);
+  await writeList(load());
 };
 
 const status = async () => {
@@ -288,6 +286,7 @@ const status = async () => {
   if (deals.length === 0) {
     console.log("no demo deals recorded, run make demo-deals");
   }
+  await writeList(deals);
 };
 
 const clean = async () => {
@@ -331,6 +330,7 @@ const clean = async () => {
     }
   }
   save(kept);
+  await writeList(kept);
   console.log(
     kept.length > 0
       ? `${kept.length} funded deal(s) kept: their exit time has not come, run make demo-clean after it`
