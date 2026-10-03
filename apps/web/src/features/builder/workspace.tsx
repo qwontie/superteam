@@ -34,8 +34,8 @@ function TitleField() {
   const { edit, locked } = useBuilder();
   const draft = useDraft();
   const change = useCallback(
-    (event: ChangeEvent<HTMLInputElement>) => {
-      const title = event.target.value;
+    (event: ChangeEvent<HTMLTextAreaElement>) => {
+      const title = event.target.value.replaceAll("\n", " ");
       if (encoder.encode(title).length <= LIMITS.titleBytes) {
         edit((d) => ({ ...d, title }));
       }
@@ -45,14 +45,15 @@ function TitleField() {
   return (
     <div className="flex min-w-0 flex-1 basis-full flex-col gap-2 sm:basis-0">
       <h1 className="sr-only">New deal</h1>
-      <input
+      <textarea
         aria-label="Name of the deal"
         autoComplete="off"
-        className="w-full min-w-0 border-transparent border-b bg-transparent pb-1 font-display font-semibold text-3xl text-cladd-fg tracking-[-0.02em] outline-none transition-colors duration-200 placeholder:text-cladd-fg-softer hover:border-cladd-outline focus:border-cladd-fg sm:text-4xl"
+        className="field-sizing-content w-full min-w-0 resize-none border-transparent border-b bg-transparent pb-1 font-display font-semibold text-3xl text-cladd-fg leading-tight tracking-[-0.02em] outline-none transition-colors duration-200 placeholder:text-cladd-fg-softer hover:border-cladd-outline focus:border-cladd-fg focus-visible:outline-none! sm:text-4xl"
         disabled={locked}
         id={anchorId(anchors.title)}
         onChange={change}
         placeholder="Name this deal"
+        rows={1}
         value={draft.title}
       />
       <ProblemLines anchor={anchors.title} />

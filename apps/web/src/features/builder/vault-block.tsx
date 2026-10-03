@@ -116,7 +116,7 @@ function AmountField() {
       <span className="sr-only">Amount in SOL</span>
       <input
         autoComplete="off"
-        className="min-w-0 bg-transparent font-display font-semibold text-4xl text-cladd-fg tabular-nums leading-none tracking-[-0.03em] outline-none placeholder:text-cladd-fg-softer"
+        className="min-w-0 bg-transparent font-display font-semibold text-4xl text-cladd-fg tabular-nums leading-none tracking-[-0.03em] outline-none placeholder:text-cladd-fg-softer focus-visible:outline-none!"
         disabled={locked}
         id={anchorId(anchors.amount)}
         inputMode="decimal"
