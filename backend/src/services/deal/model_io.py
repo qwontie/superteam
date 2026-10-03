@@ -134,7 +134,7 @@ def lamports_to_sol(value: str) -> str:
     return format(sol.normalize(), "f")
 
 
-def _slot(slot: ModelSlot) -> dict[str, str | None]:
+def slot_data(slot: ModelSlot) -> dict[str, str | None]:
     return {
         "label": slot.label.strip(),
         "address": (slot.address or "").strip() or None,
@@ -153,30 +153,32 @@ def _condition(cond: ModelCondition, zone: ZoneInfo) -> dict[str, str | int]:
             return {"type": "attested", "check": c}
 
 
+def check_data(check: ModelCheck) -> dict[str, object]:
+    return {
+        "kind": "manual",
+        "target": check.statement.strip(),
+        "expect": "",
+        "witnesses": [slot_data(w) for w in check.witnesses],
+        "threshold": check.threshold,
+    }
+
+
+def rule_data(rule: ModelRule, zone: ZoneInfo) -> dict[str, object]:
+    return {
+        "summary": rule.summary.strip(),
+        "when": [_condition(w, zone) for w in rule.when],
+        "pay": [{"party": p.party, "bps": p.bps} for p in rule.pay],
+    }
+
+
 def draft_data(model: ModelDraft, zone: ZoneInfo) -> dict[str, object]:
     return {
         "title": model.title.strip(),
-        "parties": [_slot(s) for s in model.parties],
+        "parties": [slot_data(s) for s in model.parties],
         "funder": model.funder,
         "amount": sol_to_lamports(model.amount_sol) if model.amount_sol else None,
-        "checks": [
-            {
-                "kind": "manual",
-                "target": c.statement.strip(),
-                "expect": "",
-                "witnesses": [_slot(w) for w in c.witnesses],
-                "threshold": c.threshold,
-            }
-            for c in model.checks
-        ],
-        "rules": [
-            {
-                "summary": r.summary.strip(),
-                "when": [_condition(w, zone) for w in r.when],
-                "pay": [{"party": p.party, "bps": p.bps} for p in r.pay],
-            }
-            for r in model.rules
-        ],
+        "checks": [check_data(c) for c in model.checks],
+        "rules": [rule_data(r, zone) for r in model.rules],
     }
 
 

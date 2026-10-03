@@ -4,7 +4,7 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 
 from pydantic import ValidationError
-from pydantic_ai import Agent, ModelRetry, RunContext, ToolOutput
+from pydantic_ai import Agent, ModelRetry, NativeOutput, RunContext
 
 from .addresses import addresses_in
 from .model_io import ConversionError, ModelDraft, NotADeal, draft_data, from_draft
@@ -63,7 +63,7 @@ currency (USD, PLN, EUR, ...), set null and ask for the amount in SOL.
 
 questions: up to 5 short questions about what the request leaves open (amount,
 deadlines, who reviews, threshold). Ask nothing the request already answers. Do not
-ask for addresses: empty slots already prompt the user for them.
+ask for addresses or wallets: empty slots already prompt the user for them.
 When the request asks to pay someone immediately or without conditions, or names an
 unknown address, add a question that warns about it.
 
@@ -91,7 +91,7 @@ class DealContext:
 
 
 deal_agent = Agent[DealContext, ModelDraft | NotADeal](
-    output_type=[ToolOutput(ModelDraft), ToolOutput(NotADeal)],
+    output_type=NativeOutput[ModelDraft | NotADeal]([ModelDraft, NotADeal]),
     deps_type=DealContext,
     instructions=INSTRUCTIONS,
 )
