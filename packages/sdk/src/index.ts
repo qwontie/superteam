@@ -18,6 +18,7 @@ export {
 } from "./client";
 export { type CreateDealArgs, type DealAccount, dealCodec } from "./codecs";
 export { accountToSpec, accountToState, specToCreateArgs } from "./convert";
+export { DEMO_WITNESS_NODES, type WitnessSet } from "./demo";
 export {
   findPactError,
   PACT_ERRORS,

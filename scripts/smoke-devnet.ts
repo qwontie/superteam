@@ -129,7 +129,13 @@ const waitUntil = async (unixSeconds: number): Promise<void> => {
 const balance = async (address: Address) =>
   (await rpc.getBalance(address, { commitment: "confirmed" }).send()).value;
 
+const keepDeals = process.env.KEEP_DEALS === "1";
+
 const closeDeal = async (deal: Address) => {
+  if (keepDeals) {
+    console.log("deal kept open (KEEP_DEALS=1)");
+    return;
+  }
   const before = await balance(client.address);
   await send(
     "close (client)",

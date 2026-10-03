@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
   bounty,
+  DEMO_WITNESS_NODES,
   gig,
   lamportsToSol,
   silenceIsConsent,
@@ -90,6 +91,27 @@ describe("bounty template", () => {
         when: [{ ts: DEADLINE, type: "after" }],
       },
     ]);
+    expect(validateDealSpec(spec, NOW).ok).toBe(true);
+  });
+});
+
+describe("demo witness nodes", () => {
+  test("are the three witness wallets and a valid 2 of 3 check", () => {
+    const spec = gig({
+      amount: "10000000",
+      check: {
+        expect: "pact-1",
+        kind: "http_contains",
+        target: "https://example.com",
+        threshold: DEMO_WITNESS_NODES.threshold,
+        witnesses: [...DEMO_WITNESS_NODES.witnesses],
+      },
+      client: CLIENT,
+      deadline: DEADLINE,
+      freelancer: FREELANCER,
+      title: "Landing page",
+    });
+    expect([...DEMO_WITNESS_NODES.witnesses]).toEqual(WITNESSES);
     expect(validateDealSpec(spec, NOW).ok).toBe(true);
   });
 });
