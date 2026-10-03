@@ -1,7 +1,10 @@
 SHELL := /bin/bash
 export PATH := $(HOME)/.local/share/solana/install/active_release/bin:$(HOME)/.avm/bin:$(HOME)/.cargo/bin:$(HOME)/.local/bin:$(HOME)/.bun/bin:$(PATH)
 
-.PHONY: setup install fmt check build test dev backend-dev witness keys balances airdrop topup deploy-devnet smoke-devnet
+.PHONY: setup install fmt check build test dev backend-dev witness keys balances airdrop topup deploy-devnet smoke-devnet pre-deploy deploy prod prod-logs
+
+PROD_HOST ?= personal-main-contabo
+PROD_DIR ?= /root/superteam
 
 setup:
 	bash scripts/setup.sh
@@ -56,3 +59,16 @@ deploy-devnet: build
 
 smoke-devnet:
 	bash scripts/smoke-devnet.sh
+
+pre-deploy:
+	docker compose --profile services build
+
+deploy: pre-deploy
+	docker compose --profile services up -d --remove-orphans
+
+prod:
+	git fetch origin main
+	git bundle create - origin/main | ssh $(PROD_HOST) 'cd $(PROD_DIR) && cat > .git/prod.bundle && git fetch -q .git/prod.bundle refs/remotes/origin/main && rm .git/prod.bundle && git merge -q --ff-only FETCH_HEAD && make deploy && docker exec caddy-caddy-1 caddy reload --config /etc/caddy/Caddyfile && git log -1 --format="deployed %h %s"'
+
+prod-logs:
+	ssh -t $(PROD_HOST) 'cd $(PROD_DIR) && docker compose logs -f --tail=100'

@@ -1,0 +1,18 @@
+services:
+  api:
+    networks:
+      default: {}
+      caddy:
+        aliases:
+          - pact-api
+
+  web:
+    networks:
+      default: {}
+      caddy:
+        aliases:
+          - pact-web
+
+networks:
+  caddy:
+    external: true

@@ -1,0 +1,17 @@
+{$SUPERTEAM_DOMAIN} {
+	handle /api/ai/deal/stream {
+		reverse_proxy pact-api:8000 {
+			flush_interval -1
+		}
+	}
+
+	handle /api/* {
+		encode zstd gzip
+		reverse_proxy pact-api:8000
+	}
+
+	handle {
+		encode zstd gzip
+		reverse_proxy pact-web:80
+	}
+}

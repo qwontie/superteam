@@ -1,3 +1,14 @@
 include:
   - path: backend/docker-compose.yml
     project_directory: .
+
+services:
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        VITE_RPC_URL: ${VITE_RPC_URL:-}
+    image: pact/web
+    profiles: [web, services]
+    restart: unless-stopped

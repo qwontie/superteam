@@ -1,0 +1,12 @@
+*
+!package.json
+!bun.lock
+!tsconfig.json
+!apps
+!packages
+**/node_modules
+**/dist
+**/.env
+**/.env.*
+**/*.tsbuildinfo
+**/routeTree.gen.ts
