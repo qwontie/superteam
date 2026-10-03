@@ -1,5 +1,3 @@
-"use client";
-
 import { useClient } from "@solana/react";
 import type { AppClient } from "./solana";
 

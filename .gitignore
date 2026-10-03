@@ -10,8 +10,8 @@ node_modules/
 .anchor/
 test-ledger/
 .surfpool/
-.next/
+dist/
 .env
 .env.*
 *.tsbuildinfo
-next-env.d.ts
+routeTree.gen.ts

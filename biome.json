@@ -1,10 +1,6 @@
 {
   "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
-  "extends": [
-    "ultracite/biome/core",
-    "ultracite/biome/react",
-    "ultracite/biome/next"
-  ],
+  "extends": ["ultracite/biome/core", "ultracite/biome/react"],
   "vcs": { "enabled": true, "clientKind": "git", "useIgnoreFile": true },
   "files": {
     "includes": [
@@ -14,7 +10,17 @@
       "!target",
       "!.anchor",
       "!**/*.md",
-      "!packages/sdk/src/idl"
+      "!packages/sdk/src/idl",
+      "!**/routeTree.gen.ts",
+      "!**/dist"
     ]
-  }
+  },
+  "overrides": [
+    {
+      "includes": ["apps/web/src/routes/**"],
+      "linter": {
+        "rules": { "style": { "useFilenamingConvention": "off" } }
+      }
+    }
+  ]
 }

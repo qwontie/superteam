@@ -1,0 +1,6 @@
+@import "tailwindcss";
+@import "@cladd-ui/react/css";
+@import "@fontsource-variable/geist/wght.css";
+@import "@fontsource-variable/geist-mono/wght.css";
+@import "@fontsource-variable/bricolage-grotesque/opsz.css";
+@import "./theme.css";

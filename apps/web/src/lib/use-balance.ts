@@ -1,5 +1,3 @@
-"use client";
-
 import type { Address } from "@solana/kit";
 import { useQuery } from "@tanstack/react-query";
 import { useAppClient } from "./use-app-client";
@@ -18,6 +16,6 @@ export function useBalance(address: Address | undefined) {
       return value;
     },
     queryKey: ["balance", address],
-    refetchInterval: 15_000,
+    refetchInterval: 60_000,
   });
 }
