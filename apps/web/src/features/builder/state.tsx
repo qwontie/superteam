@@ -17,6 +17,9 @@ export type Mode = "build" | "play";
 export interface Created {
   address: string;
   funded: boolean;
+  funder: string;
+  lamports: string;
+  signature: string;
   title: string;
 }
 

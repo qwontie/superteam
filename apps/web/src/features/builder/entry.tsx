@@ -3,6 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import { type ReactNode, useCallback, useEffect } from "react";
 import { AiProvider, useAi } from "@/features/builder/ai";
+import { Created } from "@/features/builder/created";
 import { type TemplateKey, templateDraft } from "@/features/builder/model";
 import { PromptBox } from "@/features/builder/prompt-box";
 import { Start } from "@/features/builder/start";
@@ -57,9 +58,12 @@ function AiBridge({ children }: { children: ReactNode }) {
 }
 
 function BuilderScreen() {
-  const { draft, locked } = useBuilder();
+  const { created, draft, locked } = useBuilder();
   const { origin } = useAi();
   useTemplateParam();
+  if (created) {
+    return <Created created={created} />;
+  }
   if (!draft) {
     return <Start prompt={<PromptBox variant="start" />} />;
   }
