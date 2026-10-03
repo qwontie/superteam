@@ -57,6 +57,10 @@
       "version": "0.1.0",
       "dependencies": {
         "@solana/kit": "^7",
+        "zod": "^4.6.5",
+      },
+      "devDependencies": {
+        "@types/bun": "^1.4.2",
       },
     },
   },

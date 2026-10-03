@@ -7,9 +7,14 @@
     ".": "./src/index.ts"
   },
   "scripts": {
+    "test": "bun test",
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
-    "@solana/kit": "^7"
+    "@solana/kit": "^7",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.4.2"
   }
 }
