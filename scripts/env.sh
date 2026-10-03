@@ -6,7 +6,11 @@ export PATH="$HOME/.local/share/solana/install/active_release/bin:$HOME/.avm/bin
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 MAIN_ROOT="$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")"
 KEYS_DIR="${KEYS_DIR:-$MAIN_ROOT/.keys}"
-CLUSTER_URL="${CLUSTER_URL:-https://api.devnet.solana.com}"
+ENV_FILE="$MAIN_ROOT/.env"
+if [ -z "${RPC_URL:-}" ] && [ -f "$ENV_FILE" ]; then
+  RPC_URL="$(sed -n 's/^RPC_URL=//p' "$ENV_FILE" | tr -d "\"'" | head -n 1)"
+fi
+CLUSTER_URL="${CLUSTER_URL:-${RPC_URL:-https://api.devnet.solana.com}}"
 WALLETS=(treasury client freelancer witness1 witness2 witness3)
 PROGRAM_KEYPAIR="$KEYS_DIR/pact-keypair.json"
 

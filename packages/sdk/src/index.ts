@@ -1,7 +1,28 @@
 // biome-ignore-all lint/performance/noBarrelFile: package entry point
-import { type Address, address } from "@solana/kit";
 import idl from "./idl/pact.json" with { type: "json" };
 
+export {
+  decodeDeal,
+  fetchAllDeals,
+  fetchDeal,
+  findDealAddress,
+  getAttestInstruction,
+  getCancelInstruction,
+  getCreateDealInstruction,
+  getExecuteInstruction,
+  getFundInstruction,
+  getSignalInstruction,
+  newDealId,
+  PACT_PROGRAM_ID,
+} from "./client";
+export { type CreateDealArgs, type DealAccount, dealCodec } from "./codecs";
+export { accountToSpec, accountToState, specToCreateArgs } from "./convert";
+export {
+  findPactError,
+  PACT_ERRORS,
+  type PactErrorInfo,
+  pactErrorByCode,
+} from "./errors";
 export {
   type ConditionResult,
   type DealEvaluation,
@@ -10,7 +31,9 @@ export {
   evaluateRule,
   type RuleEvaluation,
 } from "./evaluate";
+export { type Cluster, explorerAddress, explorerTx } from "./explorer";
 export type { Pact } from "./idl/pact";
+export { type SendInput, sendInstructions } from "./send";
 export {
   CHECK_KINDS,
   type Check,
@@ -51,4 +74,3 @@ export {
 } from "./validate";
 
 export const PACT_IDL = idl;
-export const PACT_PROGRAM_ID: Address = address(idl.address);

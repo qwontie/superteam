@@ -6,6 +6,7 @@
       "name": "superteam",
       "dependencies": {
         "@anchor-lang/core": "^1.1.2",
+        "@solana/kit": "^7",
       },
       "devDependencies": {
         "@biomejs/biome": "^2.5.15",
@@ -60,6 +61,7 @@
         "zod": "^4.6.5",
       },
       "devDependencies": {
+        "@anchor-lang/core": "^1.2.0",
         "@types/bun": "^1.4.2",
       },
     },

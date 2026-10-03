@@ -8,7 +8,8 @@
   ],
   "scripts": {},
   "dependencies": {
-    "@anchor-lang/core": "^1.1.2"
+    "@anchor-lang/core": "^1.1.2",
+    "@solana/kit": "^7"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.15",
