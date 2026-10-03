@@ -1,0 +1,23 @@
+{
+  "name": "superteam",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {},
+  "dependencies": {
+    "@anchor-lang/core": "^1.1.2"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.5.15",
+    "@types/bn.js": "^5.2.0",
+    "@types/mocha": "^10",
+    "@types/node": "^24",
+    "mocha": "^10",
+    "ts-mocha": "^10",
+    "typescript": "^5.9",
+    "ultracite": "^7.12.2"
+  }
+}

@@ -4,3 +4,13 @@
 .codex/hooks.json
 .cursor/hooks.json
 .DS_Store
+.keys/
+target/
+node_modules/
+.anchor/
+test-ledger/
+.surfpool/
+.next/
+.env
+.env.*
+*.tsbuildinfo
