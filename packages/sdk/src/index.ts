@@ -62,6 +62,18 @@ export {
   votesFromBitmaps,
 } from "./state";
 export {
+  decodeSubscription,
+  fetchSubscription,
+  findSubscriptionAddress,
+  getSubscribeInstruction,
+  isSubscriptionActive,
+  REVENUE_ADDRESS,
+  SUBSCRIPTION_MAX_PERIODS,
+  SUBSCRIPTION_PERIOD_SECONDS,
+  SUBSCRIPTION_PRICE_LAMPORTS,
+  type SubscriptionState,
+} from "./subscription";
+export {
   type BountyInput,
   bounty,
   type CheckInput,

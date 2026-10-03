@@ -414,6 +414,61 @@
         }
       ],
       "args": []
+    },
+    {
+      "name": "subscribe",
+      "discriminator": [
+        254,
+        28,
+        191,
+        138,
+        156,
+        179,
+        183,
+        53
+      ],
+      "accounts": [
+        {
+          "name": "user",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "subscription",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  117,
+                  98
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "user"
+              }
+            ]
+          }
+        },
+        {
+          "name": "revenue",
+          "writable": true,
+          "address": "3p4TEJLZo7mA1pqcK8bRiLtNd1kVEPAHRLSwzwcRoHrQ"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "periods",
+          "type": "u8"
+        }
+      ]
     }
   ],
   "accounts": [
@@ -428,6 +483,19 @@
         162,
         182,
         219
+      ]
+    },
+    {
+      "name": "Subscription",
+      "discriminator": [
+        64,
+        7,
+        26,
+        135,
+        102,
+        132,
+        98,
+        33
       ]
     }
   ],
@@ -508,6 +576,19 @@
         226,
         143,
         82
+      ]
+    },
+    {
+      "name": "Subscribed",
+      "discriminator": [
+        135,
+        59,
+        105,
+        76,
+        190,
+        236,
+        138,
+        228
       ]
     }
   ],
@@ -716,6 +797,16 @@
       "code": 6040,
       "name": "NotSettled",
       "msg": "Only a settled deal can be closed"
+    },
+    {
+      "code": 6041,
+      "name": "BadPeriods",
+      "msg": "A subscription is bought for 1 to 12 periods"
+    },
+    {
+      "code": 6042,
+      "name": "WrongRevenue",
+      "msg": "Subscription payments go only to the revenue address"
     }
   ],
   "types": [
@@ -1135,6 +1226,46 @@
           {
             "name": "ts",
             "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Subscribed",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "user",
+            "type": "pubkey"
+          },
+          {
+            "name": "expires_at",
+            "type": "i64"
+          },
+          {
+            "name": "lamports",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Subscription",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "user",
+            "type": "pubkey"
+          },
+          {
+            "name": "expires_at",
+            "type": "i64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
           }
         ]
       }

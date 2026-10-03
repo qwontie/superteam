@@ -420,6 +420,61 @@ export type Pact = {
         }
       ],
       "args": []
+    },
+    {
+      "name": "subscribe",
+      "discriminator": [
+        254,
+        28,
+        191,
+        138,
+        156,
+        179,
+        183,
+        53
+      ],
+      "accounts": [
+        {
+          "name": "user",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "subscription",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  117,
+                  98
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "user"
+              }
+            ]
+          }
+        },
+        {
+          "name": "revenue",
+          "writable": true,
+          "address": "3p4TEJLZo7mA1pqcK8bRiLtNd1kVEPAHRLSwzwcRoHrQ"
+        },
+        {
+          "name": "systemProgram",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "periods",
+          "type": "u8"
+        }
+      ]
     }
   ],
   "accounts": [
@@ -434,6 +489,19 @@ export type Pact = {
         162,
         182,
         219
+      ]
+    },
+    {
+      "name": "subscription",
+      "discriminator": [
+        64,
+        7,
+        26,
+        135,
+        102,
+        132,
+        98,
+        33
       ]
     }
   ],
@@ -514,6 +582,19 @@ export type Pact = {
         226,
         143,
         82
+      ]
+    },
+    {
+      "name": "subscribed",
+      "discriminator": [
+        135,
+        59,
+        105,
+        76,
+        190,
+        236,
+        138,
+        228
       ]
     }
   ],
@@ -722,6 +803,16 @@ export type Pact = {
       "code": 6040,
       "name": "notSettled",
       "msg": "Only a settled deal can be closed"
+    },
+    {
+      "code": 6041,
+      "name": "badPeriods",
+      "msg": "A subscription is bought for 1 to 12 periods"
+    },
+    {
+      "code": 6042,
+      "name": "wrongRevenue",
+      "msg": "Subscription payments go only to the revenue address"
     }
   ],
   "types": [
@@ -1141,6 +1232,46 @@ export type Pact = {
           {
             "name": "ts",
             "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "subscribed",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "user",
+            "type": "pubkey"
+          },
+          {
+            "name": "expiresAt",
+            "type": "i64"
+          },
+          {
+            "name": "lamports",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "subscription",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "user",
+            "type": "pubkey"
+          },
+          {
+            "name": "expiresAt",
+            "type": "i64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
           }
         ]
       }

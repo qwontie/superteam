@@ -39,9 +39,10 @@ type InstructionName =
   | "attest"
   | "execute"
   | "cancel"
-  | "close";
+  | "close"
+  | "subscribe";
 
-const instructionDiscriminator = (name: InstructionName) => {
+export const instructionDiscriminator = (name: InstructionName) => {
   const instruction = idl.instructions.find((entry) => entry.name === name);
   if (!instruction) {
     throw new Error(`instruction ${name} is missing from the IDL`);
@@ -53,7 +54,7 @@ const DEAL_DISCRIMINATOR = Uint8Array.from(
   idl.accounts.find((entry) => entry.name === "Deal")?.discriminator ?? []
 );
 
-const concat = (...parts: ReadonlyUint8Array[]) => {
+export const concat = (...parts: ReadonlyUint8Array[]) => {
   const bytes = new Uint8Array(
     parts.reduce((size, part) => size + part.length, 0)
   );
@@ -65,13 +66,13 @@ const concat = (...parts: ReadonlyUint8Array[]) => {
   return bytes;
 };
 
-const signerMeta = (signer: TransactionSigner, isWritable: boolean) => ({
+export const signerMeta = (signer: TransactionSigner, isWritable: boolean) => ({
   address: signer.address,
   role: isWritable ? AccountRole.WRITABLE_SIGNER : AccountRole.READONLY_SIGNER,
   signer,
 });
 
-const writable = (account: Address): AccountMeta => ({
+export const writable = (account: Address): AccountMeta => ({
   address: account,
   role: AccountRole.WRITABLE,
 });
@@ -81,7 +82,7 @@ const OPEN_SLOT_META: AccountMeta = {
   role: AccountRole.READONLY,
 };
 
-const SYSTEM_PROGRAM_META: AccountMeta = {
+export const SYSTEM_PROGRAM_META: AccountMeta = {
   address: SYSTEM_PROGRAM_ID,
   role: AccountRole.READONLY,
 };

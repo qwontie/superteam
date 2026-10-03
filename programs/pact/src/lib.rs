@@ -4,9 +4,11 @@ pub mod errors;
 pub mod events;
 pub mod instructions;
 pub mod state;
+pub mod subscription;
 
 use instructions::*;
 use state::{CheckSpec, Rule};
+use subscription::*;
 
 declare_id!("6uhLn2f5NZzydXocLTaxhGYKZ2pQQvrhrbwyMmM9YsCk");
 
@@ -57,5 +59,9 @@ pub mod pact {
 
     pub fn close(ctx: Context<Close>) -> Result<()> {
         instructions::close::handler(ctx)
+    }
+
+    pub fn subscribe(ctx: Context<Subscribe>, periods: u8) -> Result<()> {
+        subscription::subscribe(ctx, periods)
     }
 }

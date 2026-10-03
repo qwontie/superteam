@@ -84,4 +84,8 @@ pub enum PactError {
     OpenSlotNotBound,
     #[msg("Only a settled deal can be closed")]
     NotSettled,
+    #[msg("A subscription is bought for 1 to 12 periods")]
+    BadPeriods,
+    #[msg("Subscription payments go only to the revenue address")]
+    WrongRevenue,
 }

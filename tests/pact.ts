@@ -564,4 +564,69 @@ describe("pact", () => {
       await rejectsWith(close(deal), "NotSettled");
     });
   });
+
+  describe("subscription", () => {
+    const REVENUE = new web3.PublicKey(
+      "3p4TEJLZo7mA1pqcK8bRiLtNd1kVEPAHRLSwzwcRoHrQ"
+    );
+    const PRICE = 50_000_000;
+    const PERIOD = 30 * 24 * HOUR;
+
+    const subscriptionOf = (user: PublicKey) =>
+      web3.PublicKey.findProgramAddressSync(
+        [Buffer.from("sub"), user.toBuffer()],
+        program.programId
+      )[0];
+
+    const subscribe = (user: Keypair, periods: number, revenue = REVENUE) =>
+      program.methods
+        .subscribe(periods)
+        .accountsPartial({
+          revenue,
+          subscription: subscriptionOf(user.publicKey),
+          user: user.publicKey,
+        })
+        .signers([user])
+        .rpc({ commitment: "confirmed" });
+
+    const expiresAt = async (user: PublicKey) =>
+      (
+        await program.account.subscription.fetch(
+          subscriptionOf(user),
+          "confirmed"
+        )
+      ).expiresAt.toNumber();
+
+    it("sells 30-day periods to the revenue address and extends from the current expiry", async () => {
+      const user = await fundedKeypair(provider);
+      const revenueBefore = await balance(REVENUE);
+      const start = await chainNow(provider);
+      await subscribe(user, 1);
+      assert.equal(await balance(REVENUE), revenueBefore + PRICE);
+      const first = await expiresAt(user.publicKey);
+      assert.ok(first >= start + PERIOD && first <= start + PERIOD + 60);
+
+      await subscribe(user, 2);
+      assert.equal(await expiresAt(user.publicKey), first + 2 * PERIOD);
+      assert.equal(await balance(REVENUE), revenueBefore + 3 * PRICE);
+    });
+
+    it("restarts from now after the subscription has expired", async () => {
+      const user = await fundedKeypair(provider);
+      await subscribe(user, 1);
+      const expired = await expiresAt(user.publicKey);
+      await timeTravel(provider, expired + 10 * HOUR);
+      const now = await chainNow(provider);
+      await subscribe(user, 1);
+      const renewed = await expiresAt(user.publicKey);
+      assert.ok(renewed >= now + PERIOD && renewed <= now + PERIOD + 60);
+    });
+
+    it("refuses 0 or more than 12 periods and any other revenue address", async () => {
+      const user = await fundedKeypair(provider);
+      await rejectsWith(subscribe(user, 0), "BadPeriods");
+      await rejectsWith(subscribe(user, 13), "BadPeriods");
+      await rejectsWith(subscribe(user, 1, stranger.publicKey), "WrongRevenue");
+    });
+  });
 });
