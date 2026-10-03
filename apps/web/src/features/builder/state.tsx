@@ -44,6 +44,19 @@ const EMPTY: Validation = { problems: [], spec: null };
 
 const BuilderContext = createContext<BuilderValue | null>(null);
 
+const pruneChecks = (draft: Draft): Draft => {
+  const used = new Set(
+    draft.rules.flatMap((rule) =>
+      rule.when.flatMap((condition) =>
+        condition.type === "attested" ? [condition.check] : []
+      )
+    )
+  );
+  return draft.checks.every((check) => used.has(check.id))
+    ? draft
+    : { ...draft, checks: draft.checks.filter((check) => used.has(check.id)) };
+};
+
 const isDraft = (value: unknown): value is Draft => {
   const draft = value as Partial<Draft> | null;
   return (
@@ -92,11 +105,15 @@ const useSlowClock = () => {
 
 export function BuilderProvider({ children }: { children: ReactNode }) {
   const { address: wallet } = useWallet();
-  const [draft, setDraft] = useState<Draft | null>(loadDraft);
+  const [raw, setDraft] = useState<Draft | null>(loadDraft);
   const [mode, setMode] = useState<Mode>("build");
   const [locked, setLocked] = useState(false);
   const [created, setCreated] = useState<Created | null>(null);
   const now = useSlowClock();
+  const draft = useMemo(
+    () => (raw && !locked ? pruneChecks(raw) : raw),
+    [locked, raw]
+  );
 
   useEffect(() => {
     if (!locked) {
@@ -105,7 +122,9 @@ export function BuilderProvider({ children }: { children: ReactNode }) {
   }, [draft, locked]);
 
   const edit = useCallback((change: (draft: Draft) => Draft) => {
-    setDraft((current) => (current ? change(current) : current));
+    setDraft((current) =>
+      current ? pruneChecks(change(pruneChecks(current))) : current
+    );
   }, []);
 
   const validation = useMemo(

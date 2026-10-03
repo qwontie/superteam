@@ -14,8 +14,31 @@ const ANCHOR_UNSAFE = /[^a-z0-9]+/gi;
 export const anchorId = (anchor: string) =>
   `builder-${anchor.replace(ANCHOR_UNSAFE, "-")}`;
 
-export const SECTION_TITLE =
-  "font-display font-semibold text-cladd-fg text-lg tracking-[-0.01em]";
+export const REVEAL =
+  "opacity-0 transition-opacity duration-150 focus-visible:opacity-100 group-focus-within/rule:opacity-100 group-hover/rule:opacity-100 [@media(hover:none)]:opacity-60";
+
+export const pickedClass = (picked: boolean) =>
+  picked
+    ? "shadow-[inset_0_0_0_1.5px_var(--color-cladd-fg)]"
+    : "text-cladd-fg-soft";
+
+export const POPOVER_BODY =
+  "flex max-h-[min(36rem,calc(100dvh-6rem))] flex-col gap-3 overflow-y-auto p-4";
+
+export const jumpTo = (anchor: string) => {
+  const field = document.getElementById(anchorId(anchor));
+  const target =
+    field ?? document.querySelector<HTMLElement>(`[data-anchor="${anchor}"]`);
+  if (!target) {
+    window.scrollTo({ behavior: "smooth", top: 0 });
+    return;
+  }
+  target.scrollIntoView({ block: "center" });
+  target.focus({ preventScroll: true });
+  if (!field && target instanceof HTMLButtonElement) {
+    target.click();
+  }
+};
 
 export function ProblemLines({
   anchor,

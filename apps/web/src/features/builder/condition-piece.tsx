@@ -2,8 +2,6 @@ import {
   Button,
   cn,
   Input,
-  List,
-  ListButton,
   Popover,
   PopoverClose,
   PopoverRoot,
@@ -12,27 +10,30 @@ import {
   SegmentedButton,
 } from "@cladd-ui/react";
 import { useDraggable } from "@dnd-kit/core";
-import { Check, Eye } from "lucide-react";
+import { Trash2 } from "lucide-react";
 import { type KeyboardEvent, useCallback } from "react";
 import { ConditionChip } from "@/components/pact/condition-chip";
-import { PartyAvatar } from "@/components/pact/party";
-import {
-  checkName,
-  conditionText,
-  partyName,
-} from "@/features/builder/describe";
+import { CheckEditor } from "@/features/builder/check-editor";
+import { checkGap, conditionText } from "@/features/builder/describe";
 import {
   canRemoveCondition,
-  type DraftCheck,
+  canTake,
+  type Draft,
   type DraftCondition,
   type DraftRule,
-  type PartySlot,
-  partyAddress,
+  moveCondition,
   removeCondition,
   updateCondition,
 } from "@/features/builder/model";
-import { Field, RemoveLine } from "@/features/builder/parts";
+import { Field, POPOVER_BODY } from "@/features/builder/parts";
+import {
+  PartyFields,
+  PartyPicker,
+  type Place,
+} from "@/features/builder/party-chip";
 import { pointerDown } from "@/features/builder/pieces";
+import { anchors, errorsAt } from "@/features/builder/problems";
+import { useSim } from "@/features/builder/simulation";
 import { useBuilder, useDraft } from "@/features/builder/state";
 import { formatCountdown } from "@/lib/format";
 import type { ConditionState } from "@/lib/pact";
@@ -45,18 +46,17 @@ export interface ConditionDrag {
 
 type AfterCondition = Extract<DraftCondition, { type: "after" }>;
 type PartyCondition = Extract<DraftCondition, { type: "signed" | "unsigned" }>;
-type CheckCondition = Extract<DraftCondition, { type: "attested" }>;
 
 const DAY = 86_400;
 const HOUR = 3600;
 const MINUTE_MS = 60_000;
 const LOCAL_LENGTH = 16;
 const PRESETS = [
-  { days: 1, label: "In 1 day" },
-  { days: 3, label: "In 3 days" },
-  { days: 7, label: "In 1 week" },
-  { days: 14, label: "In 2 weeks" },
-  { days: 30, label: "In 30 days" },
+  { days: 1, label: "1 day" },
+  { days: 3, label: "3 days" },
+  { days: 7, label: "1 week" },
+  { days: 14, label: "2 weeks" },
+  { days: 30, label: "30 days" },
 ] as const;
 
 const toLocalInput = (ts: number) => {
@@ -107,24 +107,20 @@ function AfterEditor({ condition, ruleId }: EditorProps<AfterCondition>) {
   const left = condition.ts - now;
   return (
     <>
-      <Field label="True from this moment on">
+      <Field
+        label={
+          left > 0 ? `In ${formatCountdown(left)}` : "This moment has passed"
+        }
+      >
         <Input
           inputClassName="tabular-nums"
+          inputComponentProps={{ "aria-label": "True from this moment on" }}
           onChange={change}
           size="xl"
           type="datetime-local"
+          valid={left > 0}
           value={toLocalInput(condition.ts)}
         />
-        <span
-          className={cn(
-            "text-xs",
-            left > 0 ? "text-cladd-fg-soft" : "text-pact-stop"
-          )}
-        >
-          {left > 0
-            ? `${formatCountdown(left)} from now, in your local time`
-            : "This moment has already passed"}
-        </span>
       </Field>
       <div className="flex flex-wrap gap-1.5">
         {PRESETS.map((preset) => (
@@ -141,42 +137,7 @@ function AfterEditor({ condition, ruleId }: EditorProps<AfterCondition>) {
   );
 }
 
-function PartyOption({
-  condition,
-  party,
-  ruleId,
-}: EditorProps<PartyCondition> & { party: PartySlot }) {
-  const { edit, wallet } = useBuilder();
-  const draft = useDraft();
-  const pick = useCallback(
-    () =>
-      edit((d) =>
-        updateCondition(d, ruleId, { ...condition, party: party.id })
-      ),
-    [condition, edit, party.id, ruleId]
-  );
-  const selected = condition.party === party.id;
-  return (
-    <ListButton
-      aria-pressed={selected}
-      icon={
-        <PartyAvatar
-          seed={party.open ? null : partyAddress(party, wallet) || party.label}
-          size={20}
-        />
-      }
-      onClick={pick}
-      size="xl"
-    >
-      <span className="flex w-full items-center justify-between gap-2">
-        {partyName(draft, party.id)}
-        {selected ? <Check aria-hidden="true" size={15} /> : null}
-      </span>
-    </ListButton>
-  );
-}
-
-function PartyEditor({ condition, ruleId }: EditorProps<PartyCondition>) {
+function SignEditor({ condition, ruleId }: EditorProps<PartyCondition>) {
   const { edit } = useBuilder();
   const draft = useDraft();
   const setSigned = useCallback(
@@ -191,6 +152,12 @@ function PartyEditor({ condition, ruleId }: EditorProps<PartyCondition>) {
       ),
     [condition, edit, ruleId]
   );
+  const place = useCallback<Place>(
+    (d: Draft, partyId: string) =>
+      updateCondition(d, ruleId, { ...condition, party: partyId }),
+    [condition, ruleId]
+  );
+  const party = draft.parties.find((entry) => entry.id === condition.party);
   return (
     <>
       <Segmented size="xl">
@@ -207,73 +174,13 @@ function PartyEditor({ condition, ruleId }: EditorProps<PartyCondition>) {
           Has not signed
         </SegmentedButton>
       </Segmented>
-      <p className="text-cladd-fg-soft text-xs">
-        Signing is one click on the deal page from that party's wallet. It
-        cannot be undone.
-      </p>
-      <List className="-mx-2">
-        {draft.parties.map((party) => (
-          <PartyOption
-            condition={condition}
-            key={party.id}
-            party={party}
-            ruleId={ruleId}
-          />
-        ))}
-      </List>
+      {party ? <PartyFields party={party} /> : null}
+      <PartyPicker
+        label="Someone else"
+        options={draft.parties.filter((entry) => entry.id !== condition.party)}
+        place={place}
+      />
     </>
-  );
-}
-
-function CheckOption({
-  check,
-  condition,
-  ruleId,
-}: EditorProps<CheckCondition> & { check: DraftCheck }) {
-  const { edit } = useBuilder();
-  const draft = useDraft();
-  const pick = useCallback(
-    () =>
-      edit((d) =>
-        updateCondition(d, ruleId, { ...condition, check: check.id })
-      ),
-    [check.id, condition, edit, ruleId]
-  );
-  const selected = condition.check === check.id;
-  return (
-    <ListButton
-      aria-pressed={selected}
-      icon={<Eye aria-hidden="true" size={16} />}
-      multiline
-      onClick={pick}
-      size="xl"
-    >
-      <span className="flex w-full items-center justify-between gap-2">
-        <span className="min-w-0">
-          {checkName(draft, check.id)}
-          <span className="block truncate text-cladd-fg-soft text-xs">
-            {check.target || "No statement yet"}
-          </span>
-        </span>
-        {selected ? <Check aria-hidden="true" size={15} /> : null}
-      </span>
-    </ListButton>
-  );
-}
-
-function CheckEditor({ condition, ruleId }: EditorProps<CheckCondition>) {
-  const draft = useDraft();
-  return (
-    <List className="-mx-2">
-      {draft.checks.map((check) => (
-        <CheckOption
-          check={check}
-          condition={condition}
-          key={check.id}
-          ruleId={ruleId}
-        />
-      ))}
-    </List>
   );
 }
 
@@ -284,7 +191,162 @@ function Editor({ condition, ruleId }: EditorProps<DraftCondition>) {
   if (condition.type === "attested") {
     return <CheckEditor condition={condition} ruleId={ruleId} />;
   }
-  return <PartyEditor condition={condition} ruleId={ruleId} />;
+  return <SignEditor condition={condition} ruleId={ruleId} />;
+}
+
+function MoveOption({
+  condition,
+  from,
+  index,
+  to,
+}: {
+  condition: DraftCondition;
+  from: string;
+  index: number;
+  to: string;
+}) {
+  const { edit } = useBuilder();
+  const move = useCallback(
+    () => edit((d) => moveCondition(d, from, to, condition.id)),
+    [condition.id, edit, from, to]
+  );
+  return (
+    <PopoverClose>
+      <Button
+        aria-label={`Move to rule ${index + 1}`}
+        className="font-mono tabular-nums"
+        onClick={move}
+        size="lg"
+        square
+      >
+        {index + 1}
+      </Button>
+    </PopoverClose>
+  );
+}
+
+function Footer({
+  condition,
+  rule,
+}: {
+  condition: DraftCondition;
+  rule: DraftRule;
+}) {
+  const { edit } = useBuilder();
+  const draft = useDraft();
+  const removable = canRemoveCondition(rule);
+  const remove = useCallback(
+    () => edit((d) => removeCondition(d, rule.id, condition.id)),
+    [condition.id, edit, rule.id]
+  );
+  if (!removable) {
+    return null;
+  }
+  const targets = draft.rules
+    .map((entry, index) => ({ entry, index }))
+    .filter(
+      ({ entry }) => entry.id !== rule.id && canTake(entry, condition.type)
+    );
+  return (
+    <div className="flex items-center gap-1.5 pt-1">
+      {targets.length > 0 ? (
+        <span className="text-cladd-fg-soft text-xs">Move to</span>
+      ) : null}
+      {targets.map(({ entry, index }) => (
+        <MoveOption
+          condition={condition}
+          from={rule.id}
+          index={index}
+          key={entry.id}
+          to={entry.id}
+        />
+      ))}
+      <PopoverClose>
+        <Button
+          aria-label="Remove this condition"
+          className="ml-auto text-pact-stop"
+          onClick={remove}
+          size="lg"
+          square
+          variant="transparent"
+        >
+          <Trash2 aria-hidden="true" size={15} />
+        </Button>
+      </PopoverClose>
+    </div>
+  );
+}
+
+const anchorOf = (condition: DraftCondition) => {
+  if (condition.type === "attested") {
+    return anchors.check(condition.check);
+  }
+  return condition.type === "after"
+    ? undefined
+    : anchors.party(condition.party);
+};
+
+const useGap = (condition: DraftCondition) => {
+  const { validation } = useBuilder();
+  const draft = useDraft();
+  if (condition.type !== "attested") {
+    return { broken: false, gap: null };
+  }
+  const check = draft.checks.find((entry) => entry.id === condition.check);
+  return {
+    broken:
+      errorsAt(validation.problems, anchors.check(condition.check)).length > 0,
+    gap: check ? checkGap(check) : null,
+  };
+};
+
+function PlayPiece({
+  condition,
+  detail,
+  state,
+}: {
+  condition: DraftCondition;
+  detail?: string | null;
+  state: ConditionState;
+}) {
+  const draft = useDraft();
+  const sim = useSim();
+  const text = conditionText(condition, draft);
+  const toggle = useCallback(() => {
+    if (condition.type === "after") {
+      const offset = condition.ts - (sim.now - sim.offset);
+      sim.setOffset(sim.offset >= offset ? 0 : offset);
+      return;
+    }
+    if (condition.type === "attested") {
+      const voters =
+        draft.checks.find((entry) => entry.id === condition.check)?.reviewers ??
+        [];
+      const next = voters.find((voter) => !sim.votes[voter.id]);
+      for (const voter of next ? [next] : voters) {
+        sim.toggleVote(voter.id);
+      }
+      return;
+    }
+    sim.toggleSignal(condition.party);
+  }, [condition, draft.checks, sim]);
+  return (
+    <button
+      aria-label={`${text.label}: press to change`}
+      aria-pressed={state === "holds"}
+      className="max-w-full rounded-chip text-left transition-opacity duration-150 disabled:opacity-60"
+      disabled={sim.fired !== null}
+      onClick={toggle}
+      type="button"
+    >
+      <ConditionChip
+        detail={detail ?? text.detail}
+        label={text.label}
+        role={text.role}
+        state={state}
+      />
+    </button>
+  );
 }
 
 interface ConditionPieceProps {
@@ -303,6 +365,7 @@ export function ConditionPiece({
   const { edit, locked, mode } = useBuilder();
   const draft = useDraft();
   const text = conditionText(condition, draft);
+  const { broken, gap } = useGap(condition);
   const editable = !locked && mode === "build";
   const removable = canRemoveCondition(rule);
   const drag: ConditionDrag = {
@@ -330,9 +393,17 @@ export function ConditionPiece({
     [removable, remove]
   );
 
+  if (mode === "play" && !locked) {
+    return <PlayPiece condition={condition} detail={detail} state={state} />;
+  }
   const chip = (
     <ConditionChip
-      detail={detail ?? text.detail}
+      className={cn(
+        (gap || broken) &&
+          "outline-dashed outline-1 outline-current outline-offset-2",
+        broken && "text-pact-stop"
+      )}
+      detail={detail ?? gap ?? text.detail}
       label={text.label}
       role={text.role}
       state={state}
@@ -351,6 +422,7 @@ export function ConditionPiece({
             "max-w-full touch-none rounded-chip text-left transition-opacity duration-150",
             isDragging && "opacity-40"
           )}
+          data-anchor={anchorOf(condition)}
           onKeyDown={onKeyDown}
           onPointerDown={pointerDown(listeners)}
           ref={setNodeRef}
@@ -360,21 +432,16 @@ export function ConditionPiece({
         </button>
       </PopoverTrigger>
       <Popover
-        className="w-72 max-w-[calc(100vw-2rem)]"
+        className={cn(
+          "max-w-[calc(100vw-2rem)]",
+          condition.type === "attested" ? "w-[27rem]" : "w-80"
+        )}
         offset={8}
         position="bottom-start"
       >
-        <div className="flex flex-col gap-3 p-4">
+        <div className={POPOVER_BODY}>
           <Editor condition={condition} ruleId={rule.id} />
-          {removable ? (
-            <PopoverClose>
-              <RemoveLine label="Remove this condition" onClick={remove} />
-            </PopoverClose>
-          ) : (
-            <p className="text-cladd-fg-soft text-xs">
-              The exit always keeps one time, so it cannot be removed here.
-            </p>
-          )}
+          <Footer condition={condition} rule={rule} />
         </div>
       </Popover>
     </PopoverRoot>

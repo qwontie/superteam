@@ -55,6 +55,22 @@ const attestedLabel = (check: DraftCheck | undefined) => {
   return `${quorum(check)} ${single ? verb.one : verb.many}`;
 };
 
+export const checkGap = (check: DraftCheck) => {
+  if (check.target.trim() === "") {
+    return check.kind === "manual" ? "add the statement" : "add the source";
+  }
+  if (check.kind === "http_contains" && check.expect.trim() === "") {
+    return "add the text";
+  }
+  const empty = check.reviewers.filter(
+    (reviewer) => reviewer.address.trim() === ""
+  ).length;
+  if (empty === 0) {
+    return null;
+  }
+  return empty === 1 ? "1 address missing" : `${empty} addresses missing`;
+};
+
 export const conditionRoleOf = (condition: DraftCondition): ConditionRole => {
   if (condition.type === "after") {
     return "time";

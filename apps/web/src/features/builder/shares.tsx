@@ -1,14 +1,12 @@
 import {
   Button,
   cn,
-  List,
-  ListButton,
   Popover,
   PopoverClose,
   PopoverRoot,
   PopoverTrigger,
 } from "@cladd-ui/react";
-import { ArrowRight, Plus } from "lucide-react";
+import { ArrowRight, Equal, Plus } from "lucide-react";
 import {
   type KeyboardEvent,
   type PointerEvent,
@@ -16,7 +14,6 @@ import {
   useRef,
 } from "react";
 import { Amount } from "@/components/pact/amount";
-import { PartyAvatar } from "@/components/pact/party";
 import { useTone } from "@/components/pact/tone";
 import { ArrivePiece } from "@/features/builder/arrive";
 import { partyName, payoutAmount } from "@/features/builder/describe";
@@ -26,131 +23,57 @@ import {
   type DraftRule,
   FULL,
   moveDivider,
-  type PartySlot,
-  partyAddress,
   removePayout,
   SHARE_STEP,
   setPay,
   splitEvenly,
 } from "@/features/builder/model";
-import { RemoveLine, SlotPill } from "@/features/builder/parts";
+import { RemoveLine } from "@/features/builder/parts";
+import {
+  PartyChip,
+  PartyPicker,
+  type Place,
+} from "@/features/builder/party-chip";
+import { anchors } from "@/features/builder/problems";
 import { useBuilder, useDraft } from "@/features/builder/state";
 import { formatShare } from "@/lib/format";
 
 const BIG_STEP = 1000;
 const MAX_PAYOUTS = 4;
 
-const emptyText = (party: PartySlot) => {
-  if (party.open) {
-    return "named later";
-  }
-  return party.me ? "you" : "no address yet";
-};
-
-function RecipientOption({
-  current,
-  party,
-  rule,
-}: {
-  current: string | null;
-  party: PartySlot;
-  rule: DraftRule;
-}) {
-  const { edit, wallet } = useBuilder();
-  const draft = useDraft();
-  const pick = useCallback(() => {
-    const pay =
-      current === null
-        ? addPayout(rule.pay, party.id)
-        : rule.pay.map((payout) =>
-            payout.party === current ? { ...payout, party: party.id } : payout
-          );
-    edit((d) => setPay(d, rule.id, pay));
-  }, [current, edit, party.id, rule.id, rule.pay]);
-  return (
-    <PopoverClose>
-      <ListButton
-        icon={
-          <PartyAvatar
-            seed={
-              party.open ? null : partyAddress(party, wallet) || party.label
-            }
-            size={20}
-          />
-        }
-        onClick={pick}
-        size="xl"
-      >
-        {partyName(draft, party.id)}
-      </ListButton>
-    </PopoverClose>
-  );
-}
-
-function RecipientMenu({
-  current,
-  rule,
-}: {
-  current: string | null;
-  rule: DraftRule;
-}) {
+function PayoutRow({ payout, rule }: { payout: DraftPayout; rule: DraftRule }) {
   const { edit } = useBuilder();
   const draft = useDraft();
-  const taken = new Set(rule.pay.map((payout) => payout.party));
-  const options = draft.parties.filter((party) => !taken.has(party.id));
-  const remove = useCallback(() => {
-    if (current !== null) {
-      edit((d) => setPay(d, rule.id, removePayout(rule.pay, current)));
-    }
-  }, [current, edit, rule.id, rule.pay]);
-  return (
-    <div className="flex flex-col p-1.5">
-      {options.length > 0 ? (
-        <List>
-          {options.map((party) => (
-            <RecipientOption
-              current={current}
-              key={party.id}
-              party={party}
-              rule={rule}
-            />
-          ))}
-        </List>
-      ) : (
-        <p className="px-3 py-2 text-cladd-fg-soft text-sm">
-          Every party is already paid by this rule.
-        </p>
-      )}
-      {current !== null && rule.pay.length > 1 ? (
-        <PopoverClose>
-          <RemoveLine label="Remove from this payout" onClick={remove} />
-        </PopoverClose>
-      ) : null}
-    </div>
-  );
-}
-
-function PayoutRow({ payout, rule }: { payout: DraftPayout; rule: DraftRule }) {
-  const { locked, mode, wallet } = useBuilder();
-  const draft = useDraft();
   const tone = useTone();
-  const editable = !locked && mode === "build";
   const party = draft.parties.find((entry) => entry.id === payout.party);
   const amount = payoutAmount(draft, payout.bps);
   const soft = tone === "ink" ? "text-pact-ink/70" : "text-cladd-fg-soft";
   const strong = tone === "ink" ? "text-pact-ink" : "text-cladd-fg";
   const whole = payout.bps === FULL;
-  const pill = party ? (
-    <SlotPill
-      address={partyAddress(party, wallet) ?? ""}
-      empty={emptyText(party)}
-      label={partyName(draft, party.id)}
-      open={party.open}
-      you={party.me && wallet !== null}
-    />
-  ) : (
-    <span className="text-pact-stop text-sm">someone removed</span>
+  const taken = new Set(rule.pay.map((entry) => entry.party));
+  const place = useCallback<Place>(
+    (d, partyId) =>
+      setPay(
+        d,
+        rule.id,
+        rule.pay.map((entry) =>
+          entry.party === payout.party ? { ...entry, party: partyId } : entry
+        )
+      ),
+    [payout.party, rule.id, rule.pay]
   );
+  const split = useCallback<Place>(
+    (d, partyId) => setPay(d, rule.id, addPayout(rule.pay, partyId)),
+    [rule.id, rule.pay]
+  );
+  const remove = useCallback(
+    () => edit((d) => setPay(d, rule.id, removePayout(rule.pay, payout.party))),
+    [edit, payout.party, rule.id, rule.pay]
+  );
+  const others = draft.parties.filter((entry) => !taken.has(entry.id));
+  const canSplit =
+    rule.pay.length < MAX_PAYOUTS &&
+    rule.pay.every((entry) => entry.bps >= SHARE_STEP * 2);
   return (
     <span className="inline-flex flex-wrap items-center gap-x-2 gap-y-1">
       <span className={cn("text-sm", soft)}>
@@ -168,40 +91,76 @@ function PayoutRow({ payout, rule }: { payout: DraftPayout; rule: DraftRule }) {
       )}
       {amount === null ? null : <Amount lamports={amount} size="md" />}
       <ArrowRight aria-label="to" className={soft} size={15} strokeWidth={2} />
-      {editable ? (
-        <PopoverRoot>
-          <PopoverTrigger>
-            <button
-              aria-label={`Change who is paid: ${party ? partyName(draft, party.id) : "nobody"}`}
-              className="max-w-full rounded-full"
-              type="button"
-            >
-              {pill}
-            </button>
-          </PopoverTrigger>
-          <Popover className="w-64" offset={8} position="bottom-start">
-            <RecipientMenu current={payout.party} rule={rule} />
-          </Popover>
-        </PopoverRoot>
+      {party ? (
+        <PartyChip
+          extra={
+            <>
+              {canSplit ? (
+                <PartyPicker
+                  label="Split with"
+                  options={others}
+                  place={split}
+                />
+              ) : null}
+              {rule.pay.length > 1 ? (
+                <PopoverClose>
+                  <RemoveLine
+                    label="Remove from this payout"
+                    onClick={remove}
+                  />
+                </PopoverClose>
+              ) : null}
+            </>
+          }
+          options={others}
+          party={party}
+          pickLabel="Pay someone else"
+          place={place}
+        />
       ) : (
-        pill
+        <span className="text-pact-stop text-sm">someone removed</span>
       )}
     </span>
   );
 }
 
+function ChoosePayee({ rule }: { rule: DraftRule }) {
+  const draft = useDraft();
+  const place = useCallback<Place>(
+    (d, partyId) => setPay(d, rule.id, addPayout([], partyId)),
+    [rule.id]
+  );
+  return (
+    <PopoverRoot>
+      <PopoverTrigger>
+        <Button
+          aria-label="Choose who is paid"
+          className="border border-cladd-fg-softer border-dashed"
+          data-anchor={anchors.rule(rule.id)}
+          rounded
+          size="lg"
+          square
+          variant="transparent"
+        >
+          <Plus aria-hidden="true" size={15} />
+        </Button>
+      </PopoverTrigger>
+      <Popover className="w-72" offset={8} position="bottom-start">
+        <div className="p-4">
+          <PartyPicker label="Pay" options={draft.parties} place={place} />
+        </div>
+      </Popover>
+    </PopoverRoot>
+  );
+}
+
 export function Shares({ rule }: { rule: DraftRule }) {
   const { locked, mode } = useBuilder();
-  const draft = useDraft();
-  const editable = !locked && mode === "build";
-  const canSplit =
-    editable &&
-    rule.pay.length < Math.min(MAX_PAYOUTS, draft.parties.length) &&
-    rule.pay.every(
-      (payout) => payout.bps >= SHARE_STEP * 2 || rule.pay.length === 0
-    );
   return (
     <>
+      {rule.pay.length === 0 && !locked && mode === "build" ? (
+        <ChoosePayee rule={rule} />
+      ) : null}
       {rule.pay.map((payout, position) => (
         <ArrivePiece
           className="inline-flex max-w-full"
@@ -211,19 +170,6 @@ export function Shares({ rule }: { rule: DraftRule }) {
           <PayoutRow payout={payout} rule={rule} />
         </ArrivePiece>
       ))}
-      {canSplit ? (
-        <PopoverRoot>
-          <PopoverTrigger>
-            <Button size="lg" variant="transparent">
-              <Plus aria-hidden="true" size={15} />
-              {rule.pay.length === 0 ? "Choose who is paid" : "Split"}
-            </Button>
-          </PopoverTrigger>
-          <Popover className="w-64" offset={8} position="bottom-start">
-            <RecipientMenu current={null} rule={rule} />
-          </Popover>
-        </PopoverRoot>
-      ) : null}
     </>
   );
 }
@@ -345,8 +291,15 @@ export function ShareBar({ rule }: { rule: DraftRule }) {
           <Divider index={index} key={payout.party} rule={rule} track={track} />
         ))}
       </div>
-      <Button onClick={even} size="lg" variant="transparent">
-        Split evenly
+      <Button
+        aria-label="Split evenly"
+        onClick={even}
+        size="lg"
+        square
+        title="Split evenly"
+        variant="transparent"
+      >
+        <Equal aria-hidden="true" size={15} />
       </Button>
     </div>
   );

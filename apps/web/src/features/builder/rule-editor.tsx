@@ -11,32 +11,41 @@ import {
 import { useDroppable } from "@dnd-kit/core";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { GripVertical, Lock, Plus, Trash2 } from "lucide-react";
+import {
+  ArrowDown,
+  ArrowUp,
+  Ellipsis,
+  GripVertical,
+  Lock,
+  Plus,
+  Trash2,
+} from "lucide-react";
 import { Fragment, type ReactNode, useCallback } from "react";
 import { RuleBlock } from "@/components/pact/rule-block";
 import { FiredNote } from "@/components/pact/vault";
 import { ArrivePiece, LandingFlash } from "@/features/builder/arrive";
 import { ConditionPiece } from "@/features/builder/condition-piece";
-import { readRule } from "@/features/builder/describe";
 import {
   addCheck,
   addCondition,
   amountLamports,
   canTake,
+  type Draft,
   type DraftCondition,
   type DraftRule,
   isTimeOnly,
   newCondition,
   type PieceType,
   removeRule,
+  reorderRules,
 } from "@/features/builder/model";
-import { anchorId, ProblemLines } from "@/features/builder/parts";
-import { PIECES, PieceIcon } from "@/features/builder/pieces";
+import { VAULT_FLIGHT } from "@/features/builder/money-line";
+import { ProblemLines, REVEAL } from "@/features/builder/parts";
+import { PIECE_ORDER, PIECES, PieceIcon } from "@/features/builder/pieces";
 import { anchors } from "@/features/builder/problems";
 import { ShareBar, Shares } from "@/features/builder/shares";
 import { useSim } from "@/features/builder/simulation";
 import { useBuilder, useDraft } from "@/features/builder/state";
-import { VAULT_FLIGHT } from "@/features/builder/vault-block";
 import { formatCountdown } from "@/lib/format";
 
 export interface RuleDrag {
@@ -49,91 +58,110 @@ export interface WhenDrop {
   ruleId: string;
 }
 
-const GUTTER = "flex w-7 shrink-0 justify-center pt-2.5 sm:w-8";
-
-export const useAddPiece = () => {
-  const { edit, now } = useBuilder();
+export const usePiece = () => {
+  const { now } = useBuilder();
   return useCallback(
-    (ruleId: string, type: PieceType) =>
-      edit((current) => {
-        const draft =
-          type === "attested" && current.checks.length === 0
-            ? addCheck(current)
-            : current;
-        const condition = newCondition(type, draft, now);
-        return condition ? addCondition(draft, ruleId, condition) : current;
-      }),
-    [edit, now]
+    (
+      current: Draft,
+      type: PieceType,
+      put: (draft: Draft, condition: DraftCondition) => Draft
+    ) => {
+      const draft =
+        type === "attested" && current.checks.length === 0
+          ? addCheck(current)
+          : current;
+      const condition = newCondition(type, draft, now);
+      return condition ? put(draft, condition) : current;
+    },
+    [now]
   );
 };
 
-function PieceOption({ rule, type }: { rule: DraftRule; type: PieceType }) {
-  const addPiece = useAddPiece();
+function PieceOption({
+  onPick,
+  type,
+}: {
+  onPick: (type: PieceType) => void;
+  type: PieceType;
+}) {
   const piece = PIECES[type];
-  const pick = useCallback(
-    () => addPiece(rule.id, type),
-    [addPiece, rule.id, type]
-  );
+  const pick = useCallback(() => onPick(type), [onPick, type]);
   return (
     <PopoverClose>
       <ListButton
         icon={<PieceIcon type={type} />}
-        multiline
         onClick={pick}
         size="xl"
+        title={piece.hint}
       >
         {piece.label}
-        <span className="block text-cladd-fg-soft text-xs">{piece.hint}</span>
       </ListButton>
     </PopoverClose>
   );
 }
 
+export function PieceMenu({
+  onPick,
+  types,
+}: {
+  onPick: (type: PieceType) => void;
+  types: PieceType[];
+}) {
+  return (
+    <Popover className="w-60" offset={8} position="bottom-start">
+      <List className="p-1.5">
+        {types.map((type) => (
+          <PieceOption key={type} onPick={onPick} type={type} />
+        ))}
+      </List>
+    </Popover>
+  );
+}
+
 function AddCondition({ rule }: { rule: DraftRule }) {
-  const types = (Object.keys(PIECES) as PieceType[]).filter((type) =>
-    canTake(rule, type)
+  const { edit } = useBuilder();
+  const piece = usePiece();
+  const types = PIECE_ORDER.filter((type) => canTake(rule, type));
+  const add = useCallback(
+    (type: PieceType) =>
+      edit((d) =>
+        piece(d, type, (draft, condition) =>
+          addCondition(draft, rule.id, condition)
+        )
+      ),
+    [edit, piece, rule.id]
   );
   if (types.length === 0) {
     return null;
   }
+  const empty = rule.when.length === 0;
   return (
     <PopoverRoot>
       <PopoverTrigger>
         <Button
           aria-label="Add a condition"
+          className={
+            empty ? "border border-cladd-fg-softer border-dashed" : REVEAL
+          }
+          data-anchor={empty ? anchors.rule(rule.id) : undefined}
           size="lg"
-          square={rule.when.length > 0}
+          square
           variant="transparent"
         >
           <Plus aria-hidden="true" size={15} />
-          {rule.when.length === 0 ? "Add a condition" : null}
         </Button>
       </PopoverTrigger>
-      <Popover className="w-72" offset={8} position="bottom-start">
-        <List className="p-1.5">
-          {types.map((type) => (
-            <PieceOption key={type} rule={rule} type={type} />
-          ))}
-        </List>
-      </Popover>
+      <PieceMenu onPick={add} types={types} />
     </PopoverRoot>
   );
 }
 
-function RuleNote({
-  bar,
-  fired,
-  rule,
-}: {
-  bar: boolean;
-  fired: boolean;
-  rule: DraftRule;
-}) {
+const ruleNote = (rule: DraftRule, fired: boolean, bar: boolean) => {
   if (fired) {
     return <PlayNote />;
   }
   return bar ? <ShareBar rule={rule} /> : null;
-}
+};
 
 function LivePiece({
   condition,
@@ -204,7 +232,6 @@ const usePlayDetail = () => {
 
 function RuleBody({ action, gutter, index, rule }: RuleBodyProps) {
   const { locked, mode } = useBuilder();
-  const draft = useDraft();
   const sim = useSim();
   const playDetail = usePlayDetail();
   const editable = !locked && mode === "build";
@@ -217,7 +244,7 @@ function RuleBody({ action, gutter, index, rule }: RuleBodyProps) {
     id: `when:${rule.id}`,
   });
   const dragged = active?.data.current as
-    | { kind: string; ruleId?: string; type?: PieceType }
+    | { kind: string; ruleId?: string }
     | undefined;
   const welcome =
     isOver &&
@@ -226,64 +253,125 @@ function RuleBody({ action, gutter, index, rule }: RuleBodyProps) {
     dragged.ruleId !== rule.id;
 
   return (
-    <div className="flex items-start gap-1 sm:gap-2">
-      <div className={GUTTER}>{gutter}</div>
-      <div className="flex min-w-0 flex-1 flex-col gap-2">
-        <div
-          className={cn(
-            "relative rounded-block outline-2 outline-offset-2 transition-[outline-color] duration-150",
-            welcome ? "outline-dashed outline-cladd-fg" : "outline-transparent"
+    <div className="group/rule relative flex flex-col gap-1.5">
+      {gutter}
+      <div
+        className={cn(
+          "relative rounded-block outline-2 outline-offset-2 transition-[outline-color] duration-150",
+          welcome ? "outline-dashed outline-cladd-fg" : "outline-transparent"
+        )}
+        ref={setNodeRef}
+      >
+        <RuleBlock
+          action={status === "armed" ? <FireButton ruleId={rule.id} /> : action}
+          exit={isTimeOnly(rule)}
+          index={index}
+          note={ruleNote(
+            rule,
+            status === "fired",
+            editable && rule.pay.length > 1
           )}
-          id={anchorId(anchors.rule(rule.id))}
-          ref={setNodeRef}
-        >
-          <RuleBlock
-            action={
-              status === "armed" ? <FireButton ruleId={rule.id} /> : action
-            }
-            exit={isTimeOnly(rule)}
-            index={index}
-            note={
-              <RuleNote
-                bar={editable && rule.pay.length > 1}
-                fired={status === "fired"}
-                rule={rule}
-              />
-            }
-            status={status}
-            then={<Shares rule={rule} />}
-            when={
-              <>
-                {rule.when.map((condition, position) => (
-                  <Fragment key={condition.id}>
-                    {position > 0 ? (
-                      <span className="text-cladd-fg-soft text-sm">and</span>
-                    ) : null}
-                    <ArrivePiece
-                      className="inline-flex max-w-full"
-                      position={position}
-                    >
-                      <LivePiece
-                        condition={condition}
-                        detail={playDetail}
-                        holds={live?.evaluation.conditions[position]?.holds}
-                        rule={rule}
-                      />
-                    </ArrivePiece>
-                  </Fragment>
-                ))}
-                {editable ? <AddCondition rule={rule} /> : null}
-              </>
-            }
-          />
-          <LandingFlash />
-        </div>
-        <p className="px-1 text-cladd-fg-soft text-sm">
-          {readRule(rule, draft)}
-        </p>
-        <ProblemLines anchor={anchors.rule(rule.id)} className="px-1" />
+          status={status}
+          then={<Shares rule={rule} />}
+          when={
+            <>
+              {rule.when.map((condition, position) => (
+                <Fragment key={condition.id}>
+                  {position > 0 ? (
+                    <span className="text-cladd-fg-soft text-sm">and</span>
+                  ) : null}
+                  <ArrivePiece
+                    className="inline-flex max-w-full"
+                    position={position}
+                  >
+                    <LivePiece
+                      condition={condition}
+                      detail={playDetail}
+                      holds={live?.evaluation.conditions[position]?.holds}
+                      rule={rule}
+                    />
+                  </ArrivePiece>
+                </Fragment>
+              ))}
+              {editable ? <AddCondition rule={rule} /> : null}
+            </>
+          }
+        />
+        <LandingFlash />
       </div>
+      <ProblemLines anchor={anchors.rule(rule.id)} className="px-1" />
     </div>
+  );
+}
+
+function MoveItem({
+  down,
+  rule,
+  target,
+}: {
+  down: boolean;
+  rule: DraftRule;
+  target: DraftRule | undefined;
+}) {
+  const { edit } = useBuilder();
+  const move = useCallback(() => {
+    if (target) {
+      edit((d) => reorderRules(d, rule.id, target.id));
+    }
+  }, [edit, rule.id, target]);
+  const Icon = down ? ArrowDown : ArrowUp;
+  return (
+    <PopoverClose>
+      <ListButton
+        disabled={!target}
+        icon={<Icon aria-hidden="true" size={16} />}
+        onClick={move}
+        size="xl"
+      >
+        {down ? "Move down" : "Move up"}
+      </ListButton>
+    </PopoverClose>
+  );
+}
+
+function RuleMenu({ index, rule }: { index: number; rule: DraftRule }) {
+  const { edit } = useBuilder();
+  const draft = useDraft();
+  const free = draft.rules.filter((entry) => !entry.exit);
+  const remove = useCallback(
+    () => edit((d) => removeRule(d, rule.id)),
+    [edit, rule.id]
+  );
+  return (
+    <PopoverRoot>
+      <PopoverTrigger>
+        <Button
+          aria-label={`Rule ${index + 1}: move or remove`}
+          className={REVEAL}
+          size="lg"
+          square
+          variant="transparent"
+        >
+          <Ellipsis aria-hidden="true" size={16} />
+        </Button>
+      </PopoverTrigger>
+      <Popover className="w-52" offset={8} position="bottom-end">
+        <List className="p-1.5">
+          <MoveItem down={false} rule={rule} target={free[index - 1]} />
+          <MoveItem down rule={rule} target={free[index + 1]} />
+          <PopoverClose>
+            <ListButton
+              className="text-pact-stop"
+              icon={<Trash2 aria-hidden="true" size={16} />}
+              onClick={remove}
+              size="xl"
+            >
+              Remove rule
+            </ListButton>
+          </PopoverClose>
+        </List>
+      </Popover>
+    </PopoverRoot>
   );
 }
 
@@ -294,7 +382,7 @@ export function SortableRule({
   index: number;
   rule: DraftRule;
 }) {
-  const { edit, locked, mode } = useBuilder();
+  const { locked, mode } = useBuilder();
   const editable = !locked && mode === "build";
   const drag: RuleDrag = { kind: "rule", ruleId: rule.id };
   const {
@@ -306,10 +394,6 @@ export function SortableRule({
     transform,
     transition,
   } = useSortable({ data: drag, disabled: !editable, id: rule.id });
-  const remove = useCallback(
-    () => edit((d) => removeRule(d, rule.id)),
-    [edit, rule.id]
-  );
   return (
     <div
       className={cn("relative", isDragging && "z-10 opacity-80")}
@@ -317,26 +401,17 @@ export function SortableRule({
       style={{ transform: CSS.Translate.toString(transform), transition }}
     >
       <RuleBody
-        action={
-          editable ? (
-            <Button
-              aria-label={`Remove rule ${index + 1}`}
-              onClick={remove}
-              size="lg"
-              square
-              variant="transparent"
-            >
-              <Trash2 aria-hidden="true" size={15} />
-            </Button>
-          ) : null
-        }
+        action={editable ? <RuleMenu index={index} rule={rule} /> : null}
         gutter={
           editable ? (
             <button
               {...attributes}
               {...listeners}
-              aria-label={`Move rule ${index + 1}. Press space, then the arrow keys.`}
-              className="grid h-8 w-6 cursor-grab touch-none place-items-center rounded-chip text-cladd-fg-softer transition-colors duration-150 hover:text-cladd-fg active:cursor-grabbing"
+              aria-label={`Drag rule ${index + 1}. Press space, then the arrow keys.`}
+              className={cn(
+                "absolute top-2.5 -left-7 hidden h-8 w-6 cursor-grab touch-none place-items-center rounded-chip text-cladd-fg-softer hover:text-cladd-fg active:cursor-grabbing lg:grid",
+                REVEAL
+              )}
               ref={setActivatorNodeRef}
               type="button"
             >
@@ -354,14 +429,15 @@ export function SortableRule({
 export function ExitRule({ index, rule }: { index: number; rule: DraftRule }) {
   return (
     <RuleBody
-      gutter={
+      action={
         <span
-          className="grid h-8 w-6 place-items-center text-cladd-fg-soft"
-          title="The exit cannot be removed"
+          className="grid size-8 place-items-center text-cladd-fg-softer"
+          title="The exit keeps the money from getting stuck. It cannot be removed."
         >
-          <Lock aria-hidden="true" size={15} />
+          <Lock aria-label="Pinned: the exit cannot be removed" size={14} />
         </span>
       }
+      gutter={null}
       index={index}
       rule={rule}
     />

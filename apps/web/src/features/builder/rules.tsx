@@ -1,4 +1,4 @@
-import { Button, cn } from "@cladd-ui/react";
+import { cn, PopoverRoot, PopoverTrigger } from "@cladd-ui/react";
 import {
   type CollisionDetection,
   closestCenter,
@@ -26,26 +26,25 @@ import { Arrive } from "@/features/builder/arrive";
 import type { ConditionDrag } from "@/features/builder/condition-piece";
 import { conditionText } from "@/features/builder/describe";
 import {
-  addCheck,
-  addCondition,
   addRule,
   canAddRule,
   moveCondition,
-  newCondition,
+  type PieceType,
   removeCondition,
   reorderRules,
 } from "@/features/builder/model";
-import { SECTION_TITLE } from "@/features/builder/parts";
-import { Palette, PieceChip, type PieceDrag } from "@/features/builder/pieces";
+import { PIECE_ORDER } from "@/features/builder/pieces";
 import {
   ExitRule,
+  PieceMenu,
   type RuleDrag,
   SortableRule,
+  usePiece,
   type WhenDrop,
 } from "@/features/builder/rule-editor";
 import { useBuilder, useDraft } from "@/features/builder/state";
 
-type Drag = ConditionDrag | PieceDrag | RuleDrag;
+type Drag = ConditionDrag | RuleDrag;
 type Drop = WhenDrop | RuleDrag | { kind: "new-rule" };
 
 const DRAG_DISTANCE = 6;
@@ -63,36 +62,41 @@ const collision: CollisionDetection = (args) => {
     : pointerWithin({ ...args, droppableContainers });
 };
 
-function NewRuleZone({ dragging }: { dragging: boolean }) {
+function AddRule({ dragging }: { dragging: boolean }) {
   const { edit } = useBuilder();
   const draft = useDraft();
+  const piece = usePiece();
   const { isOver, setNodeRef } = useDroppable({
     data: { kind: NEW_RULE },
     disabled: !canAddRule(draft),
     id: NEW_RULE,
   });
-  const add = useCallback(() => edit((d) => addRule(d, null)), [edit]);
+  const add = useCallback(
+    (type: PieceType) => edit((d) => piece(d, type, addRule)),
+    [edit, piece]
+  );
   if (!canAddRule(draft)) {
-    return (
-      <p className="pl-8 text-cladd-fg-soft text-sm sm:pl-10">
-        A deal holds up to six rules.
-      </p>
-    );
+    return null;
   }
   return (
-    <div className="pl-8 sm:pl-10" ref={setNodeRef}>
-      <Button
-        className={cn(
-          "w-full justify-center border border-dashed transition-colors duration-150",
-          isOver ? "border-cladd-fg" : "border-cladd-outline"
-        )}
-        onClick={add}
-        size="2xl"
-        variant="transparent"
-      >
-        <Plus aria-hidden="true" size={16} />
-        {dragging ? "Drop here to start a new rule" : "Add a rule"}
-      </Button>
+    <div ref={setNodeRef}>
+      <PopoverRoot>
+        <PopoverTrigger>
+          <button
+            aria-label="Add a rule"
+            className={cn(
+              "flex h-8 w-full items-center justify-center rounded-block border border-dashed text-cladd-fg-softer transition-colors duration-150 hover:border-cladd-fg-softer hover:text-cladd-fg",
+              isOver || dragging
+                ? "border-cladd-fg-soft text-cladd-fg"
+                : "border-transparent"
+            )}
+            type="button"
+          >
+            <Plus aria-hidden="true" size={16} />
+          </button>
+        </PopoverTrigger>
+        <PieceMenu onPick={add} types={PIECE_ORDER} />
+      </PopoverRoot>
     </div>
   );
 }
@@ -101,9 +105,6 @@ function Overlay({ drag }: { drag: Drag | null }) {
   const draft = useDraft();
   if (!drag || drag.kind === "rule") {
     return null;
-  }
-  if (drag.kind === "piece") {
-    return <PieceChip type={drag.type} />;
   }
   const condition = draft.rules
     .find((rule) => rule.id === drag.ruleId)
@@ -116,7 +117,7 @@ function Overlay({ drag }: { drag: Drag | null }) {
 }
 
 export function Rules() {
-  const { edit, locked, mode, now } = useBuilder();
+  const { edit, locked, mode } = useBuilder();
   const draft = useDraft();
   const [drag, setDrag] = useState<Drag | null>(null);
   const editable = !locked && mode === "build";
@@ -149,40 +150,23 @@ export function Rules() {
         }
         return;
       }
-      if (from.kind === "condition") {
-        edit((d) => {
-          if (to.kind === "when") {
-            return moveCondition(d, from.ruleId, to.ruleId, from.conditionId);
-          }
-          const condition = d.rules
-            .find((rule) => rule.id === from.ruleId)
-            ?.when.find((entry) => entry.id === from.conditionId);
-          if (!(condition && to.kind === NEW_RULE && canAddRule(d))) {
-            return d;
-          }
-          return addRule(
-            removeCondition(d, from.ruleId, from.conditionId),
-            condition
-          );
-        });
-        return;
-      }
-      edit((current) => {
-        const base =
-          from.type === "attested" && current.checks.length === 0
-            ? addCheck(current)
-            : current;
-        const condition = newCondition(from.type, base, now);
-        if (!condition) {
-          return current;
-        }
+      edit((d) => {
         if (to.kind === "when") {
-          return addCondition(base, to.ruleId, condition);
+          return moveCondition(d, from.ruleId, to.ruleId, from.conditionId);
         }
-        return to.kind === NEW_RULE ? addRule(base, condition) : current;
+        const condition = d.rules
+          .find((rule) => rule.id === from.ruleId)
+          ?.when.find((entry) => entry.id === from.conditionId);
+        if (!(condition && to.kind === NEW_RULE && canAddRule(d))) {
+          return d;
+        }
+        return addRule(
+          removeCondition(d, from.ruleId, from.conditionId),
+          condition
+        );
       });
     },
-    [edit, now]
+    [edit]
   );
 
   const free = draft.rules.filter((rule) => !rule.exit);
@@ -196,15 +180,7 @@ export function Rules() {
       onDragStart={onDragStart}
       sensors={sensors}
     >
-      <section className="flex flex-col gap-3">
-        <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-          <h2 className={SECTION_TITLE}>What happens to the money</h2>
-          <p className="text-cladd-fg-soft text-sm">
-            The first rule that comes true and is executed pays out. The rest
-            are cancelled.
-          </p>
-        </div>
-        {editable ? <Palette /> : null}
+      <section aria-label="Rules" className="flex flex-col gap-3">
         <SortableContext
           items={free.map((rule) => rule.id)}
           strategy={verticalListSortingStrategy}
@@ -217,33 +193,14 @@ export function Rules() {
             ))}
           </AnimatePresence>
         </SortableContext>
-        {editable ? <NewRuleZone dragging={drag !== null} /> : null}
-        <div className="mt-3 flex flex-col gap-3">
-          <div className="flex flex-col gap-1 pl-8 sm:pl-10">
-            <h3 className="font-display font-semibold text-base">
-              The exit, so money never gets stuck
-            </h3>
-            <p className="max-w-[60ch] text-cladd-fg-soft text-sm">
-              After this moment anyone can close the deal, even if every party
-              has disappeared. The program refuses a deal without it, so this
-              block can be changed but not removed.
-            </p>
-          </div>
-          <AnimatePresence initial={false}>
-            {exit ? (
-              <Arrive follow key={exit.id}>
-                <ExitRule index={free.length} rule={exit} />
-              </Arrive>
-            ) : null}
-          </AnimatePresence>
-          {exit ? null : (
-            <div className="pl-8 sm:pl-10">
-              <div className="rounded-block border border-cladd-outline border-dashed px-4 py-5 text-cladd-fg-soft text-sm">
-                The exit lands here.
-              </div>
-            </div>
-          )}
-        </div>
+        {editable ? <AddRule dragging={drag?.kind === "condition"} /> : null}
+        <AnimatePresence initial={false}>
+          {exit ? (
+            <Arrive follow key={exit.id}>
+              <ExitRule index={free.length} rule={exit} />
+            </Arrive>
+          ) : null}
+        </AnimatePresence>
       </section>
       <DragOverlay dropAnimation={null}>
         <Overlay drag={drag} />

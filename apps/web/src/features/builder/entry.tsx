@@ -5,7 +5,7 @@ import { type ReactNode, useCallback, useEffect } from "react";
 import { AiProvider, useAi } from "@/features/builder/ai";
 import { Created } from "@/features/builder/created";
 import { type TemplateKey, templateDraft } from "@/features/builder/model";
-import { PromptBox } from "@/features/builder/prompt-box";
+import { PromptBar } from "@/features/builder/prompt-bar";
 import { Start } from "@/features/builder/start";
 import { BuilderProvider, useBuilder } from "@/features/builder/state";
 import { Workspace } from "@/features/builder/workspace";
@@ -65,12 +65,12 @@ function BuilderScreen() {
     return <Created created={created} />;
   }
   if (!draft) {
-    return <Start prompt={<PromptBox variant="start" />} />;
+    return <Start prompt={<PromptBar variant="hero" />} />;
   }
   return (
     <Workspace
       origin={origin}
-      prompt={<PromptBox variant="side" />}
+      prompt={<PromptBar variant="dock" />}
       streaming={locked}
     />
   );
