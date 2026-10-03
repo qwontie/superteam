@@ -39,8 +39,7 @@ def respond(output: ModelDraft | NotADeal, ctx: DealContext) -> DealDraftRespons
     )
 
 
-async def draft_deal(request: DealDraftRequest, llm: Llm) -> DealDraftResponse:
-    ctx, prompt = prepare(request)
+async def draft_deal(ctx: DealContext, prompt: str, llm: Llm) -> DealDraftResponse:
     started = time.perf_counter()
     try:
         async with asyncio.timeout(env.api.timeout_seconds):

@@ -27,3 +27,13 @@ def is_address(value: str) -> bool:
 
 def addresses_in(text: str) -> set[str]:
     return {m for m in CANDIDATE.findall(text) if is_address(m)}
+
+
+def encode(raw: bytes) -> str:
+    number = int.from_bytes(raw, "big")
+    out = ""
+    while number:
+        number, digit = divmod(number, 58)
+        out = ALPHABET[digit] + out
+    zeros = len(raw) - len(raw.lstrip(b"\0"))
+    return "1" * zeros + out

@@ -4,8 +4,10 @@ version = "0.1.0"
 description = "pact"
 requires-python = ">=3.13"
 dependencies = [
+    "cryptography>=50.0.2",
     "dishka>=1.10.1",
     "fastapi>=0.139.0",
+    "httpx>=0.28.1",
     "pydantic-ai-slim[google]>=2.15.0",
     "pydantic-settings>=2.14.2",
     "rich>=15.0.0",

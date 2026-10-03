@@ -42,12 +42,28 @@ class DealSettings(Section):
     check_kinds: list[str] = ["manual"]
 
 
+class SolanaSettings(Section):
+    rpc_url: str = ""
+    program_id: str = "6uhLn2f5NZzydXocLTaxhGYKZ2pQQvrhrbwyMmM9YsCk"
+    cache_seconds: float = 60.0
+
+
+class AccessSettings(Section):
+    free_daily: int = 10
+    free_daily_per_ip: int = 50
+    pro_rate_per_minute: int = 30
+    proof_max_age_seconds: int = 12 * 3600
+
+
 class Settings(BaseSettings):
     log: LogSettings = Field(default_factory=LogSettings)
     deal: DealSettings = Field(default_factory=DealSettings)
+    solana: SolanaSettings = Field(default_factory=SolanaSettings)
+    access: AccessSettings = Field(default_factory=AccessSettings)
     api: ApiSettings = Field(default_factory=ApiSettings)
     llm: LlmSettings = Field(default_factory=LlmSettings)
     gemini_api_key: SecretStr = SecretStr("")
+    rpc_url: SecretStr = SecretStr("")
 
     model_config = SettingsConfigDict(
         case_sensitive=False,
@@ -58,6 +74,13 @@ class Settings(BaseSettings):
 
     def gemini_key(self) -> str:
         return (self.llm.gemini_api_key or self.gemini_api_key).get_secret_value()
+
+    def solana_rpc(self) -> str:
+        return (
+            self.solana.rpc_url
+            or self.rpc_url.get_secret_value()
+            or "https://api.devnet.solana.com"
+        )
 
 
 env = Settings()

@@ -10,6 +10,7 @@ from pydantic_ai.exceptions import ModelAPIError, UserError
 from pydantic_ai.messages import TextPart
 from pydantic_core import from_json
 
+from services.access.quota import Quota
 from services.llm import Llm
 from utils.env import env
 from utils.logging import logger
@@ -122,7 +123,15 @@ def _convert(build: Callable[[], Payload]) -> Payload | None:
         return None
 
 
-async def _attempts(prompt: str, ctx: DealContext, llm: Llm) -> AsyncIterator[str]:
+@dataclass(frozen=True, slots=True)
+class Billing:
+    quota: Callable[[], Quota]
+    refund: Callable[[], None]
+
+
+async def _attempts(
+    prompt: str, ctx: DealContext, llm: Llm, billing: Billing
+) -> AsyncIterator[str]:
     attempt = 0
     async with deal_agent.iter(
         prompt,
@@ -149,24 +158,32 @@ async def _attempts(prompt: str, ctx: DealContext, llm: Llm) -> AsyncIterator[st
         response = respond(run.result.output, ctx)
     for i, question in enumerate(response.questions):
         yield sse("question", {"index": i, "text": question})
+    response = response.model_copy(update={"quota": billing.quota()})
     yield sse("done", response.model_dump(mode="json"))
 
 
-async def stream_deal(prompt: str, ctx: DealContext, llm: Llm) -> AsyncIterator[str]:
+async def stream_deal(
+    prompt: str, ctx: DealContext, llm: Llm, billing: Billing
+) -> AsyncIterator[str]:
+    error: DealError | None = None
     try:
         async with asyncio.timeout(env.api.timeout_seconds):
-            async for piece in _attempts(prompt, ctx, llm):
+            async for piece in _attempts(prompt, ctx, llm, billing):
                 yield piece
     except TimeoutError:
-        yield _error(timed_out())
+        error = timed_out()
     except UnexpectedModelBehavior as e:
         logger.warning("deal stream failed validation: %s", e)
-        yield _error(ai_failed())
+        error = ai_failed()
     except (ModelAPIError, UserError) as e:
         logger.warning("deal stream provider error: %s", type(e).__name__)
-        yield _error(ai_unavailable())
+        error = ai_unavailable()
     except DealError as e:
-        yield _error(e)
+        error = e
+    if error is not None:
+        if error.status >= 500:  # noqa: PLR2004
+            billing.refund()
+        yield _error(error)
 
 
 def _error(error: DealError) -> str:

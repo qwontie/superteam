@@ -4,6 +4,9 @@ from typing import Annotated, Literal, Self
 
 from pydantic import AfterValidator, BaseModel, Field, ValidationInfo, model_validator
 
+from services.access.proof import WalletProof
+from services.access.quota import Quota
+
 from .addresses import is_address
 
 TITLE_MAX_BYTES = 48
@@ -268,10 +271,12 @@ class DealDraftRequest(BaseModel):
     now: int
     timezone: str = Field(min_length=1, max_length=64)
     draft: DealDraft | None = None
+    proof: WalletProof | None = None
 
 
 class DealDraftResponse(BaseModel):
     draft: DealDraft
+    quota: Quota | None = None
     questions: list[Annotated[str, Field(max_length=QUESTION_MAX)]] = Field(
         default_factory=list, max_length=QUESTIONS_MAX
     )

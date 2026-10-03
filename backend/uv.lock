@@ -562,8 +562,10 @@ name = "pact"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "cryptography" },
     { name = "dishka" },
     { name = "fastapi" },
+    { name = "httpx" },
     { name = "pydantic-ai-slim", extra = ["google"] },
     { name = "pydantic-settings" },
     { name = "rich" },
@@ -578,8 +580,10 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "cryptography", specifier = ">=50.0.2" },
     { name = "dishka", specifier = ">=1.10.1" },
     { name = "fastapi", specifier = ">=0.139.0" },
+    { name = "httpx", specifier = ">=0.28.1" },
     { name = "pydantic-ai-slim", extras = ["google"], specifier = ">=2.15.0" },
     { name = "pydantic-settings", specifier = ">=2.14.2" },
     { name = "rich", specifier = ">=15.0.0" },
