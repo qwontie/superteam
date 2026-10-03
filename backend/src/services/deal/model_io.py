@@ -5,7 +5,7 @@ from zoneinfo import ZoneInfo
 
 from pydantic import BaseModel, Field
 
-from .schemas import After, Attested, DealDraft, Signed, Slot, Unsigned
+from .schemas import After, Attested, CheckKind, DealDraft, Signed, Slot, Unsigned
 
 LAMPORTS_PER_SOL = 1_000_000_000
 LOCAL_FORMAT = "%Y-%m-%dT%H:%M"
@@ -61,8 +61,18 @@ class ModelPayout(BaseModel):
 
 
 class ModelCheck(BaseModel):
-    statement: str = Field(
-        description="What the witnesses confirm, plain English, at most 120 characters"
+    kind: CheckKind = Field(default="manual", description="One of the allowed kinds")
+    target: str = Field(
+        description=(
+            "manual: what the witnesses confirm, plain English, at most 120"
+            " characters; http_contains: the URL; github_checks: owner/repo@ref;"
+            " github_pr_merged: owner/repo#number"
+        )
+    )
+    expect: str = Field(
+        default="",
+        description="http_contains: text the page must contain; github_checks:"
+        " success; manual and github_pr_merged: empty",
     )
     witnesses: list[ModelSlot] = Field(description="1 to 5 people who vote yes or no")
     threshold: int = Field(description="How many yes votes are needed")
@@ -163,9 +173,9 @@ def _condition(cond: ModelCondition, zone: ZoneInfo) -> dict[str, str | int]:
 
 def check_data(check: ModelCheck) -> dict[str, object]:
     return {
-        "kind": "manual",
-        "target": check.statement.strip(),
-        "expect": "",
+        "kind": check.kind,
+        "target": check.target.strip(),
+        "expect": check.expect.strip(),
         "witnesses": [slot_data(w) for w in check.witnesses],
         "threshold": check.threshold,
         "binds": check.binds,
@@ -216,7 +226,9 @@ def from_draft(draft: DealDraft, zone: ZoneInfo) -> ModelDraft:
         amount_sol=lamports_to_sol(draft.amount) if draft.amount else None,
         checks=[
             ModelCheck(
-                statement=c.target,
+                kind=c.kind,
+                target=c.target,
+                expect=c.expect,
                 witnesses=[slot(w) for w in c.witnesses],
                 threshold=c.threshold,
                 binds=c.binds,

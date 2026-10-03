@@ -89,10 +89,14 @@ class DealContext:
     zone: ZoneInfo
     allowed: frozenset[str]
     open_recipient: bool = False
+    check_kinds: frozenset[str] = frozenset({"manual"})
 
     def strict(self) -> Strict:
         return Strict(
-            now=self.now, allowed=self.allowed, open_recipient=self.open_recipient
+            now=self.now,
+            allowed=self.allowed,
+            open_recipient=self.open_recipient,
+            check_kinds=self.check_kinds,
         )
 
 
@@ -124,6 +128,47 @@ def open_recipient(ctx: RunContext[DealContext]) -> str:
     return OPEN_ON if ctx.deps.open_recipient else OPEN_OFF
 
 
+KIND_HELP = {
+    "manual": "manual: people named as witnesses vote on a plain statement.",
+    "http_contains": (
+        "http_contains: witness nodes fetch target (a URL) and vote yes when the page"
+        " contains expect (for example the deal marker). Use it when the request"
+        " names a page or URL that must show something."
+    ),
+    "github_checks": (
+        "github_checks: witness nodes vote yes when CI checks of target"
+        " owner/repo@ref are green; expect is success."
+    ),
+    "github_pr_merged": (
+        "github_pr_merged: witness nodes vote yes when pull request target"
+        " owner/repo#number is merged; expect is empty. On a binding check (bounty)"
+        " the node nominates the address from a line 'pact: <address>' in the PR"
+        " body."
+    ),
+}
+
+
+@deal_agent.instructions
+def check_kinds(ctx: RunContext[DealContext]) -> str:
+    kinds = [k for k in KIND_HELP if k in ctx.deps.check_kinds]
+    lines = [
+        f"Allowed check kinds: {', '.join(kinds)}.",
+        *(KIND_HELP[k] for k in kinds),
+    ]
+    if len(kinds) > 1:
+        lines.append(
+            "Automated kinds are verified by witness nodes: label their witness"
+            " slots Witness node 1, 2, 3 with address null, threshold 2 of 3 unless"
+            " the request says otherwise."
+        )
+    else:
+        lines.append(
+            "A fact a bot could check (a page, CI, a merged pull request) is still a"
+            " manual check that the named reviewers confirm."
+        )
+    return "\n".join(lines)
+
+
 def context_for(request: DealDraftRequest, zone: ZoneInfo) -> DealContext:
     allowed = set(addresses_in(request.text))
     if request.wallet:
@@ -139,6 +184,7 @@ def context_for(request: DealDraftRequest, zone: ZoneInfo) -> DealContext:
         zone=zone,
         allowed=frozenset(allowed),
         open_recipient=env.deal.open_recipient,
+        check_kinds=frozenset(env.deal.check_kinds),
     )
 
 

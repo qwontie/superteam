@@ -212,6 +212,23 @@ def expect_bounty(r: DealDraftResponse, _now: int) -> list[str]:
     ]
 
 
+def expect_kind(kind: str, target: str) -> Expect:
+    def expect(r: DealDraftResponse, _now: int) -> list[str]:
+        checks = r.draft.checks
+        if kind not in env.deal.check_kinds:
+            return need(
+                bool(checks) and all(c.kind == "manual" for c in checks),
+                f"expected manual checks, got {[c.kind for c in checks]}",
+            )
+        found = [c for c in checks if c.kind == kind]
+        return [
+            *need(bool(found), f"no {kind} check, got {[c.kind for c in checks]}"),
+            *need(any(c.target == target for c in found), f"target != {target}"),
+        ]
+
+    return expect
+
+
 def expect_unknown_friend(r: DealDraftResponse, _now: int) -> list[str]:
     return need(
         addresses(r.draft) <= {CLIENT}, f"invented addresses {addresses(r.draft)}"
@@ -285,6 +302,19 @@ CASES = [
         " close in 10 days, three judges pick the winner, two of them must agree."
         " If nobody wins, the money comes back to us.",
         expect_bounty,
+    ),
+    Case(
+        "pr_bounty",
+        "Bounty of 2 SOL for whoever gets pull request qwontie/superteam#12 merged."
+        " The winner puts their address in the PR description. Refund to me if it"
+        " is not merged in 14 days.",
+        expect_kind("github_pr_merged", "qwontie/superteam#12"),
+    ),
+    Case(
+        "page_marker",
+        "Pay the freelancer 1 SOL once https://example.com/launch shows the text"
+        " pact-42. Deadline in 7 days, otherwise refund to me.",
+        expect_kind("http_contains", "https://example.com/launch"),
     ),
     Case(
         "unknown_friend",
@@ -382,8 +412,11 @@ async def main() -> None:
     parser.add_argument("--repeat", type=int, default=1)
     parser.add_argument("--case", action="append", default=[])
     parser.add_argument("--closed", action="store_true", help="open recipients off")
+    parser.add_argument("--kinds", help="comma-separated allowed check kinds")
     args = parser.parse_args()
     env.deal.open_recipient = not args.closed
+    if args.kinds:
+        env.deal.check_kinds = args.kinds.split(",")
     specs = args.model or [
         f"{env.llm.model}@{env.llm.thinking_budget or env.llm.thinking_level or ''}"
     ]

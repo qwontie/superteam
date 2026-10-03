@@ -39,6 +39,7 @@ class LlmSettings(Section):
 
 class DealSettings(Section):
     open_recipient: bool = True
+    check_kinds: list[str] = ["manual"]
 
 
 class Settings(BaseSettings):

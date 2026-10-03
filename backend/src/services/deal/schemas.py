@@ -1,3 +1,4 @@
+import re
 from dataclasses import dataclass, field
 from typing import Annotated, Literal, Self
 
@@ -15,6 +16,12 @@ QUESTIONS_MAX = 5
 BPS_TOTAL = 10_000
 U64_MAX = 2**64 - 1
 CHECKS_BASE = 2
+CHECK_KINDS = ("manual", "http_contains", "github_checks", "github_pr_merged")
+URL = re.compile(r"^https?://\S+$")
+REPO_REF = re.compile(r"^[\w.-]+/[\w.-]+@\S+$")
+REPO_PR = re.compile(r"^[\w.-]+/[\w.-]+#\d+$")
+
+CheckKind = Literal["manual", "http_contains", "github_checks", "github_pr_merged"]
 CHECKS_OPEN = 3
 MAX_HORIZON_SECONDS = 5 * 365 * 24 * 3600
 
@@ -54,7 +61,7 @@ class Payout(BaseModel):
 
 
 class Check(BaseModel):
-    kind: Literal["manual"] = "manual"
+    kind: CheckKind = "manual"
     target: str = Field(min_length=1)
     expect: str = ""
     witnesses: list[Slot] = Field(min_length=1, max_length=5)
@@ -73,6 +80,7 @@ class Strict:
     now: int
     allowed: frozenset[str] = field(default_factory=frozenset)
     open_recipient: bool = False
+    check_kinds: frozenset[str] = frozenset({"manual"})
 
 
 def _byte_len(value: str) -> int:
@@ -96,6 +104,22 @@ def _slot_problems(slots: list[Slot], where: str, allowed: frozenset[str]) -> li
             problems.append(f"{where}[{i}].address is used twice")
         seen.add(slot.address)
     return problems
+
+
+def _kind_problems(check: Check) -> list[str]:
+    match check.kind:
+        case "manual" if check.expect:
+            return ["expect must be empty for a manual check"]
+        case "http_contains" if not URL.match(check.target) or not check.expect:
+            return ["http_contains needs a URL target and a non-empty expect"]
+        case "github_checks" if not REPO_REF.match(check.target):
+            return ["github_checks target must be owner/repo@ref"]
+        case "github_checks" if check.expect != "success":
+            return ["github_checks expect must be success"]
+        case "github_pr_merged" if not REPO_PR.match(check.target) or check.expect:
+            return ["github_pr_merged target must be owner/repo#number, expect empty"]
+        case _:
+            return []
 
 
 class DealDraft(BaseModel):
@@ -129,7 +153,7 @@ class DealDraft(BaseModel):
             problems.append(f"at most {max_checks} checks")
         problems += _slot_problems(self.parties, "parties", strict.allowed)
         for c, check in enumerate(self.checks):
-            problems += self._check_problems(c, check, strict.allowed)
+            problems += self._check_problems(c, check, strict)
         has_exit = False
         for r, rule in enumerate(self.rules):
             problems += self._rule_problems(r, rule, strict.now)
@@ -184,17 +208,25 @@ class DealDraft(BaseModel):
         return problems
 
     @staticmethod
-    def _check_problems(c: int, check: Check, allowed: frozenset[str]) -> list[str]:
+    def _check_problems(c: int, check: Check, strict: Strict) -> list[str]:
         problems: list[str] = []
+        if check.kind not in strict.check_kinds:
+            kinds = ", ".join(k for k in CHECK_KINDS if k in strict.check_kinds)
+            problems.append(f"checks[{c}].kind {check.kind} is not available: {kinds}")
         if _byte_len(check.target) > TARGET_MAX_BYTES:
             problems.append(
                 f"checks[{c}].target is longer than {TARGET_MAX_BYTES} bytes"
             )
-        if check.expect:
-            problems.append(f"checks[{c}].expect must be empty for a manual check")
+        if _byte_len(check.expect) > EXPECT_MAX_BYTES:
+            problems.append(
+                f"checks[{c}].expect is longer than {EXPECT_MAX_BYTES} bytes"
+            )
+        problems += [f"checks[{c}].{p}" for p in _kind_problems(check)]
         if check.threshold > len(check.witnesses):
             problems.append(f"checks[{c}].threshold is above the number of witnesses")
-        problems += _slot_problems(check.witnesses, f"checks[{c}].witnesses", allowed)
+        problems += _slot_problems(
+            check.witnesses, f"checks[{c}].witnesses", strict.allowed
+        )
         return problems
 
     def _rule_problems(self, r: int, rule: Rule, now: int) -> list[str]:
