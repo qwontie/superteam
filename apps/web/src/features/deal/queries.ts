@@ -10,7 +10,7 @@ import {
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { eventFromLogs, type LogEntry } from "@/features/deal/events";
 import type { AppClient } from "@/lib/solana";
 import { useAppClient } from "@/lib/use-app-client";
@@ -29,6 +29,33 @@ export const dealKeys = {
   one: (address: string) => ["deal", address] as const,
   tx: (signature: string) => ["deal-tx", signature] as const,
 };
+
+const NO_ORACLES: ReadonlySet<number> = new Set();
+
+const oracleChecks = async (deal: DealState) => {
+  const { isGateCheck } = await import("@pact/sdk/gate-feed");
+  const flags = await Promise.all(deal.spec.checks.map(isGateCheck));
+  return flags.flatMap((flag, index) => (flag ? [index] : []));
+};
+
+export function useOracleChecks(deal: DealState) {
+  const candidate = deal.spec.checks.some(
+    (check) =>
+      check.kind === "http_contains" &&
+      check.threshold === 1 &&
+      check.witnesses.length === 1
+  );
+  const found = useQuery({
+    enabled: candidate,
+    queryFn: () => oracleChecks(deal),
+    queryKey: ["oracle-checks", deal.address],
+    staleTime: Number.POSITIVE_INFINITY,
+  });
+  return useMemo(
+    () => (found.data?.length ? new Set(found.data) : NO_ORACLES),
+    [found.data]
+  );
+}
 
 export const dealInvalidation = (address: string) => [
   dealKeys.one(address),

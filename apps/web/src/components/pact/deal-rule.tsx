@@ -29,6 +29,7 @@ interface DealRuleProps {
   labels?: readonly string[];
   note?: ReactNode;
   now?: number;
+  oracles?: ReadonlySet<number>;
   ruleIndex: number;
   showAddresses?: boolean;
   spec: DealSpec;
@@ -98,6 +99,7 @@ export function DealRule({
   status,
   labels,
   now,
+  oracles,
   votes,
   viewer,
   showAddresses,
@@ -112,7 +114,7 @@ export function DealRule({
   }
   const conditions = rule.when.map((condition) => ({
     key: JSON.stringify(condition),
-    text: describeCondition(condition, spec, { labels, now, votes }),
+    text: describeCondition(condition, spec, { labels, now, oracles, votes }),
   }));
   return (
     <RuleBlock

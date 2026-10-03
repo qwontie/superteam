@@ -20,7 +20,12 @@ import {
 import { DealCheck } from "@/features/deal/deal-check";
 import { DealLog } from "@/features/deal/deal-log";
 import type { LogEntry } from "@/features/deal/events";
-import { useDeal, useDealLive, useDealLog } from "@/features/deal/queries";
+import {
+  useDeal,
+  useDealLive,
+  useDealLog,
+  useOracleChecks,
+} from "@/features/deal/queries";
 import { shortAddress } from "@/lib/format";
 import { partyLabels, ruleStatus, walletRoles } from "@/lib/pact";
 import { useNow } from "@/lib/use-now";
@@ -36,6 +41,7 @@ interface RuleChecksProps {
   checks: readonly number[];
   deal: DealState;
   moves: Moves;
+  oracles: ReadonlySet<number>;
   viewer: string | null;
 }
 
@@ -85,7 +91,7 @@ const checkHomes = (deal: DealState) => {
   });
 };
 
-function RuleChecks({ checks, deal, moves, viewer }: RuleChecksProps) {
+function RuleChecks({ checks, deal, moves, oracles, viewer }: RuleChecksProps) {
   return (
     <div className="flex flex-col gap-4">
       {checks.map((checkIndex) => {
@@ -112,8 +118,10 @@ function RuleChecks({ checks, deal, moves, viewer }: RuleChecksProps) {
             }
             check={check}
             key={checkIndex}
+            oracle={oracles.has(checkIndex)}
             viewer={viewer}
             votes={deal.votes[checkIndex]}
+            waiting={deal.status === "funded"}
           />
         );
       })}
@@ -133,6 +141,7 @@ function DealView({ deal }: { deal: DealState }) {
   const labels = useMemo(() => partyLabels(deal.spec), [deal.spec]);
   const roles = useMemo(() => walletRoles(deal, wallet), [deal, wallet]);
   const homes = useMemo(() => checkHomes(deal), [deal]);
+  const oracles = useOracleChecks(deal);
   const moves = planMoves(deal, evaluation, roles, wallet !== null);
   const flightId = `money-${deal.address}`;
   const fired = executedEntry(log.data);
@@ -196,6 +205,7 @@ function DealView({ deal }: { deal: DealState }) {
                         checks={checks}
                         deal={deal}
                         moves={moves}
+                        oracles={oracles}
                         viewer={wallet}
                       />
                     ) : null
@@ -222,6 +232,7 @@ function DealView({ deal }: { deal: DealState }) {
                     ) : null
                   }
                   now={now}
+                  oracles={oracles}
                   ruleIndex={rule.rule}
                   spec={deal.spec}
                   status={status}
@@ -231,7 +242,7 @@ function DealView({ deal }: { deal: DealState }) {
               );
             })}
           </section>
-          <DealLog deal={deal} labels={labels} log={log} />
+          <DealLog deal={deal} labels={labels} log={log} oracles={oracles} />
         </div>
       </main>
     </LayoutGroup>

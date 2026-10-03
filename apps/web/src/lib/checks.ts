@@ -16,6 +16,10 @@ const FULL_SHA = /^[0-9a-f]{40}$/;
 const SHORT_SHA = 7;
 const NODES = "Witness nodes check this on their own and vote";
 
+export const ORACLE_LABEL = "Switchboard, 3 oracles";
+export const ORACLE_METHOD =
+  "Three Switchboard oracles fetch the page. Anyone can submit their signed answer";
+
 const httpsOnly = (value: string) => {
   try {
     return new URL(value).protocol === "https:" ? value : null;
@@ -101,10 +105,18 @@ export const checkFact = (check: Check): CheckFact => {
   }
 };
 
-export const witnessLabel = (check: Check | undefined, position: number) =>
-  check && check.kind !== "manual"
+export const witnessLabel = (
+  check: Check | undefined,
+  position: number,
+  oracle = false
+) => {
+  if (oracle) {
+    return ORACLE_LABEL;
+  }
+  return check && check.kind !== "manual"
     ? `Node ${position + 1}`
     : `Witness ${position + 1}`;
+};
 
 export const actorName = (
   spec: DealSpec,

@@ -24,6 +24,7 @@ export interface ConditionText {
 export interface DescribeOptions {
   labels?: readonly string[];
   now?: number;
+  oracles?: ReadonlySet<number>;
   votes?: readonly CheckVotes[];
 }
 
@@ -46,7 +47,8 @@ export const conditionRole = (condition: Condition): ConditionRole => {
 const describeAttested = (
   checkIndex: number,
   spec: DealSpec,
-  allVotes: readonly CheckVotes[] | undefined
+  allVotes: readonly CheckVotes[] | undefined,
+  oracle: boolean
 ): ConditionText => {
   const role: ConditionRole = "proof";
   const check = spec.checks[checkIndex];
@@ -56,6 +58,13 @@ const describeAttested = (
   const votes = allVotes?.[checkIndex];
   const total = check.witnesses.length;
   const fact = checkFact(check);
+  if (oracle) {
+    return {
+      detail: null,
+      label: `Switchboard oracles ${fact.verb.many}`,
+      role,
+    };
+  }
   const who = fact.automated ? "node" : "witness";
   const label =
     total === 1
@@ -102,7 +111,12 @@ export const describeCondition = (
         role,
       };
     case "attested":
-      return describeAttested(condition.check, spec, options.votes);
+      return describeAttested(
+        condition.check,
+        spec,
+        options.votes,
+        options.oracles?.has(condition.check) ?? false
+      );
     default:
       return condition satisfies never;
   }

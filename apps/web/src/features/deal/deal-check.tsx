@@ -3,14 +3,16 @@ import type { Check, CheckVotes, Vote } from "@pact/sdk";
 import { ArrowUpRight, Check as CheckIcon, Minus, X } from "lucide-react";
 import type { ReactNode } from "react";
 import { PartyAvatar } from "@/components/pact/party";
-import { checkFact, witnessLabel } from "@/lib/checks";
+import { checkFact, ORACLE_METHOD, witnessLabel } from "@/lib/checks";
 import { shortAddress } from "@/lib/format";
 
 interface DealCheckProps {
   action?: ReactNode;
   check: Check;
+  oracle?: boolean;
   viewer: string | null;
   votes: CheckVotes | undefined;
+  waiting?: boolean;
 }
 
 const VOTE_TEXT: Record<"yes" | "no" | "none", string> = {
@@ -65,12 +67,19 @@ function CheckSource({ href, text }: { href: string | null; text: string }) {
   );
 }
 
-export function DealCheck({ check, votes, viewer, action }: DealCheckProps) {
+export function DealCheck({
+  check,
+  votes,
+  viewer,
+  action,
+  oracle = false,
+  waiting = false,
+}: DealCheckProps) {
   const fact = checkFact(check);
   return (
     <div className="flex flex-col gap-2">
       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-        <Tooltip tooltip={fact.method}>
+        <Tooltip tooltip={oracle ? ORACLE_METHOD : fact.method}>
           <span className="break-words text-sm">{fact.statement}</span>
         </Tooltip>
         {fact.linkText ? (
@@ -80,15 +89,16 @@ export function DealCheck({ check, votes, viewer, action }: DealCheckProps) {
       <ul className="flex flex-wrap gap-x-5 gap-y-1.5">
         {check.witnesses.map((witness, position) => {
           const nominee = votes?.nominees[position] ?? null;
+          const vote = votes?.byWitness[position] ?? null;
           return (
             <li
-              className="flex items-center gap-1.5 text-cladd-fg-soft text-xs"
+              className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 whitespace-nowrap text-cladd-fg-soft text-xs"
               key={witness}
             >
-              <VoteMark vote={votes?.byWitness[position] ?? null} />
-              <PartyAvatar seed={witness} size={16} />
+              <VoteMark vote={vote} />
+              {oracle ? null : <PartyAvatar seed={witness} size={16} />}
               <span className="text-cladd-fg">
-                {witnessLabel(check, position)}
+                {witnessLabel(check, position, oracle)}
               </span>
               <span className="font-mono" title={witness}>
                 {shortAddress(witness)}
@@ -97,6 +107,9 @@ export function DealCheck({ check, votes, viewer, action }: DealCheckProps) {
                 <span className="font-mono" title={nominee}>
                   for {shortAddress(nominee)}
                 </span>
+              ) : null}
+              {oracle && waiting && vote === null ? (
+                <span>Oracles do not see it yet</span>
               ) : null}
               {viewer === witness ? (
                 <span className="rounded-full bg-cladd-fg px-1.5 py-px font-semibold text-[0.65rem] text-cladd-bg uppercase">

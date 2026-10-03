@@ -11,6 +11,7 @@ interface DealLogProps {
   deal: DealState;
   labels: readonly string[];
   log: UseQueryResult<LogEntry[]>;
+  oracles: ReadonlySet<number>;
 }
 
 const EVENT_WORDS = /([a-z])([A-Z])/g;
@@ -34,7 +35,8 @@ const voteText = (event: Extract<DealEvent, { kind: "attested" }>) => {
 const describeEvent = (
   event: DealEvent,
   deal: DealState,
-  labels: readonly string[]
+  labels: readonly string[],
+  oracles: ReadonlySet<number>
 ) => {
   switch (event.kind) {
     case "created":
@@ -44,6 +46,9 @@ const describeEvent = (
     case "signaled":
       return `${labels[event.party] ?? `Party ${event.party + 1}`} signed`;
     case "attested":
+      if (oracles.has(event.check) && event.verdict) {
+        return "Switchboard oracles confirmed the check";
+      }
       return `${witnessName(deal, event.check, event.witness)} voted ${voteText(event)}`;
     case "executed":
       return `Rule ${event.rule + 1} fired by ${actorName(deal.spec, labels, event.executor)}`;
@@ -59,15 +64,18 @@ const describeEvent = (
 const describeEntry = (
   entry: LogEntry,
   deal: DealState,
-  labels: readonly string[]
+  labels: readonly string[],
+  oracles: ReadonlySet<number>
 ) => {
   if (entry.failed) {
     return "Failed transaction, nothing changed";
   }
-  return entry.event ? describeEvent(entry.event, deal, labels) : "Transaction";
+  return entry.event
+    ? describeEvent(entry.event, deal, labels, oracles)
+    : "Transaction";
 };
 
-export function DealLog({ deal, labels, log }: DealLogProps) {
+export function DealLog({ deal, labels, log, oracles }: DealLogProps) {
   const retry = useCallback(() => {
     log.refetch().catch(() => undefined);
   }, [log]);
@@ -98,7 +106,7 @@ export function DealLog({ deal, labels, log }: DealLogProps) {
               key={entry.signature}
             >
               <span className={entry.failed ? "text-cladd-fg-softer" : ""}>
-                {describeEntry(entry, deal, labels)}
+                {describeEntry(entry, deal, labels, oracles)}
               </span>
               <ExplorerLink
                 className="shrink-0 whitespace-nowrap text-cladd-fg-soft text-xs tabular-nums"
