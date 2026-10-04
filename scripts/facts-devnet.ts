@@ -55,6 +55,17 @@ const TRUE_FACTS: [string, string][] = [
 ];
 const LOCKED_FACT: [string, string] = ["wikidata:Q22686/P570", "exists"];
 const FALSE_PRICE: [string, string] = ["price:SOL-USD", ">500"];
+const KEPT_FACTS: [string, string, string][] = [
+  [
+    `${PROD_URL}/proof/delivery.html`,
+    "Delivery page",
+    "Demo: paid when the delivery page is up",
+  ],
+  ["price:SOL-USD", ">100", "Demo: paid when SOL is above 100 USD"],
+  ["wikidata:Q9696/P570", "exists", "Demo: paid when Wikidata has JFK's death"],
+];
+const BY_NODE = process.env.BY === "node";
+const NODE_WAIT_MS = 5 * 60_000;
 
 const keysDir = process.env.KEYS_DIR ?? "";
 const clusterUrl = process.env.CLUSTER_URL ?? "";
@@ -173,7 +184,8 @@ const openDeal = async (
   payer: KeyPairSigner,
   freelancer: Address,
   fact: [string, string],
-  exitSeconds: number
+  exitSeconds: number,
+  title?: string
 ): Promise<FactDeal> => {
   const [target, wanted] = fact;
   const now = await chainNow();
@@ -192,7 +204,7 @@ const openDeal = async (
     client: payer.address,
     deadline: now + exitSeconds,
     freelancer,
-    title: describeCheckFact(target, wanted).slice(0, 48),
+    title: title ?? describeCheckFact(target, wanted).slice(0, 48),
   });
   const validation = validateDealSpec(spec, now);
   if (!validation.ok) {
@@ -402,10 +414,58 @@ const run = async (payer: KeyPairSigner) => {
   );
 };
 
+const waitForSettled = async (deal: Address, until: number): Promise<void> => {
+  const state = await fetchDeal(rpc, deal);
+  if (state?.status === "settled") {
+    console.log(
+      `  settled by rule ${state.settledRule}, nobody here sent a transaction`
+    );
+    return;
+  }
+  if (Date.now() > until) {
+    throw new Error(`no node settled ${deal} in time`);
+  }
+  await sleep(POLL_MS);
+  return waitForSettled(deal, until);
+};
+
+const keep = async (payer: KeyPairSigner) => {
+  const freelancer = (await keypairFile(process.env.FREELANCER ?? "freelancer"))
+    .address;
+  for (const [target, wanted, title] of KEPT_FACTS) {
+    // biome-ignore lint/performance/noAwaitInLoops: one deal at a time keeps the log readable
+    const entry = await openDeal(
+      payer,
+      freelancer,
+      [target, wanted],
+      EXIT_MINUTES * 60,
+      title
+    );
+    if (BY_NODE) {
+      console.log("  waiting for a GATE_CRANK node to confirm and execute");
+      await waitForSettled(entry.deal, Date.now() + NODE_WAIT_MS);
+    } else {
+      await confirmByOracles(payer, entry);
+      const state = await fetchDeal(rpc, entry.deal);
+      await send("execute rule 0", payer, [
+        getExecuteInstruction({
+          deal: entry.deal,
+          executor: payer,
+          parties: state?.spec.parties ?? [],
+          rule: 0,
+        }),
+      ]);
+    }
+    console.log(`  kept on chain: ${PROD_URL}/deals/${entry.deal}`);
+  }
+};
+
 const runner = await keypairFile(process.env.GATE_PAYER ?? "gate-payer");
 const [, , command, target] = process.argv;
 if (command === "finish" && target) {
   await settleAndClose(runner, address(target));
+} else if (command === "keep") {
+  await keep(runner);
 } else {
   await run(runner);
 }
