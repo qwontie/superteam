@@ -97,9 +97,11 @@ function Verifier({ name, kind, fallback, found, children }: VerifierProps) {
           role={fallback.role}
         />
       )}
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-        {children}
-      </div>
+      {children ? (
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+          {children}
+        </div>
+      ) : null}
       {found ? (
         <Link
           className="group mt-auto inline-flex min-w-0 max-w-full items-center gap-1.5 self-start rounded-chip pt-1 font-medium text-sm underline decoration-cladd-fg-softest underline-offset-4 hover:decoration-current"
@@ -119,7 +121,6 @@ function Verifier({ name, kind, fallback, found, children }: VerifierProps) {
 }
 
 export function Verifiers({ verified }: { verified: VerifiedDeals }) {
-  const { people } = verified;
   return (
     <section aria-labelledby="home-verifiers">
       <h2 className="sr-only" id="home-verifiers">
@@ -128,16 +129,10 @@ export function Verifiers({ verified }: { verified: VerifiedDeals }) {
       <ul className="grid gap-4 md:grid-cols-3">
         <Verifier
           fallback={FALLBACK.people}
-          found={people}
+          found={verified.people}
           kind="people"
           name="People you name"
-        >
-          {people ? (
-            <Addresses
-              list={people.deal.spec.checks[people.check]?.witnesses ?? []}
-            />
-          ) : null}
-        </Verifier>
+        />
         <Verifier
           fallback={FALLBACK.nodes}
           found={verified.nodes}

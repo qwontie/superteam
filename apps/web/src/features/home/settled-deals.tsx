@@ -2,12 +2,13 @@ import { type DealState, evaluateDeal, nowSeconds } from "@pact/sdk";
 import { Link } from "@tanstack/react-router";
 import { useMemo } from "react";
 import { DealRule } from "@/components/pact/deal-rule";
-import { useOracleChecks } from "@/features/deal/queries";
+import { useFactLabels, useOracleChecks } from "@/features/deal/queries";
 import { shortAddress } from "@/lib/format";
 import { partyLabels } from "@/lib/pact";
 
 function SettledDeal({ deal }: { deal: DealState }) {
   const oracles = useOracleChecks(deal);
+  const factLabels = useFactLabels(deal.spec);
   const labels = useMemo(() => partyLabels(deal.spec), [deal.spec]);
   const fired = deal.settledRule ?? 0;
   const evaluation = useMemo(
@@ -31,6 +32,7 @@ function SettledDeal({ deal }: { deal: DealState }) {
         </span>
         <DealRule
           evaluation={evaluation}
+          factLabels={factLabels}
           labels={labels}
           oracles={oracles}
           ruleIndex={fired}
