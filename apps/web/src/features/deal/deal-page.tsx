@@ -4,7 +4,7 @@ import { isAddress } from "@solana/kit";
 import { Link } from "@tanstack/react-router";
 import { ArrowLeft } from "lucide-react";
 import { LayoutGroup } from "motion/react";
-import { type ReactNode, useCallback, useMemo, useRef } from "react";
+import { type ReactNode, useCallback, useEffect, useMemo, useRef } from "react";
 import { DealRule } from "@/components/pact/deal-rule";
 import { FiredNote, StatusPill, VaultAmount } from "@/components/pact/vault";
 import { PAGE } from "@/components/shell/app-shell";
@@ -52,7 +52,7 @@ const SHELL = cn(PAGE, "flex flex-col gap-7 pt-8 sm:pt-10");
 function BackLink() {
   return (
     <Link
-      className="inline-flex items-center gap-1.5 self-start rounded-chip text-cladd-fg-soft text-sm transition-colors duration-200 hover:text-cladd-fg"
+      className="relative inline-flex items-center gap-1.5 self-start rounded-chip text-cladd-fg-soft text-sm transition-colors duration-200 before:absolute before:-inset-x-2 before:-inset-y-3 before:content-[''] hover:text-cladd-fg"
       to="/deals"
     >
       <ArrowLeft aria-hidden="true" size={15} />
@@ -74,6 +74,16 @@ function Message({ title, text, children }: MessageProps) {
       </div>
     </main>
   );
+}
+
+function useDocumentTitle(title: string) {
+  useEffect(() => {
+    const previous = document.title;
+    document.title = `${title} - Pact`;
+    return () => {
+      document.title = previous;
+    };
+  }, [title]);
 }
 
 const executedEntry = (log: LogEntry[] | undefined) =>
@@ -158,6 +168,7 @@ function DealView({ deal }: { deal: DealState }) {
   const flightId = `money-${deal.address}`;
   const fired = executedEntry(log.data);
   const openedUnsettled = useRef(deal.status !== "settled");
+  useDocumentTitle(deal.spec.title);
 
   return (
     <LayoutGroup>

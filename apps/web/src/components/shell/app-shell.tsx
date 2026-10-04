@@ -11,8 +11,13 @@ import { ProgramStatus } from "@/components/shell/program-status";
 import { WalletButton } from "@/components/shell/wallet-button";
 import { shortAddress } from "@/lib/format";
 
-const NAV_LINK =
-  "inline-flex items-center rounded-chip px-3 py-1.5 font-medium text-cladd-fg-soft text-sm transition-colors duration-200 hover:text-cladd-fg";
+const TAP_AREA =
+  "relative before:absolute before:inset-x-0 before:-inset-y-2 before:content-['']";
+
+const NAV_LINK = cn(
+  TAP_AREA,
+  "inline-flex items-center rounded-chip px-3 py-1.5 font-medium text-cladd-fg-soft text-sm transition-colors duration-200 hover:text-cladd-fg"
+);
 const ACTIVE = { className: cn(NAV_LINK, "bg-cladd-surface text-cladd-fg") };
 
 export const PAGE = "mx-auto w-full max-w-[1240px] px-4 sm:px-6";
@@ -24,7 +29,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         <div className={cn(PAGE, "flex h-16 items-center gap-2 sm:gap-4")}>
           <Link
             aria-label="Pact home"
-            className="flex items-center gap-2.5 rounded-chip"
+            className={cn(TAP_AREA, "flex items-center gap-2.5 rounded-chip")}
             to="/"
           >
             <Logo size={26} />
@@ -64,6 +69,13 @@ export function AppShell({ children }: { children: ReactNode }) {
           )}
         >
           <ProgramStatus />
+          <Link
+            className="underline decoration-cladd-fg-softest transition-colors duration-200 hover:text-cladd-fg hover:decoration-current"
+            hash="privacy"
+            to="/"
+          >
+            Privacy and cookies
+          </Link>
           <span className="sm:ml-auto">
             Program{" "}
             <ExplorerLink

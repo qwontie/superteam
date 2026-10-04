@@ -109,7 +109,7 @@ export function DealLog({ deal, labels, log, oracles }: DealLogProps) {
                 {describeEntry(entry, deal, labels, oracles)}
               </span>
               <ExplorerLink
-                className="shrink-0 whitespace-nowrap text-cladd-fg-soft text-xs tabular-nums"
+                className="relative shrink-0 whitespace-nowrap text-cladd-fg-soft text-xs tabular-nums before:absolute before:inset-x-0 before:-inset-y-3 before:content-['']"
                 path={`/tx/${entry.signature}`}
               >
                 {entry.blockTime === null ? (

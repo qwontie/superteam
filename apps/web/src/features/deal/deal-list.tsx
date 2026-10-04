@@ -99,7 +99,9 @@ function DealRow({ deal, wallet, now }: DealRowProps) {
       to="/deals/$address"
     >
       <span className="flex min-w-0 flex-col gap-1">
-        <span className="truncate font-medium">{deal.spec.title}</span>
+        <span className="line-clamp-2 break-words font-medium sm:line-clamp-1">
+          {deal.spec.title}
+        </span>
         <span className="flex flex-wrap gap-x-2 text-cladd-fg-soft text-sm">
           {roleText(deal, wallet)}
           {hint ? (
