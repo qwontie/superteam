@@ -1,10 +1,26 @@
 import type { Check, DealSpec } from "@pact/sdk";
+import {
+  describeFact,
+  type Fact,
+  PRICE_PAIRS,
+  parseFact,
+} from "@pact/sdk/facts";
 import { shortAddress } from "@/lib/format";
+
+export type ConditionMark = "github" | "price" | "fact" | "vote";
+
+export interface FactLink {
+  href: string;
+  text: string;
+}
 
 export interface CheckFact {
   automated: boolean;
+  fact: Fact | null;
   href: string | null;
+  links: FactLink[];
   linkText: string | null;
+  mark: ConditionMark | null;
   method: string;
   statement: string;
   verb: { many: string; one: string };
@@ -16,9 +32,14 @@ const FULL_SHA = /^[0-9a-f]{40}$/;
 const SHORT_SHA = 7;
 const NODES = "Witness nodes check this on their own and vote";
 
+const HOST_PREFIX = /^(www|api)\./;
+const FACT_VERB = { many: "confirm it", one: "confirms it" };
+
 export const ORACLE_LABEL = "Switchboard, 3 oracles";
 export const ORACLE_METHOD =
   "Three Switchboard oracles fetch the page. Anyone can submit their signed answer";
+export const ORACLE_FACT_METHOD =
+  "Three Switchboard oracles read the source. Anyone can submit their signed answer";
 
 const httpsOnly = (value: string) => {
   try {
@@ -28,10 +49,67 @@ const httpsOnly = (value: string) => {
   }
 };
 
+const hostOf = (url: string) => {
+  try {
+    return new URL(url).host.replace(HOST_PREFIX, "");
+  } catch {
+    return url;
+  }
+};
+
+const sourceOf = (check: Check): Fact | null => {
+  try {
+    const fact = parseFact(check.target, check.expect);
+    return fact.source.type === "page" ? null : fact;
+  } catch {
+    return null;
+  }
+};
+
+const factLinks = (fact: Fact): FactLink[] => {
+  const { source } = fact;
+  if (source.type === "price") {
+    return PRICE_PAIRS[source.pair].map((venue) => ({
+      href: venue.url,
+      text: hostOf(venue.url),
+    }));
+  }
+  if (source.type === "wikidata") {
+    return [
+      {
+        href: `https://www.wikidata.org/wiki/${source.entity}#${source.property}`,
+        text: `wikidata.org/wiki/${source.entity}`,
+      },
+    ];
+  }
+  if (source.type === "json") {
+    return [{ href: source.url, text: source.url }];
+  }
+  return [];
+};
+
+const sourceFact = (fact: Fact, label?: string): CheckFact => {
+  const links = factLinks(fact);
+  return {
+    automated: true,
+    fact,
+    href: links[0]?.href ?? null,
+    links,
+    linkText: links[0]?.text ?? null,
+    mark: fact.source.type === "price" ? "price" : "fact",
+    method: NODES,
+    statement: describeFact(fact, { label }),
+    verb: FACT_VERB,
+  };
+};
+
 const pageFact = (check: Check): CheckFact => ({
   automated: true,
+  fact: null,
   href: httpsOnly(check.target),
+  links: [],
   linkText: check.target,
+  mark: null,
   method: NODES,
   statement: `The page contains "${check.expect}"`,
   verb: {
@@ -47,8 +125,11 @@ const checksFact = (check: Check): CheckFact => {
     ref && FULL_SHA.test(ref) ? ref.slice(0, SHORT_SHA) : (ref ?? "");
   return {
     automated: true,
+    fact: null,
     href: match ? `https://github.com/${owner}/${repo}/commits/${ref}` : null,
+    links: [],
     linkText: match ? `${owner}/${repo}@${shown}` : check.target,
+    mark: "github",
     method: NODES,
     statement: "All GitHub checks are green",
     verb: { many: "see green checks", one: "sees green checks" },
@@ -61,8 +142,11 @@ const mergedFact = (check: Check): CheckFact => {
   const binding = typeof check.binds === "number";
   return {
     automated: true,
+    fact: null,
     href: match ? `https://github.com/${owner}/${repo}/pull/${pull}` : null,
+    links: [],
     linkText: check.target,
+    mark: "github",
     method: binding
       ? `${NODES}. The winner is the address on the "pact:" line of the pull request`
       : NODES,
@@ -82,8 +166,11 @@ const manualFact = (check: Check): CheckFact => {
   const binding = typeof check.binds === "number";
   return {
     automated: false,
+    fact: null,
     href: null,
+    links: [],
     linkText: null,
+    mark: "vote",
     method: "The people below vote by hand",
     statement: check.target,
     verb: binding
@@ -92,10 +179,12 @@ const manualFact = (check: Check): CheckFact => {
   };
 };
 
-export const checkFact = (check: Check): CheckFact => {
+export const checkFact = (check: Check, label?: string): CheckFact => {
   switch (check.kind) {
-    case "http_contains":
-      return pageFact(check);
+    case "http_contains": {
+      const fact = sourceOf(check);
+      return fact ? sourceFact(fact, label) : pageFact(check);
+    }
     case "github_checks":
       return checksFact(check);
     case "github_pr_merged":

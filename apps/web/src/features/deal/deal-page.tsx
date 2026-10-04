@@ -24,6 +24,7 @@ import {
   useDeal,
   useDealLive,
   useDealLog,
+  useFactLabels,
   useOracleChecks,
 } from "@/features/deal/queries";
 import { shortAddress } from "@/lib/format";
@@ -40,6 +41,7 @@ interface MessageProps {
 interface RuleChecksProps {
   checks: readonly number[];
   deal: DealState;
+  factLabels: ReadonlyMap<number, string>;
   moves: Moves;
   oracles: ReadonlySet<number>;
   viewer: string | null;
@@ -91,7 +93,14 @@ const checkHomes = (deal: DealState) => {
   });
 };
 
-function RuleChecks({ checks, deal, moves, oracles, viewer }: RuleChecksProps) {
+function RuleChecks({
+  checks,
+  deal,
+  factLabels,
+  moves,
+  oracles,
+  viewer,
+}: RuleChecksProps) {
   return (
     <div className="flex flex-col gap-4">
       {checks.map((checkIndex) => {
@@ -118,6 +127,7 @@ function RuleChecks({ checks, deal, moves, oracles, viewer }: RuleChecksProps) {
             }
             check={check}
             key={checkIndex}
+            label={factLabels.get(checkIndex)}
             oracle={oracles.has(checkIndex)}
             viewer={viewer}
             votes={deal.votes[checkIndex]}
@@ -142,6 +152,7 @@ function DealView({ deal }: { deal: DealState }) {
   const roles = useMemo(() => walletRoles(deal, wallet), [deal, wallet]);
   const homes = useMemo(() => checkHomes(deal), [deal]);
   const oracles = useOracleChecks(deal);
+  const factLabels = useFactLabels(deal.spec);
   const moves = planMoves(deal, evaluation, roles, wallet !== null);
   const flightId = `money-${deal.address}`;
   const fired = executedEntry(log.data);
@@ -204,6 +215,7 @@ function DealView({ deal }: { deal: DealState }) {
                       <RuleChecks
                         checks={checks}
                         deal={deal}
+                        factLabels={factLabels}
                         moves={moves}
                         oracles={oracles}
                         viewer={wallet}
@@ -211,6 +223,7 @@ function DealView({ deal }: { deal: DealState }) {
                     ) : null
                   }
                   evaluation={rule}
+                  factLabels={factLabels}
                   key={rule.rule}
                   labels={labels}
                   note={

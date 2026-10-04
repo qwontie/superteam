@@ -8,20 +8,23 @@ import {
   type Rule,
   type RuleEvaluation,
 } from "@pact/sdk";
-import { checkFact } from "@/lib/checks";
+import { type ConditionMark, checkFact } from "@/lib/checks";
 import { formatCountdown, formatWhen } from "@/lib/format";
 
 export type ConditionRole = "time" | "people" | "proof";
+export type { ConditionMark } from "@/lib/checks";
 export type ConditionState = "static" | "pending" | "holds";
 export type RuleStatus = "idle" | "waiting" | "armed" | "fired" | "lost";
 
 export interface ConditionText {
   detail: string | null;
   label: string;
+  mark?: ConditionMark;
   role: ConditionRole;
 }
 
 export interface DescribeOptions {
+  factLabels?: ReadonlyMap<number, string>;
   labels?: readonly string[];
   now?: number;
   oracles?: ReadonlySet<number>;
@@ -48,20 +51,32 @@ const describeAttested = (
   checkIndex: number,
   spec: DealSpec,
   allVotes: readonly CheckVotes[] | undefined,
-  oracle: boolean
+  oracle: boolean,
+  factLabel: string | undefined
 ): ConditionText => {
-  const role: ConditionRole = "proof";
   const check = spec.checks[checkIndex];
   if (!check) {
-    return { detail: null, label: "missing check", role };
+    return { detail: null, label: "missing check", role: "proof" };
   }
   const votes = allVotes?.[checkIndex];
   const total = check.witnesses.length;
-  const fact = checkFact(check);
+  const fact = checkFact(check, factLabel);
+  const role: ConditionRole = fact.automated ? "proof" : "people";
+  const mark = fact.mark ?? undefined;
+  if (fact.fact) {
+    const counted = votes && !oracle && total > 1;
+    return {
+      detail: counted ? `${votes.yes} of ${check.threshold} nodes` : null,
+      label: fact.statement,
+      mark,
+      role,
+    };
+  }
   if (oracle) {
     return {
       detail: null,
       label: `Switchboard oracles ${fact.verb.many}`,
+      mark,
       role,
     };
   }
@@ -75,10 +90,11 @@ const describeAttested = (
     return {
       detail: votes ? `${leader?.votes ?? 0} agree so far` : null,
       label,
+      mark,
       role,
     };
   }
-  return { detail: votes ? `${votes.yes} so far` : null, label, role };
+  return { detail: votes ? `${votes.yes} so far` : null, label, mark, role };
 };
 
 export const describeCondition = (
@@ -115,7 +131,8 @@ export const describeCondition = (
         condition.check,
         spec,
         options.votes,
-        options.oracles?.has(condition.check) ?? false
+        options.oracles?.has(condition.check) ?? false,
+        options.factLabels?.get(condition.check)
       );
     default:
       return condition satisfies never;

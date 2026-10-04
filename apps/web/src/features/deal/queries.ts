@@ -1,4 +1,16 @@
-import { type DealState, fetchAllDeals, fetchDeal } from "@pact/sdk";
+import {
+  type DealSpec,
+  type DealState,
+  fetchAllDeals,
+  fetchDeal,
+} from "@pact/sdk";
+import {
+  type Fact,
+  type FactReading,
+  fetchWikidataLabel,
+  parseFact,
+  readFact,
+} from "@pact/sdk/facts";
 import {
   isAddress,
   type Signature,
@@ -55,6 +67,71 @@ export function useOracleChecks(deal: DealState) {
     () => (found.data?.length ? new Set(found.data) : NO_ORACLES),
     [found.data]
   );
+}
+
+const NO_LABELS: ReadonlyMap<number, string> = new Map();
+const LABEL_STALE_MS = 3_600_000;
+const READING_REFRESH_MS = 60_000;
+const WIKIDATA_API = "https://www.wikidata.org/w/api.php";
+
+const wikidataEntities = (spec: DealSpec) =>
+  spec.checks.map((check) => {
+    if (check.kind !== "http_contains") {
+      return null;
+    }
+    try {
+      const { source } = parseFact(check.target, check.expect);
+      return source.type === "wikidata" ? source.entity : null;
+    } catch {
+      return null;
+    }
+  });
+
+const wikidataLabels = async (entities: (string | null)[]) => {
+  const labels = await Promise.all(
+    entities.map((entity) =>
+      entity ? fetchWikidataLabel(entity).catch(() => null) : null
+    )
+  );
+  return labels.flatMap((label, index): [number, string][] =>
+    label ? [[index, label]] : []
+  );
+};
+
+export function useFactLabels(spec: DealSpec) {
+  const entities = useMemo(() => wikidataEntities(spec), [spec]);
+  const found = useQuery({
+    enabled: entities.some((entity) => entity !== null),
+    queryFn: () => wikidataLabels(entities),
+    queryKey: ["fact-labels", entities],
+    retry: false,
+    staleTime: LABEL_STALE_MS,
+  });
+  return useMemo(
+    () => (found.data?.length ? new Map(found.data) : NO_LABELS),
+    [found.data]
+  );
+}
+
+const fetchSource = async (url: string) => {
+  const response = await fetch(
+    url.startsWith(WIKIDATA_API) ? `${url}&origin=*` : url
+  );
+  if (!response.ok) {
+    throw new Error(`source answered ${response.status}`);
+  }
+  return response.text();
+};
+
+export function useFactReading(fact: Fact | null, enabled: boolean) {
+  return useQuery<FactReading>({
+    enabled: enabled && fact !== null,
+    queryFn: () => readFact(fact as Fact, fetchSource),
+    queryKey: ["fact-reading", fact],
+    refetchInterval: READING_REFRESH_MS,
+    retry: false,
+    staleTime: READING_REFRESH_MS,
+  });
 }
 
 export const dealInvalidation = (address: string) => [

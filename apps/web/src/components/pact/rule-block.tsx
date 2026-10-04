@@ -10,7 +10,8 @@ interface RuleBlockProps {
   className?: string;
   detail?: ReactNode;
   exit?: boolean;
-  index: number;
+  index?: number;
+  label?: string;
   note?: ReactNode;
   status?: RuleStatus;
   then: ReactNode;
@@ -21,7 +22,7 @@ interface WhenRowProps {
   children: ReactNode;
   detail?: ReactNode;
   exit: boolean;
-  index: number;
+  index?: number;
   joined: boolean;
   lost: boolean;
 }
@@ -96,7 +97,9 @@ function WhenRow({
             Exit
           </span>
         ) : null}
-        <span className="font-mono tabular-nums">{index + 1}</span>
+        {index === undefined ? null : (
+          <span className="font-mono tabular-nums">{index + 1}</span>
+        )}
       </span>
       {detail ? (
         <div className="order-4 min-w-0 basis-full pt-1 pb-0.5 sm:pl-14">
@@ -198,16 +201,18 @@ export function RuleBlock({
   then,
   action,
   detail,
+  label: name,
   note,
   className,
 }: RuleBlockProps) {
   const joined = status === "armed" || status === "fired";
   const lost = status === "lost";
   const label = STATUS_NAME[status];
+  const title = name ?? `Rule ${(index ?? 0) + 1}`;
   return (
     <motion.article
       animate={{ rowGap: joined ? "0px" : `${GAP}px` }}
-      aria-label={`Rule ${index + 1}${label ? `, ${label.toLowerCase()}` : ""}`}
+      aria-label={`${title}${label ? `, ${label.toLowerCase()}` : ""}`}
       className={cn("relative flex flex-col", className)}
       data-status={status}
       initial={false}

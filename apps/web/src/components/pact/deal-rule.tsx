@@ -26,6 +26,7 @@ interface DealRuleProps {
   className?: string;
   detail?: ReactNode;
   evaluation?: RuleEvaluation;
+  factLabels?: ReadonlyMap<number, string>;
   labels?: readonly string[];
   note?: ReactNode;
   now?: number;
@@ -98,6 +99,7 @@ export function DealRule({
   evaluation,
   status,
   labels,
+  factLabels,
   now,
   oracles,
   votes,
@@ -114,7 +116,13 @@ export function DealRule({
   }
   const conditions = rule.when.map((condition) => ({
     key: JSON.stringify(condition),
-    text: describeCondition(condition, spec, { labels, now, oracles, votes }),
+    text: describeCondition(condition, spec, {
+      factLabels,
+      labels,
+      now,
+      oracles,
+      votes,
+    }),
   }));
   return (
     <RuleBlock
@@ -143,6 +151,7 @@ export function DealRule({
           <ConditionChip
             detail={text.detail}
             label={text.label}
+            mark={text.mark}
             role={text.role}
             state={chipState(evaluation, position)}
           />

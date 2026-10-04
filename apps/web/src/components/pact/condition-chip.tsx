@@ -1,13 +1,24 @@
 import { cn } from "@cladd-ui/react";
-import { Check, Clock3, Eye, PenLine } from "lucide-react";
+import {
+  Check,
+  Clock3,
+  Eye,
+  GitMerge,
+  Globe,
+  type LucideIcon,
+  PenLine,
+  TrendingUp,
+  Users,
+} from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { SNAP } from "@/components/pact/motion";
-import type { ConditionRole, ConditionState } from "@/lib/pact";
+import type { ConditionMark, ConditionRole, ConditionState } from "@/lib/pact";
 
 interface ConditionChipProps {
   className?: string;
   detail?: string | null;
   label: string;
+  mark?: ConditionMark | null;
   role: ConditionRole;
   state?: ConditionState;
 }
@@ -24,6 +35,15 @@ const ROLE_ICON = {
   time: Clock3,
 } as const;
 
+const MARK_ICON: Record<ConditionMark, LucideIcon> = {
+  fact: Globe,
+  github: GitMerge,
+  price: TrendingUp,
+  vote: Users,
+};
+
+const CODE = "[--pact-role:oklch(0.8_0.12_258)]";
+
 const STATE_TEXT: Record<ConditionState, string | null> = {
   holds: "true now",
   pending: "not true yet",
@@ -34,16 +54,18 @@ export function ConditionChip({
   role,
   label,
   detail,
+  mark,
   state = "static",
   className,
 }: ConditionChipProps) {
-  const Icon = ROLE_ICON[role];
+  const Icon = mark ? MARK_ICON[mark] : ROLE_ICON[role];
   const holds = state === "holds";
   return (
     <span
       className={cn(
         "relative inline-flex min-h-8 max-w-full items-center gap-2 rounded-chip py-1 pr-3 pl-1.5 font-medium text-sm transition-colors duration-200 ease-pact",
         ROLE_CLASS[role],
+        mark === "github" && CODE,
         holds
           ? "bg-(--pact-role) text-pact-ink"
           : "bg-[color-mix(in_oklab,var(--pact-role)_13%,transparent)] text-(--pact-role) shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--pact-role)_34%,transparent)]",
