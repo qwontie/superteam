@@ -73,6 +73,7 @@ const NO_LABELS: ReadonlyMap<number, string> = new Map();
 const LABEL_STALE_MS = 3_600_000;
 const READING_REFRESH_MS = 60_000;
 const WIKIDATA_API = "https://www.wikidata.org/w/api.php";
+const NO_BROWSER_ACCESS = "https://www.bitstamp.net/";
 
 const wikidataEntities = (spec: DealSpec) =>
   spec.checks.map((check) => {
@@ -98,7 +99,10 @@ const wikidataLabels = async (entities: (string | null)[]) => {
   );
 };
 
-export function useFactLabels(spec: DealSpec) {
+export function useFactLabels(
+  spec: DealSpec,
+  known?: Readonly<Record<string, string>>
+) {
   const entities = useMemo(() => wikidataEntities(spec), [spec]);
   const found = useQuery({
     enabled: entities.some((entity) => entity !== null),
@@ -107,13 +111,25 @@ export function useFactLabels(spec: DealSpec) {
     retry: false,
     staleTime: LABEL_STALE_MS,
   });
-  return useMemo(
-    () => (found.data?.length ? new Map(found.data) : NO_LABELS),
-    [found.data]
-  );
+  return useMemo(() => {
+    const labels = new Map<number, string>();
+    for (const [index, entity] of entities.entries()) {
+      const label = entity ? known?.[entity] : undefined;
+      if (label) {
+        labels.set(index, label);
+      }
+    }
+    for (const [index, label] of found.data ?? []) {
+      labels.set(index, label);
+    }
+    return labels.size > 0 ? labels : NO_LABELS;
+  }, [entities, found.data, known]);
 }
 
 const fetchSource = async (url: string) => {
+  if (url.startsWith(NO_BROWSER_ACCESS)) {
+    throw new Error("the source does not answer browsers");
+  }
   const response = await fetch(
     url.startsWith(WIKIDATA_API) ? `${url}&origin=*` : url
   );

@@ -1,56 +1,112 @@
-import {
-  DEMO_WITNESS_NODES,
-  type DealState,
-  PACT_GATE_PROGRAM_ID,
-} from "@pact/sdk";
+import { DEMO_WITNESS_NODES, PACT_GATE_PROGRAM_ID } from "@pact/sdk";
 import { Link } from "@tanstack/react-router";
 import { ArrowRight } from "lucide-react";
-import type { ReactNode } from "react";
+import { type ReactNode, useMemo } from "react";
 import { ConditionChip } from "@/components/pact/condition-chip";
 import { PartyAvatar } from "@/components/pact/party";
 import { ExplorerLink } from "@/components/shell/explorer-link";
-import type { VerifiedDeals } from "@/features/home/chain";
+import { useFactLabels } from "@/features/deal/queries";
+import type {
+  VerifiedDeal,
+  VerifiedDeals,
+  Verifier as VerifierKind,
+} from "@/features/home/chain";
 import { shortAddress } from "@/lib/format";
+import { type ConditionText, describeCondition } from "@/lib/pact";
 
 interface VerifierProps {
-  children: ReactNode;
-  chip: string;
-  deal: DealState | undefined;
+  children?: ReactNode;
+  fallback: ConditionText;
+  found: VerifiedDeal | undefined;
+  kind: VerifierKind;
   name: string;
-  people?: boolean;
 }
 
-const REVIEWERS = ["Reviewer 1", "Reviewer 2", "Reviewer 3"];
 const ADDRESS = "font-mono text-cladd-fg-soft text-xs";
 
-function Verifier({
-  name,
-  chip,
-  deal,
-  children,
-  people = false,
-}: VerifierProps) {
+const FALLBACK: Record<VerifierKind, ConditionText> = {
+  nodes: {
+    detail: null,
+    label: "2 of 3 nodes see the text on the page",
+    role: "proof",
+  },
+  oracles: {
+    detail: null,
+    label: "Switchboard oracles see the text on the page",
+    role: "proof",
+  },
+  people: {
+    detail: null,
+    label: "2 of 3 witnesses say yes",
+    mark: "vote",
+    role: "people",
+  },
+};
+
+function Addresses({ list }: { list: readonly string[] }) {
+  return list.map((entry) => (
+    <span className="inline-flex items-center gap-1.5" key={entry}>
+      <PartyAvatar seed={entry} size={18} />
+      <ExplorerLink className={ADDRESS} path={`/address/${entry}`}>
+        {shortAddress(entry)}
+      </ExplorerLink>
+    </span>
+  ));
+}
+
+function FoundChip({
+  found,
+  kind,
+}: {
+  found: VerifiedDeal;
+  kind: VerifierKind;
+}) {
+  const { check, deal } = found;
+  const factLabels = useFactLabels(deal.spec);
+  const oracles = useMemo(
+    () => (kind === "oracles" ? new Set([check]) : undefined),
+    [check, kind]
+  );
+  const text = describeCondition({ check, type: "attested" }, deal.spec, {
+    factLabels,
+    oracles,
+  });
+  return (
+    <ConditionChip
+      className="self-start"
+      label={text.label}
+      mark={text.mark}
+      role={text.role}
+    />
+  );
+}
+
+function Verifier({ name, kind, fallback, found, children }: VerifierProps) {
   return (
     <li className="flex min-w-0 flex-col gap-4 rounded-block bg-cladd-surface p-4 shadow-cladd-outline">
       <h3 className="font-display font-semibold text-xl tracking-[-0.01em]">
         {name}
       </h3>
-      <ConditionChip
-        className="self-start"
-        label={chip}
-        mark={people ? "vote" : null}
-        role={people ? "people" : "proof"}
-      />
+      {found ? (
+        <FoundChip found={found} kind={kind} />
+      ) : (
+        <ConditionChip
+          className="self-start"
+          label={fallback.label}
+          mark={fallback.mark}
+          role={fallback.role}
+        />
+      )}
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
         {children}
       </div>
-      {deal ? (
+      {found ? (
         <Link
           className="group mt-auto inline-flex min-w-0 max-w-full items-center gap-1.5 self-start rounded-chip pt-1 font-medium text-sm underline decoration-cladd-fg-softest underline-offset-4 hover:decoration-current"
-          params={{ address: deal.address }}
+          params={{ address: found.deal.address }}
           to="/deals/$address"
         >
-          <span className="truncate">{deal.spec.title}</span>
+          <span className="truncate">{found.deal.spec.title}</span>
           <ArrowRight
             aria-hidden="true"
             className="shrink-0 transition-[translate] duration-200 ease-pact group-hover:translate-x-1"
@@ -63,6 +119,7 @@ function Verifier({
 }
 
 export function Verifiers({ verified }: { verified: VerifiedDeals }) {
+  const { people } = verified;
   return (
     <section aria-labelledby="home-verifiers">
       <h2 className="sr-only" id="home-verifiers">
@@ -70,38 +127,29 @@ export function Verifiers({ verified }: { verified: VerifiedDeals }) {
       </h2>
       <ul className="grid gap-4 md:grid-cols-3">
         <Verifier
-          chip="2 of 3 witnesses say yes"
-          deal={verified.people}
+          fallback={FALLBACK.people}
+          found={people}
+          kind="people"
           name="People you name"
-          people
         >
-          {REVIEWERS.map((label) => (
-            <span
-              className="inline-flex items-center gap-1.5 text-cladd-fg-soft text-xs"
-              key={label}
-            >
-              <PartyAvatar seed={label} size={18} />
-              {label}
-            </span>
-          ))}
+          {people ? (
+            <Addresses
+              list={people.deal.spec.checks[people.check]?.witnesses ?? []}
+            />
+          ) : null}
         </Verifier>
         <Verifier
-          chip="2 of 3 nodes see the text on the page"
-          deal={verified.nodes}
+          fallback={FALLBACK.nodes}
+          found={verified.nodes}
+          kind="nodes"
           name="Pact nodes"
         >
-          {DEMO_WITNESS_NODES.witnesses.map((node) => (
-            <span className="inline-flex items-center gap-1.5" key={node}>
-              <PartyAvatar seed={node} size={18} />
-              <ExplorerLink className={ADDRESS} path={`/address/${node}`}>
-                {shortAddress(node)}
-              </ExplorerLink>
-            </span>
-          ))}
+          <Addresses list={DEMO_WITNESS_NODES.witnesses} />
         </Verifier>
         <Verifier
-          chip="Switchboard oracles see the text on the page"
-          deal={verified.oracles}
+          fallback={FALLBACK.oracles}
+          found={verified.oracles}
+          kind="oracles"
           name="Switchboard, 3 oracles"
         >
           <ExplorerLink

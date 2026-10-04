@@ -128,6 +128,7 @@ function RuleChecks({
             check={check}
             key={checkIndex}
             label={factLabels.get(checkIndex)}
+            live={deal.status === "funded" || deal.status === "draft"}
             oracle={oracles.has(checkIndex)}
             viewer={viewer}
             votes={deal.votes[checkIndex]}

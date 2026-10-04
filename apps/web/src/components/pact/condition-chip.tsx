@@ -64,8 +64,7 @@ export function ConditionChip({
     <span
       className={cn(
         "relative inline-flex min-h-8 max-w-full items-center gap-2 rounded-chip py-1 pr-3 pl-1.5 font-medium text-sm transition-colors duration-200 ease-pact",
-        ROLE_CLASS[role],
-        mark === "github" && CODE,
+        mark === "github" ? CODE : ROLE_CLASS[role],
         holds
           ? "bg-(--pact-role) text-pact-ink"
           : "bg-[color-mix(in_oklab,var(--pact-role)_13%,transparent)] text-(--pact-role) shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--pact-role)_34%,transparent)]",

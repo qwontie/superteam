@@ -3,9 +3,11 @@ import { Link } from "@tanstack/react-router";
 import { ArrowRight } from "lucide-react";
 import { useMemo } from "react";
 import { DealRule } from "@/components/pact/deal-rule";
-import { type Starter, starters } from "@/features/home/starters";
+import { useFactLabels } from "@/features/deal/queries";
+import { KNOWN_PLACES, type Starter, starters } from "@/features/home/starters";
 
 function StarterCard({ starter }: { starter: Starter }) {
+  const factLabels = useFactLabels(starter.spec, KNOWN_PLACES);
   return (
     <Link
       className="group mb-4 flex break-inside-avoid flex-col gap-4 rounded-[22px] bg-cladd-surface-cut p-4 shadow-cladd-cut-outline transition-colors duration-200 ease-pact hover:bg-[color-mix(in_oklab,var(--color-cladd-surface-white)_3%,var(--color-cladd-surface-cut))]"
@@ -23,6 +25,7 @@ function StarterCard({ starter }: { starter: Starter }) {
       <span className="flex flex-col gap-2.5">
         {starter.spec.rules.map((rule, index) => (
           <DealRule
+            factLabels={factLabels}
             key={JSON.stringify(rule)}
             labels={starter.labels}
             ruleIndex={index}

@@ -22,7 +22,7 @@ function SettledDeal({ deal }: { deal: DealState }) {
         to="/deals/$address"
       >
         <span className="flex items-baseline justify-between gap-4 px-1">
-          <span className="truncate font-medium decoration-cladd-fg-softest underline-offset-4 group-hover:underline">
+          <span className="min-w-0 break-words font-medium decoration-cladd-fg-softest underline-offset-4 group-hover:underline">
             {deal.spec.title}
           </span>
           <span className="shrink-0 font-mono text-cladd-fg-soft text-xs">

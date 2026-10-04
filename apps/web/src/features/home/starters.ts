@@ -21,6 +21,8 @@ const FINAL_DAYS = 14;
 const REVIEWERS = ["Reviewer 1", "Reviewer 2", "Reviewer 3"];
 const PAIR = ["Client", "Freelancer"] as const;
 
+export const KNOWN_PLACES = { Q270: "Warsaw" };
+
 export const starters = (now: number): Starter[] => {
   const start = Math.ceil(now / HOUR) * HOUR;
   return [

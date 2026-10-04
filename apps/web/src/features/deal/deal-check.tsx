@@ -18,6 +18,7 @@ interface DealCheckProps {
   action?: ReactNode;
   check: Check;
   label?: string;
+  live?: boolean;
   oracle?: boolean;
   viewer: string | null;
   votes: CheckVotes | undefined;
@@ -97,7 +98,14 @@ function FactNow({ fact, live }: { fact: Fact; live: boolean }) {
     return null;
   }
   return (
-    <span className="text-sm tabular-nums">
+    <span
+      className="text-sm tabular-nums"
+      title={
+        fact.source.type === "price"
+          ? "Median of the sources your browser can read"
+          : undefined
+      }
+    >
       <span className="text-cladd-fg-soft">now </span>
       {readingText(fact, reading.data)}
     </span>
@@ -133,6 +141,7 @@ export function DealCheck({
   viewer,
   action,
   label,
+  live = false,
   oracle = false,
   waiting = false,
 }: DealCheckProps) {
@@ -142,7 +151,7 @@ export function DealCheck({
       {fact.fact ? (
         <FactSources
           fact={fact}
-          live={waiting}
+          live={live}
           method={oracle ? ORACLE_FACT_METHOD : fact.method}
         />
       ) : (
