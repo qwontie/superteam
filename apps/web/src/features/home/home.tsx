@@ -5,6 +5,7 @@ import { ButtonLink } from "@/components/shell/button-link";
 import { WalletButton } from "@/components/shell/wallet-button";
 import { DealList } from "@/features/deal/deal-list";
 import { ExampleDeal } from "@/features/home/example-deal";
+import { Privacy } from "@/features/home/privacy";
 import { useWallet } from "@/lib/use-wallet";
 
 const FACTS = [
@@ -99,6 +100,7 @@ export function Home() {
         <ExampleDeal />
       </section>
       <YourDeals />
+      <Privacy />
     </main>
   );
 }
