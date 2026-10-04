@@ -5,16 +5,14 @@ import { LayoutGroup } from "motion/react";
 import { type ReactNode, useCallback, useEffect } from "react";
 import { AiProvider, useAi } from "@/features/builder/ai";
 import { Created } from "@/features/builder/created";
-import { type TemplateKey, templateDraft } from "@/features/builder/model";
 import { PromptBar } from "@/features/builder/prompt-bar";
 import { Start } from "@/features/builder/start";
+import { isStarterKey, starterDraft } from "@/features/builder/starters";
 import { BuilderProvider, useBuilder } from "@/features/builder/state";
 import { Workspace } from "@/features/builder/workspace";
 import { usePlan } from "@/lib/use-plan";
 import { type Quota, quotaKey } from "@/lib/use-quota";
 import { useWalletProof } from "@/lib/wallet-proof";
-
-const TEMPLATE_KEYS: readonly string[] = ["gig", "bounty", "silence"];
 
 const useTemplateParam = () => {
   const { replace } = useBuilder();
@@ -24,8 +22,8 @@ const useTemplateParam = () => {
     if (typeof template !== "string") {
       return;
     }
-    if (TEMPLATE_KEYS.includes(template)) {
-      replace(templateDraft(template as TemplateKey, nowSeconds()));
+    if (isStarterKey(template)) {
+      replace(starterDraft(template, nowSeconds()));
     }
     navigate({ replace: true, search: {}, to: "/new" }).catch(() => undefined);
   }, [navigate, replace, template]);

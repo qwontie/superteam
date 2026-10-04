@@ -20,28 +20,23 @@ import {
   Plus,
   Trash2,
 } from "lucide-react";
-import { Fragment, type ReactNode, useCallback } from "react";
+import { Fragment, type ReactNode, useCallback, useState } from "react";
 import { RuleBlock } from "@/components/pact/rule-block";
 import { FiredNote } from "@/components/pact/vault";
 import { ArrivePiece, LandingFlash } from "@/features/builder/arrive";
+import type { PaletteKind } from "@/features/builder/blocks";
 import { ConditionPiece } from "@/features/builder/condition-piece";
 import {
-  addCheck,
-  addCondition,
   amountLamports,
-  canTake,
-  type Draft,
   type DraftCondition,
   type DraftRule,
   isTimeOnly,
-  newCondition,
-  type PieceType,
   removeRule,
   reorderRules,
 } from "@/features/builder/model";
 import { VAULT_FLIGHT } from "@/features/builder/money-line";
-import { ProblemLines, REVEAL } from "@/features/builder/parts";
-import { PIECE_ORDER, PIECES, PieceIcon } from "@/features/builder/pieces";
+import { PaletteList, usePalette } from "@/features/builder/palette";
+import { POPOVER_BODY, ProblemLines, REVEAL } from "@/features/builder/parts";
 import { anchors } from "@/features/builder/problems";
 import { ShareBar, Shares } from "@/features/builder/shares";
 import { useSim } from "@/features/builder/simulation";
@@ -58,92 +53,21 @@ export interface WhenDrop {
   ruleId: string;
 }
 
-export const usePiece = () => {
-  const { now } = useBuilder();
-  return useCallback(
-    (
-      current: Draft,
-      type: PieceType,
-      put: (draft: Draft, condition: DraftCondition) => Draft
-    ) => {
-      const draft =
-        type === "attested" && current.checks.length === 0
-          ? addCheck(current)
-          : current;
-      const condition = newCondition(type, draft, now);
-      return condition ? put(draft, condition) : current;
-    },
-    [now]
-  );
-};
-
-function PieceOption({
-  onPick,
-  type,
-}: {
-  onPick: (type: PieceType) => void;
-  type: PieceType;
-}) {
-  const piece = PIECES[type];
-  const pick = useCallback(() => onPick(type), [onPick, type]);
-  return (
-    <PopoverClose>
-      <ListButton
-        icon={<PieceIcon type={type} />}
-        onClick={pick}
-        size="xl"
-        title={piece.hint}
-      >
-        {piece.label}
-      </ListButton>
-    </PopoverClose>
-  );
-}
-
-export function PieceMenu({
-  onPick,
-  types,
-}: {
-  onPick: (type: PieceType) => void;
-  types: PieceType[];
-}) {
-  return (
-    <Popover className="w-60" offset={8} position="bottom-start">
-      <List className="p-1.5">
-        {types.map((type) => (
-          <PieceOption key={type} onPick={onPick} type={type} />
-        ))}
-      </List>
-    </Popover>
-  );
-}
+const onlyTime = (kind: PaletteKind) => kind === "after";
 
 function AddCondition({ rule }: { rule: DraftRule }) {
-  const { edit } = useBuilder();
-  const piece = usePiece();
-  const types = PIECE_ORDER.filter((type) => canTake(rule, type));
-  const add = useCallback(
-    (type: PieceType) =>
-      edit((d) =>
-        piece(d, type, (draft, condition) =>
-          addCondition(draft, rule.id, condition)
-        )
-      ),
-    [edit, piece, rule.id]
-  );
-  if (types.length === 0) {
+  const [open, setOpen] = useState(false);
+  const close = useCallback(() => setOpen(false), []);
+  if (rule.when.length > 0) {
     return null;
   }
-  const empty = rule.when.length === 0;
   return (
-    <PopoverRoot>
+    <PopoverRoot onOpenChange={setOpen} open={open}>
       <PopoverTrigger>
         <Button
           aria-label="Add a condition"
-          className={
-            empty ? "border border-cladd-fg-softer border-dashed" : REVEAL
-          }
-          data-anchor={empty ? anchors.rule(rule.id) : undefined}
+          className="border border-cladd-fg-softer border-dashed"
+          data-anchor={anchors.rule(rule.id)}
           size="lg"
           square
           variant="transparent"
@@ -151,7 +75,20 @@ function AddCondition({ rule }: { rule: DraftRule }) {
           <Plus aria-hidden="true" size={15} />
         </Button>
       </PopoverTrigger>
-      <PieceMenu onPick={add} types={types} />
+      <Popover
+        className="w-[19rem] max-w-[calc(100vw-2rem)]"
+        offset={8}
+        position="bottom-start"
+      >
+        <div className={POPOVER_BODY}>
+          <PaletteList
+            allow={rule.exit ? onlyTime : undefined}
+            money={false}
+            onPicked={close}
+            ruleId={rule.id}
+          />
+        </div>
+      </Popover>
     </PopoverRoot>
   );
 }
@@ -232,9 +169,12 @@ const usePlayDetail = () => {
 
 function RuleBody({ action, gutter, index, rule }: RuleBodyProps) {
   const { locked, mode } = useBuilder();
+  const { focus, setFocus } = usePalette();
   const sim = useSim();
   const playDetail = usePlayDetail();
   const editable = !locked && mode === "build";
+  const mark = useCallback(() => setFocus(rule.id), [rule.id, setFocus]);
+  const focused = editable && focus === rule.id;
   const live = mode === "play" ? sim.byRule[rule.id] : undefined;
   const status = live?.status ?? "idle";
   const drop: WhenDrop = { kind: "when", ruleId: rule.id };
@@ -256,13 +196,18 @@ function RuleBody({ action, gutter, index, rule }: RuleBodyProps) {
     <div
       className="group/rule relative flex flex-col gap-1.5"
       data-anchor-block={anchors.rule(rule.id)}
+      data-focused={focused ? "" : undefined}
+      onFocusCapture={mark}
+      onPointerDownCapture={mark}
       tabIndex={-1}
     >
       {gutter}
       <div
         className={cn(
           "relative rounded-block outline-2 outline-offset-2 transition-[outline-color] duration-150",
-          welcome ? "outline-dashed outline-cladd-fg" : "outline-transparent"
+          welcome && "outline-dashed outline-cladd-fg",
+          !welcome && focused && "outline-cladd-fg-softer",
+          !(welcome || focused) && "outline-transparent"
         )}
         ref={setNodeRef}
       >

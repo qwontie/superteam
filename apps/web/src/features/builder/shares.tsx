@@ -8,14 +8,18 @@ import {
 } from "@cladd-ui/react";
 import { ArrowRight, Equal, Plus } from "lucide-react";
 import {
+  type ChangeEvent,
   type KeyboardEvent,
   type PointerEvent,
+  type ReactNode,
   useCallback,
   useRef,
+  useState,
 } from "react";
 import { Amount } from "@/components/pact/amount";
 import { useTone } from "@/components/pact/tone";
 import { ArrivePiece } from "@/features/builder/arrive";
+import { setShare } from "@/features/builder/blocks";
 import { partyName, payoutAmount } from "@/features/builder/describe";
 import {
   addPayout,
@@ -35,14 +39,106 @@ import {
   type Place,
 } from "@/features/builder/party-chip";
 import { anchors } from "@/features/builder/problems";
+import {
+  BlockShell,
+  SOCKET,
+  StaticSlot,
+  useEditable,
+} from "@/features/builder/slots";
 import { useBuilder, useDraft } from "@/features/builder/state";
 import { formatShare } from "@/lib/format";
 
 const BIG_STEP = 1000;
 const MAX_PAYOUTS = 4;
 
-function PayoutRow({ payout, rule }: { payout: DraftPayout; rule: DraftRule }) {
+const DIGITS = /\D/g;
+const PERCENT_DIGITS = 3;
+const PERCENT_MAX = 100;
+
+function ShareSlot({ payout, rule }: { payout: DraftPayout; rule: DraftRule }) {
   const { edit } = useBuilder();
+  const draft = useDraft();
+  const editable = useEditable();
+  const [typed, setTyped] = useState<string | null>(null);
+  const percent = payout.bps / SHARE_STEP;
+  const change = useCallback(
+    (event: ChangeEvent<HTMLInputElement>) => {
+      const text = event.target.value
+        .replace(DIGITS, "")
+        .slice(0, PERCENT_DIGITS);
+      setTyped(text);
+      const wanted = Number(text);
+      if (text !== "" && wanted >= 1 && wanted <= PERCENT_MAX) {
+        edit((d) =>
+          setPay(
+            d,
+            rule.id,
+            setShare(d, rule.pay, payout.party, wanted * SHARE_STEP)
+          )
+        );
+      }
+    },
+    [edit, payout.party, rule.id, rule.pay]
+  );
+  const settle = useCallback(() => setTyped(null), []);
+  if (!editable) {
+    return <StaticSlot className="tabular-nums">{percent}%</StaticSlot>;
+  }
+  return (
+    <label
+      className={cn(
+        SOCKET,
+        "inline-flex items-center tabular-nums focus-within:border-(--pact-role)"
+      )}
+    >
+      <input
+        aria-label={`Share of ${partyName(draft, payout.party)} in percent`}
+        className="w-[3ch] bg-transparent text-right outline-none focus-visible:outline-none!"
+        data-slot=""
+        inputMode="numeric"
+        onBlur={settle}
+        onChange={change}
+        value={typed ?? String(percent)}
+      />
+      %
+    </label>
+  );
+}
+
+function PayBlock({
+  amount,
+  children,
+  payout,
+  rule,
+}: {
+  amount: bigint | null;
+  children: ReactNode;
+  payout: DraftPayout;
+  rule: DraftRule;
+}) {
+  const { locked, mode } = useBuilder();
+  const draft = useDraft();
+  const refund = payout.party === draft.funder;
+  return (
+    <BlockShell
+      editable={!locked && mode === "build"}
+      kind={refund ? "refund" : "pay"}
+    >
+      <span>{refund ? "refund" : "pay"}</span>
+      {refund && payout.bps === FULL ? null : (
+        <>
+          <ShareSlot payout={payout} rule={rule} />
+          <span>to</span>
+        </>
+      )}
+      {children}
+      {amount === null ? null : <Amount lamports={amount} size="sm" />}
+    </BlockShell>
+  );
+}
+
+function PayoutRow({ payout, rule }: { payout: DraftPayout; rule: DraftRule }) {
+  const { edit, mode } = useBuilder();
   const draft = useDraft();
   const tone = useTone();
   const party = draft.parties.find((entry) => entry.id === payout.party);
@@ -74,6 +170,35 @@ function PayoutRow({ payout, rule }: { payout: DraftPayout; rule: DraftRule }) {
   const canSplit =
     rule.pay.length < MAX_PAYOUTS &&
     rule.pay.every((entry) => entry.bps >= SHARE_STEP * 2);
+  const chip = party ? (
+    <PartyChip
+      extra={
+        <>
+          {canSplit ? (
+            <PartyPicker label="Split with" options={others} place={split} />
+          ) : null}
+          {rule.pay.length > 1 ? (
+            <PopoverClose>
+              <RemoveLine label="Remove from this payout" onClick={remove} />
+            </PopoverClose>
+          ) : null}
+        </>
+      }
+      options={others}
+      party={party}
+      pickLabel="Pay someone else"
+      place={place}
+    />
+  ) : (
+    <span className="text-pact-stop text-sm">someone removed</span>
+  );
+  if (mode === "build" || tone !== "ink") {
+    return (
+      <PayBlock amount={amount} payout={payout} rule={rule}>
+        {chip}
+      </PayBlock>
+    );
+  }
   return (
     <span className="inline-flex flex-wrap items-center gap-x-2 gap-y-1">
       <span className={cn("text-sm", soft)}>
@@ -91,35 +216,7 @@ function PayoutRow({ payout, rule }: { payout: DraftPayout; rule: DraftRule }) {
       )}
       {amount === null ? null : <Amount lamports={amount} size="md" />}
       <ArrowRight aria-label="to" className={soft} size={15} strokeWidth={2} />
-      {party ? (
-        <PartyChip
-          extra={
-            <>
-              {canSplit ? (
-                <PartyPicker
-                  label="Split with"
-                  options={others}
-                  place={split}
-                />
-              ) : null}
-              {rule.pay.length > 1 ? (
-                <PopoverClose>
-                  <RemoveLine
-                    label="Remove from this payout"
-                    onClick={remove}
-                  />
-                </PopoverClose>
-              ) : null}
-            </>
-          }
-          options={others}
-          party={party}
-          pickLabel="Pay someone else"
-          place={place}
-        />
-      ) : (
-        <span className="text-pact-stop text-sm">someone removed</span>
-      )}
+      {chip}
     </span>
   );
 }

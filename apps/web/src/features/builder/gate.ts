@@ -1,8 +1,9 @@
 import { useEffect } from "react";
 import { type DraftCheck, newId, updateCheck } from "@/features/builder/model";
+import { ORACLE_WITNESS } from "@/features/builder/starters";
 import { useBuilder } from "@/features/builder/state";
 
-export const ORACLE_LABEL = "Switchboard oracles";
+export const ORACLE_LABEL = ORACLE_WITNESS;
 export const ORACLE_COUNT = 3;
 
 const loadGate = () => import("@pact/sdk/gate-feed");

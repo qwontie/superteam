@@ -2,23 +2,18 @@ import { cn } from "@cladd-ui/react";
 import { nowSeconds } from "@pact/sdk";
 import { ArrowRight } from "lucide-react";
 import { Fragment, type ReactNode, useCallback, useMemo } from "react";
-import { ConditionChip } from "@/components/pact/condition-chip";
 import { PAGE } from "@/components/shell/app-shell";
 import { useAi } from "@/features/builder/ai";
+import { blockOf } from "@/features/builder/blocks";
 import { conditionText, partyName } from "@/features/builder/describe";
+import type { Draft, DraftRule } from "@/features/builder/model";
+import { BlockShell } from "@/features/builder/slots";
 import {
-  type Draft,
-  type DraftRule,
-  type TemplateKey,
-  templateDraft,
-} from "@/features/builder/model";
+  STARTERS,
+  type StarterKey,
+  starterDraft,
+} from "@/features/builder/starters";
 import { useBuilder } from "@/features/builder/state";
-
-const TEMPLATES: { key: TemplateKey; label: string; name: string }[] = [
-  { key: "gig", label: "Post a gig", name: "Gig" },
-  { key: "bounty", label: "Post a bounty", name: "Bounty" },
-  { key: "silence", label: "Silence is consent", name: "Silence is consent" },
-];
 
 const EXAMPLES = [
   {
@@ -35,24 +30,22 @@ const EXAMPLES = [
   },
 ] as const;
 
-const MINI = "min-h-6 gap-1.5 py-0.5 pr-2 pl-1 text-xs";
+const MINI = "min-h-6 gap-x-1.5 py-0.5 pr-2 pl-1 text-xs";
 
 function RuleLine({ draft, rule }: { draft: Draft; rule: DraftRule }) {
   const [payout] = rule.pay;
   return (
     <span className="flex flex-wrap items-center gap-x-1.5 gap-y-1">
       {rule.when.map((condition, position) => {
-        const text = conditionText(condition, draft);
+        const text = conditionText(condition, draft, true);
         return (
           <Fragment key={condition.id}>
             {position > 0 ? (
               <span className="text-cladd-fg-soft text-xs">and</span>
             ) : null}
-            <ConditionChip
-              className={MINI}
-              label={text.label}
-              role={text.role}
-            />
+            <BlockShell className={MINI} kind={blockOf(condition, draft)}>
+              <span>{text.label}</span>
+            </BlockShell>
           </Fragment>
         );
       })}
@@ -76,15 +69,15 @@ function TemplateCard({
 }: {
   label: string;
   name: string;
-  templateKey: TemplateKey;
+  templateKey: StarterKey;
 }) {
   const { replace } = useBuilder();
   const preview = useMemo(
-    () => templateDraft(templateKey, nowSeconds()),
+    () => starterDraft(templateKey, nowSeconds()),
     [templateKey]
   );
   const pick = useCallback(
-    () => replace(templateDraft(templateKey, nowSeconds())),
+    () => replace(starterDraft(templateKey, nowSeconds())),
     [replace, templateKey]
   );
   return (
@@ -153,7 +146,7 @@ export function Start({ prompt }: { prompt: ReactNode }) {
         </div>
       </div>
       <div className="grid w-full max-w-[66rem] gap-3 md:grid-cols-3">
-        {TEMPLATES.map((info) => (
+        {STARTERS.map((info) => (
           <TemplateCard
             key={info.key}
             label={info.label}

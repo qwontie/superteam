@@ -1,18 +1,21 @@
 import {
-  bounty,
   type CheckKind,
   DEMO_WITNESS_NODES,
   type DealSpec,
-  gig,
   LIMITS,
   lamportsToSol,
-  silenceIsConsent,
   solToLamports,
 } from "@pact/sdk";
 import { isAddress } from "@solana/kit";
 
-export type TemplateKey = "gig" | "bounty" | "silence";
-export type Origin = TemplateKey | "ai";
+export type Origin =
+  | "gig"
+  | "bounty"
+  | "silence"
+  | "merged"
+  | "price"
+  | "fact"
+  | "ai";
 export type PieceType = "after" | "signed" | "unsigned" | "attested";
 
 export interface PartySlot {
@@ -116,9 +119,6 @@ const HOUR = 3600;
 const DAY = 86_400;
 const ID_SIZE = 8;
 const GIG_DAYS = 7;
-const REVIEW_DAYS = 10;
-const FINAL_DAYS = 14;
-const DEFAULT_REVIEWERS = 3;
 
 export const newId = () => crypto.randomUUID().slice(0, ID_SIZE);
 
@@ -356,94 +356,6 @@ export const draftToWire = (
 };
 
 const nextHour = (now: number) => Math.ceil(now / HOUR) * HOUR;
-
-const blankSlot = (label: string, extra: Partial<WireSlot> = {}): WireSlot => ({
-  address: null,
-  label,
-  open: false,
-  ...extra,
-});
-
-const wireFromSpec = (
-  spec: DealSpec,
-  labels: readonly string[],
-  target: string
-): WireDraft => ({
-  amount: null,
-  checks: spec.checks.map((check) => ({
-    binds: check.binds ?? null,
-    expect: "",
-    kind: "manual",
-    target,
-    threshold: check.threshold,
-    witnesses: check.witnesses.map((_, position) =>
-      blankSlot(`Reviewer ${position + 1}`)
-    ),
-  })),
-  funder: spec.funder,
-  parties: spec.parties.map((party, index) =>
-    blankSlot(labels[index] ?? `Party ${index + 1}`, {
-      me: index === spec.funder,
-      open: party === null,
-    })
-  ),
-  rules: spec.rules.map((rule) => ({
-    pay: rule.pay,
-    summary: "",
-    when: rule.when as WireCondition[],
-  })),
-  title: "",
-});
-
-const blankReviewers = () =>
-  Array.from({ length: DEFAULT_REVIEWERS }, () => "");
-
-export const templateDraft = (key: TemplateKey, now: number): Draft => {
-  const start = nextHour(now);
-  const options = { ids: emptyIds(), origin: key, wallet: null };
-  if (key === "bounty") {
-    const target = "This submission wins the bounty";
-    const spec = bounty({
-      amount: 1n,
-      check: { target, witnesses: blankReviewers() },
-      deadline: start + GIG_DAYS * DAY,
-      sponsor: "",
-      title: "",
-    });
-    return draftFromWire(
-      wireFromSpec(spec, ["Sponsor", "Winner"], target),
-      options
-    );
-  }
-  if (key === "silence") {
-    const spec = silenceIsConsent({
-      amount: 1n,
-      client: "",
-      deliveryDeadline: start + GIG_DAYS * DAY,
-      finalExit: start + FINAL_DAYS * DAY,
-      freelancer: "",
-      reviewEnd: start + REVIEW_DAYS * DAY,
-      title: "",
-    });
-    return draftFromWire(
-      wireFromSpec(spec, ["Client", "Freelancer"], ""),
-      options
-    );
-  }
-  const target = "The work is delivered as agreed";
-  const spec = gig({
-    amount: 1n,
-    check: { target, witnesses: blankReviewers() },
-    client: "",
-    deadline: start + GIG_DAYS * DAY,
-    freelancer: "",
-    title: "",
-  });
-  return draftFromWire(
-    wireFromSpec(spec, ["Client", "Freelancer"], target),
-    options
-  );
-};
 
 export const defaultDeadline = (draft: Draft, now: number) => {
   const times = draft.rules.flatMap((rule) =>

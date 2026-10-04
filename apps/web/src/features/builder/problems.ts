@@ -4,8 +4,10 @@ import {
   LIMITS,
   validateDealSpec,
 } from "@pact/sdk";
+import { factError } from "@pact/sdk/facts";
 import { isAddress } from "@solana/kit";
 import { partyName } from "@/features/builder/describe";
+import { factGap, factShape } from "@/features/builder/facts";
 import { type Draft, draftToSpec } from "@/features/builder/model";
 
 export interface Problem {
@@ -270,30 +272,28 @@ const explain = (problem: string, ctx: Context): Found => {
 
 const REPO_REF = /^[\w.-]+\/[\w.-]+@[\w./-]+$/;
 const REPO_PR = /^[\w.-]+\/[\w.-]+#\d+$/;
-const HTTPS = /^https:\/\/\S+$/;
 
 const formatProblems = (draft: Draft): Found[] =>
   draft.checks.map((check, index) => {
     const anchor = anchors.check(check.id);
     const target = check.target.trim();
     const number = index + 1;
-    if (check.kind === "manual" || target === "") {
+    if (check.kind === "manual") {
+      return null;
+    }
+    if (target === "" && check.kind !== "http_contains") {
       return null;
     }
     if (check.kind === "http_contains") {
-      if (!HTTPS.test(target)) {
+      if (factGap(factShape(check.target, check.expect))) {
         return {
           anchor,
-          text: `Check ${number}: the page address must start with https://`,
+          text: `Fill the empty slots of check ${number}.`,
+          todo: true,
         };
       }
-      return check.expect.trim() === ""
-        ? {
-            anchor,
-            text: `Say which text the page of check ${number} must contain.`,
-            todo: true,
-          }
-        : null;
+      const error = factError(target, check.expect.trim());
+      return error ? { anchor, text: `Check ${number}: ${error}.` } : null;
     }
     if (check.kind === "github_checks") {
       return REPO_REF.test(target)

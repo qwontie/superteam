@@ -1,5 +1,7 @@
 import { lamportsToSol } from "@pact/sdk";
-import { isOracle, ORACLE_LABEL } from "@/features/builder/gate";
+import { describeCheckFact } from "@pact/sdk/facts";
+import { checkBlockOf } from "@/features/builder/blocks";
+import { factGap, factShape, knownLabel } from "@/features/builder/facts";
 import type {
   Draft,
   DraftCheck,
@@ -8,7 +10,6 @@ import type {
   DraftRule,
 } from "@/features/builder/model";
 import { amountLamports, FULL } from "@/features/builder/model";
-import { checkFact } from "@/lib/checks";
 import { formatShare, formatWhen } from "@/lib/format";
 import {
   type ConditionRole,
@@ -31,48 +32,34 @@ export const checkName = (draft: Draft, id: string) => {
   return index < 0 ? "a removed check" : `Check ${index + 1}`;
 };
 
-export const quorum = (check: DraftCheck) => {
-  if (isOracle(check)) {
-    return ORACLE_LABEL;
-  }
-  const total = check.reviewers.length;
-  const who = check.kind === "manual" ? "reviewer" : "node";
-  if (total === 1) {
-    return `the ${who}`;
-  }
-  return `${check.threshold} of ${total} ${who}s`;
+export const slotGap = (check: DraftCheck) =>
+  check.kind === "http_contains"
+    ? factGap(factShape(check.target, check.expect))
+    : check.target.trim() === "";
+
+const entityOf = (check: DraftCheck) => {
+  const shape = factShape(check.target, check.expect);
+  return shape.type === "wikidata" ? shape.entity : "";
 };
 
-const attestedLabel = (check: DraftCheck | undefined) => {
-  if (!check) {
-    return "a check that was removed";
+export const checkLabel = (check: DraftCheck, short = false) => {
+  const count = `${check.threshold} of ${check.reviewers.length}`;
+  switch (checkBlockOf(check)) {
+    case "vote":
+      return short
+        ? `${count} people confirm`
+        : `${count} people confirm "${check.target.trim()}"`;
+    case "judges":
+      return `${count} judges name the winner`;
+    case "merged":
+      return `pull request ${check.target.trim()} is merged`;
+    case "green":
+      return `checks are green on ${check.target.trim()}`;
+    default:
+      return describeCheckFact(check.target.trim(), check.expect.trim(), {
+        label: knownLabel(entityOf(check)),
+      });
   }
-  const { verb } = checkFact({
-    binds: check.binds === null ? null : 0,
-    expect: check.expect,
-    kind: check.kind,
-    target: check.target,
-    threshold: check.threshold,
-    witnesses: [],
-  });
-  const single = check.reviewers.length === 1 && !isOracle(check);
-  return `${quorum(check)} ${single ? verb.one : verb.many}`;
-};
-
-export const checkGap = (check: DraftCheck) => {
-  if (check.target.trim() === "") {
-    return check.kind === "manual" ? "add the statement" : "add the source";
-  }
-  if (check.kind === "http_contains" && check.expect.trim() === "") {
-    return "add the text";
-  }
-  const empty = check.reviewers.filter(
-    (reviewer) => reviewer.address.trim() === ""
-  ).length;
-  if (empty === 0) {
-    return null;
-  }
-  return empty === 1 ? "1 address missing" : `${empty} addresses missing`;
 };
 
 export const conditionRoleOf = (condition: DraftCondition): ConditionRole => {
@@ -87,7 +74,8 @@ export const conditionRoleOf = (condition: DraftCondition): ConditionRole => {
 
 export const conditionText = (
   condition: DraftCondition,
-  draft: Draft
+  draft: Draft,
+  short = false
 ): ConditionText => {
   const role = conditionRoleOf(condition);
   if (condition.type === "after") {
@@ -95,7 +83,11 @@ export const conditionText = (
   }
   if (condition.type === "attested") {
     const check = draft.checks.find((entry) => entry.id === condition.check);
-    return { detail: null, label: attestedLabel(check), role };
+    return {
+      detail: null,
+      label: check ? checkLabel(check, short) : "a check that was removed",
+      role,
+    };
   }
   const name = partyName(draft, condition.party);
   return {

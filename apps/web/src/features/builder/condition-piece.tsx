@@ -1,20 +1,17 @@
 import {
   Button,
   cn,
-  Input,
   Popover,
   PopoverClose,
   PopoverRoot,
   PopoverTrigger,
-  Segmented,
-  SegmentedButton,
 } from "@cladd-ui/react";
 import { useDraggable } from "@dnd-kit/core";
 import { Trash2 } from "lucide-react";
-import { type KeyboardEvent, useCallback } from "react";
-import { ConditionChip } from "@/components/pact/condition-chip";
-import { CheckEditor } from "@/features/builder/check-editor";
-import { checkGap, conditionText } from "@/features/builder/describe";
+import { type KeyboardEvent, type PointerEvent, useCallback } from "react";
+import { type BlockKind, blockOf } from "@/features/builder/blocks";
+import { CheckBody } from "@/features/builder/check-block";
+import { conditionText } from "@/features/builder/describe";
 import {
   canRemoveCondition,
   canTake,
@@ -25,17 +22,13 @@ import {
   removeCondition,
   updateCondition,
 } from "@/features/builder/model";
-import { Field, POPOVER_BODY } from "@/features/builder/parts";
-import {
-  PartyFields,
-  PartyPicker,
-  type Place,
-} from "@/features/builder/party-chip";
+import { PartyChip, type Place } from "@/features/builder/party-chip";
 import { pointerDown } from "@/features/builder/pieces";
 import { anchors, errorsAt } from "@/features/builder/problems";
 import { useSim } from "@/features/builder/simulation";
+import { BlockIcon, BlockShell, DateSlot } from "@/features/builder/slots";
 import { useBuilder, useDraft } from "@/features/builder/state";
-import { formatCountdown } from "@/lib/format";
+import { formatWhen } from "@/lib/format";
 import type { ConditionState } from "@/lib/pact";
 
 export interface ConditionDrag {
@@ -47,111 +40,34 @@ export interface ConditionDrag {
 type AfterCondition = Extract<DraftCondition, { type: "after" }>;
 type PartyCondition = Extract<DraftCondition, { type: "signed" | "unsigned" }>;
 
-const DAY = 86_400;
-const HOUR = 3600;
-const MINUTE_MS = 60_000;
-const LOCAL_LENGTH = 16;
-const PRESETS = [
-  { days: 1, label: "1 day" },
-  { days: 3, label: "3 days" },
-  { days: 7, label: "1 week" },
-  { days: 14, label: "2 weeks" },
-  { days: 30, label: "30 days" },
-] as const;
-
-const toLocalInput = (ts: number) => {
-  const date = new Date(ts * 1000);
-  const local = new Date(date.getTime() - date.getTimezoneOffset() * MINUTE_MS);
-  return local.toISOString().slice(0, LOCAL_LENGTH);
-};
-
-const fromLocalInput = (value: string) => {
-  const time = new Date(value).getTime();
-  return Number.isNaN(time) ? null : Math.floor(time / 1000);
-};
-
-interface EditorProps<T extends DraftCondition> {
+interface BodyProps<T extends DraftCondition> {
   condition: T;
   ruleId: string;
 }
 
-function Preset({
-  condition,
-  days,
-  label,
-  ruleId,
-}: EditorProps<AfterCondition> & { days: number; label: string }) {
-  const { edit, now } = useBuilder();
-  const apply = useCallback(() => {
-    const ts = Math.ceil(now / HOUR) * HOUR + days * DAY;
-    edit((d) => updateCondition(d, ruleId, { ...condition, ts }));
-  }, [condition, days, edit, now, ruleId]);
-  return (
-    <Button onClick={apply} size="lg">
-      {label}
-    </Button>
-  );
-}
-
-function AfterEditor({ condition, ruleId }: EditorProps<AfterCondition>) {
+function AfterBody({ condition, ruleId }: BodyProps<AfterCondition>) {
   const { edit, now } = useBuilder();
   const change = useCallback(
-    (value: string) => {
-      const ts = fromLocalInput(value);
-      if (ts !== null) {
-        edit((d) => updateCondition(d, ruleId, { ...condition, ts }));
-      }
-    },
+    (ts: number) =>
+      edit((d) => updateCondition(d, ruleId, { ...condition, ts })),
     [condition, edit, ruleId]
   );
-  const left = condition.ts - now;
   return (
     <>
-      <Field
-        label={
-          left > 0 ? `In ${formatCountdown(left)}` : "This moment has passed"
-        }
-      >
-        <Input
-          inputClassName="tabular-nums"
-          inputComponentProps={{ "aria-label": "True from this moment on" }}
-          onChange={change}
-          size="xl"
-          type="datetime-local"
-          valid={left > 0}
-          value={toLocalInput(condition.ts)}
-        />
-      </Field>
-      <div className="flex flex-wrap gap-1.5">
-        {PRESETS.map((preset) => (
-          <Preset
-            condition={condition}
-            days={preset.days}
-            key={preset.days}
-            label={preset.label}
-            ruleId={ruleId}
-          />
-        ))}
-      </div>
+      <span>after</span>
+      <DateSlot
+        label="True from this moment on"
+        late={condition.ts <= now}
+        onChange={change}
+        shown={formatWhen(condition.ts)}
+        ts={condition.ts}
+      />
     </>
   );
 }
 
-function SignEditor({ condition, ruleId }: EditorProps<PartyCondition>) {
-  const { edit } = useBuilder();
+function SignBody({ condition, ruleId }: BodyProps<PartyCondition>) {
   const draft = useDraft();
-  const setSigned = useCallback(
-    () =>
-      edit((d) => updateCondition(d, ruleId, { ...condition, type: "signed" })),
-    [condition, edit, ruleId]
-  );
-  const setUnsigned = useCallback(
-    () =>
-      edit((d) =>
-        updateCondition(d, ruleId, { ...condition, type: "unsigned" })
-      ),
-    [condition, edit, ruleId]
-  );
   const place = useCallback<Place>(
     (d: Draft, partyId: string) =>
       updateCondition(d, ruleId, { ...condition, party: partyId }),
@@ -160,38 +76,36 @@ function SignEditor({ condition, ruleId }: EditorProps<PartyCondition>) {
   const party = draft.parties.find((entry) => entry.id === condition.party);
   return (
     <>
-      <Segmented size="xl">
-        <SegmentedButton
-          active={condition.type === "signed"}
-          onClick={setSigned}
-        >
-          Signs
-        </SegmentedButton>
-        <SegmentedButton
-          active={condition.type === "unsigned"}
-          onClick={setUnsigned}
-        >
-          Has not signed
-        </SegmentedButton>
-      </Segmented>
-      {party ? <PartyFields party={party} /> : null}
-      <PartyPicker
-        label="Someone else"
-        options={draft.parties.filter((entry) => entry.id !== condition.party)}
-        place={place}
-      />
+      {party ? (
+        <PartyChip
+          options={draft.parties.filter(
+            (entry) => entry.id !== condition.party
+          )}
+          party={party}
+          place={place}
+        />
+      ) : (
+        <span className="text-pact-stop">someone removed</span>
+      )}
+      <span>{condition.type === "signed" ? "signs" : "has not signed"}</span>
     </>
   );
 }
 
-function Editor({ condition, ruleId }: EditorProps<DraftCondition>) {
+function Body({ condition, ruleId }: BodyProps<DraftCondition>) {
+  const draft = useDraft();
   if (condition.type === "after") {
-    return <AfterEditor condition={condition} ruleId={ruleId} />;
+    return <AfterBody condition={condition} ruleId={ruleId} />;
   }
   if (condition.type === "attested") {
-    return <CheckEditor condition={condition} ruleId={ruleId} />;
+    const check = draft.checks.find((entry) => entry.id === condition.check);
+    return check ? (
+      <CheckBody check={check} />
+    ) : (
+      <span className="text-pact-stop">a check that was removed</span>
+    );
   }
-  return <SignEditor condition={condition} ruleId={ruleId} />;
+  return <SignBody condition={condition} ruleId={ruleId} />;
 }
 
 function MoveOption({
@@ -225,22 +139,34 @@ function MoveOption({
   );
 }
 
-function Footer({
+function Handle({
   condition,
+  kind,
+  label,
   rule,
 }: {
   condition: DraftCondition;
+  kind: BlockKind;
+  label: string;
   rule: DraftRule;
 }) {
   const { edit } = useBuilder();
   const draft = useDraft();
-  const removable = canRemoveCondition(rule);
   const remove = useCallback(
     () => edit((d) => removeCondition(d, rule.id, condition.id)),
     [condition.id, edit, rule.id]
   );
-  if (!removable) {
-    return null;
+  const onKeyDown = useCallback(
+    (event: KeyboardEvent<HTMLButtonElement>) => {
+      if (event.key === "Backspace" || event.key === "Delete") {
+        event.preventDefault();
+        remove();
+      }
+    },
+    [remove]
+  );
+  if (!canRemoveCondition(rule)) {
+    return <BlockIcon kind={kind} />;
   }
   const targets = draft.rules
     .map((entry, index) => ({ entry, index }))
@@ -248,67 +174,78 @@ function Footer({
       ({ entry }) => entry.id !== rule.id && canTake(entry, condition.type)
     );
   return (
-    <div className="flex items-center gap-1.5 pt-1">
-      {targets.length > 0 ? (
-        <span className="text-cladd-fg-soft text-xs">Move to</span>
-      ) : null}
-      {targets.map(({ entry, index }) => (
-        <MoveOption
-          condition={condition}
-          from={rule.id}
-          index={index}
-          key={entry.id}
-          to={entry.id}
-        />
-      ))}
-      <PopoverClose>
-        <Button
-          aria-label="Remove this condition"
-          className="ml-auto text-pact-stop"
-          onClick={remove}
-          size="lg"
-          square
-          variant="transparent"
+    <PopoverRoot>
+      <PopoverTrigger>
+        <button
+          aria-label={`Block ${label}: move or remove`}
+          className="cursor-grab rounded-[6px] active:cursor-grabbing"
+          onKeyDown={onKeyDown}
+          type="button"
         >
-          <Trash2 aria-hidden="true" size={15} />
-        </Button>
-      </PopoverClose>
-    </div>
+          <BlockIcon kind={kind} />
+        </button>
+      </PopoverTrigger>
+      <Popover offset={8} position="bottom-start">
+        <div className="flex items-center gap-1.5 p-2">
+          {targets.length > 0 ? (
+            <span className="px-1 text-cladd-fg-soft text-xs">Move to</span>
+          ) : null}
+          {targets.map(({ entry, index }) => (
+            <MoveOption
+              condition={condition}
+              from={rule.id}
+              index={index}
+              key={entry.id}
+              to={entry.id}
+            />
+          ))}
+          <PopoverClose>
+            <Button
+              aria-label="Remove this block"
+              className="text-pact-stop"
+              onClick={remove}
+              size="lg"
+              square
+              variant="transparent"
+            >
+              <Trash2 aria-hidden="true" size={15} />
+            </Button>
+          </PopoverClose>
+        </div>
+      </Popover>
+    </PopoverRoot>
   );
 }
 
-const anchorOf = (condition: DraftCondition) => {
-  if (condition.type === "attested") {
-    return anchors.check(condition.check);
-  }
-  return condition.type === "after"
-    ? undefined
-    : anchors.party(condition.party);
+const useBroken = (condition: DraftCondition) => {
+  const { validation } = useBuilder();
+  return (
+    condition.type === "attested" &&
+    errorsAt(validation.problems, anchors.check(condition.check)).length > 0
+  );
 };
 
-const useGap = (condition: DraftCondition) => {
-  const { validation } = useBuilder();
-  const draft = useDraft();
-  if (condition.type !== "attested") {
-    return { broken: false, gap: null };
-  }
-  const check = draft.checks.find((entry) => entry.id === condition.check);
-  return {
-    broken:
-      errorsAt(validation.problems, anchors.check(condition.check)).length > 0,
-    gap: check ? checkGap(check) : null,
-  };
-};
+function Detail({ text }: { text?: string | null }) {
+  return text ? (
+    <span className="whitespace-nowrap font-normal tabular-nums opacity-80">
+      {text}
+    </span>
+  ) : null;
+}
+
+interface ConditionPieceProps {
+  condition: DraftCondition;
+  detail?: string | null;
+  rule: DraftRule;
+  state?: ConditionState;
+}
 
 function PlayPiece({
   condition,
   detail,
-  state,
-}: {
-  condition: DraftCondition;
-  detail?: string | null;
-  state: ConditionState;
-}) {
+  rule,
+  state = "static",
+}: ConditionPieceProps) {
   const draft = useDraft();
   const sim = useSim();
   const text = conditionText(condition, draft);
@@ -339,22 +276,15 @@ function PlayPiece({
       onClick={toggle}
       type="button"
     >
-      <ConditionChip
-        detail={detail ?? text.detail}
-        label={text.label}
-        role={text.role}
-        state={state}
-      />
+      <BlockShell kind={blockOf(condition, draft)} state={state}>
+        <Body condition={condition} ruleId={rule.id} />
+        <Detail text={detail} />
+      </BlockShell>
     </button>
   );
 }
 
-interface ConditionPieceProps {
-  condition: DraftCondition;
-  detail?: string | null;
-  rule: DraftRule;
-  state?: ConditionState;
-}
+const SLOT = "[data-slot],input,select,textarea";
 
 export function ConditionPiece({
   condition,
@@ -362,88 +292,73 @@ export function ConditionPiece({
   rule,
   state = "static",
 }: ConditionPieceProps) {
-  const { edit, locked, mode } = useBuilder();
+  const { locked, mode } = useBuilder();
   const draft = useDraft();
-  const text = conditionText(condition, draft);
-  const { broken, gap } = useGap(condition);
+  const broken = useBroken(condition);
   const editable = !locked && mode === "build";
-  const removable = canRemoveCondition(rule);
+  const kind = blockOf(condition, draft);
   const drag: ConditionDrag = {
     conditionId: condition.id,
     kind: "condition",
     ruleId: rule.id,
   };
-  const { attributes, isDragging, listeners, setNodeRef } = useDraggable({
+  const { isDragging, listeners, setNodeRef } = useDraggable({
     data: drag,
-    disabled: !(editable && removable),
+    disabled: !(editable && canRemoveCondition(rule)),
     id: `condition:${condition.id}`,
   });
-
-  const remove = useCallback(
-    () => edit((d) => removeCondition(d, rule.id, condition.id)),
-    [condition.id, edit, rule.id]
-  );
-  const onKeyDown = useCallback(
-    (event: KeyboardEvent<HTMLButtonElement>) => {
-      if ((event.key === "Backspace" || event.key === "Delete") && removable) {
-        event.preventDefault();
-        remove();
+  const start = pointerDown(listeners);
+  const onPointerDown = useCallback(
+    (event: PointerEvent<HTMLElement>) => {
+      if (!(event.target as HTMLElement).closest(SLOT)) {
+        start?.(event);
       }
     },
-    [removable, remove]
+    [start]
   );
 
   if (mode === "play" && !locked) {
-    return <PlayPiece condition={condition} detail={detail} state={state} />;
+    return (
+      <PlayPiece
+        condition={condition}
+        detail={detail}
+        rule={rule}
+        state={state}
+      />
+    );
   }
-  const chip = (
-    <ConditionChip
-      className={cn(
-        (gap || broken) &&
-          "outline-dashed outline-1 outline-current outline-offset-2 max-sm:[&>span:nth-child(3)]:hidden",
-        broken && "text-pact-stop"
-      )}
-      detail={detail ?? gap ?? text.detail}
-      label={text.label}
-      role={text.role}
-      state={state}
-    />
-  );
   if (!editable) {
-    return chip;
+    return (
+      <BlockShell kind={kind} state={state}>
+        <Body condition={condition} ruleId={rule.id} />
+        <Detail text={detail} />
+      </BlockShell>
+    );
   }
   return (
-    <PopoverRoot>
-      <PopoverTrigger>
-        <button
-          aria-describedby={attributes["aria-describedby"]}
-          aria-label={`Edit condition: ${text.label}`}
-          className={cn(
-            "max-w-full touch-none rounded-chip text-left transition-opacity duration-150",
-            isDragging && "opacity-40"
-          )}
-          data-anchor={anchorOf(condition)}
-          onKeyDown={onKeyDown}
-          onPointerDown={pointerDown(listeners)}
-          ref={setNodeRef}
-          type="button"
-        >
-          {chip}
-        </button>
-      </PopoverTrigger>
-      <Popover
-        className={cn(
-          "max-w-[calc(100vw-2rem)]",
-          condition.type === "attested" ? "w-[27rem]" : "w-80"
-        )}
-        offset={8}
-        position="bottom-start"
+    <span
+      className={cn(
+        "inline-flex max-w-full touch-none transition-opacity duration-150",
+        isDragging && "opacity-40"
+      )}
+      onPointerDown={onPointerDown}
+      ref={setNodeRef}
+    >
+      <BlockShell
+        broken={broken}
+        editable
+        handle={
+          <Handle
+            condition={condition}
+            kind={kind}
+            label={conditionText(condition, draft).label}
+            rule={rule}
+          />
+        }
+        kind={kind}
       >
-        <div className={POPOVER_BODY}>
-          <Editor condition={condition} ruleId={rule.id} />
-          <Footer condition={condition} rule={rule} />
-        </div>
-      </Popover>
-    </PopoverRoot>
+        <Body condition={condition} ruleId={rule.id} />
+      </BlockShell>
+    </span>
   );
 }

@@ -10,7 +10,14 @@ import {
   useDialog,
 } from "@cladd-ui/react";
 import { LIMITS } from "@pact/sdk";
-import { Ellipsis, LockOpen, Pencil, Play, RotateCcw } from "lucide-react";
+import {
+  Ellipsis,
+  LockOpen,
+  Pencil,
+  Play,
+  Plus,
+  RotateCcw,
+} from "lucide-react";
 import {
   type ChangeEvent,
   type ReactNode,
@@ -27,15 +34,21 @@ import {
 } from "@/features/builder/create";
 import { useGateSync } from "@/features/builder/gate";
 import { MoneyLine } from "@/features/builder/money-line";
+import {
+  PaletteProvider,
+  PaletteRail,
+  PaletteSheet,
+  usePalette,
+} from "@/features/builder/palette";
 import { anchorId, ProblemLines } from "@/features/builder/parts";
 import { PlayBar } from "@/features/builder/play-bar";
 import { anchors, type Problem } from "@/features/builder/problems";
-import { Rules } from "@/features/builder/rules";
+import { Board, Rules } from "@/features/builder/rules";
 import { SimulationProvider, useSim } from "@/features/builder/simulation";
 import { useBuilder, useDraft } from "@/features/builder/state";
 
 const encoder = new TextEncoder();
-const COLUMN = "mx-auto w-full max-w-[47.5rem]";
+const COLUMN = "w-full min-w-0 max-w-[47.5rem]";
 
 function TitleField() {
   const { edit, locked } = useBuilder();
@@ -202,18 +215,39 @@ function Canvas() {
   );
 }
 
+function SheetButton() {
+  const { locked } = useBuilder();
+  const { setSheet } = usePalette();
+  const open = useCallback(() => setSheet(true), [setSheet]);
+  return (
+    <Button
+      aria-label="Add a block"
+      className="lg:hidden"
+      disabled={locked}
+      onClick={open}
+      size="2xl"
+      square
+    >
+      <Plus aria-hidden="true" size={18} />
+    </Button>
+  );
+}
+
 function Dock({ prompt }: { prompt: ReactNode }) {
   const { mode } = useBuilder();
   return (
     <div className="sticky bottom-0 z-30 mt-auto bg-linear-to-t from-55% from-cladd-bg to-transparent pt-8 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
-      <div className={cn(COLUMN, "flex flex-col gap-2")}>
+      <div className="flex flex-col gap-2">
         <CreateFailure />
         {mode === "play" ? (
           <PlayBar />
         ) : (
           <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-end">
             {prompt}
-            <PrimaryButton className="shrink-0 justify-center px-5 font-semibold" />
+            <div className="flex shrink-0 gap-2">
+              <SheetButton />
+              <PrimaryButton className="flex-1 justify-center px-5 font-semibold" />
+            </div>
           </div>
         )}
       </div>
@@ -236,20 +270,30 @@ export function Workspace({
       <SimulationProvider draft={draft}>
         <CreateProvider>
           <main className={cn(PAGE, "flex flex-1 flex-col pt-6 sm:pt-10")}>
-            <div className={cn(COLUMN, "flex flex-col gap-4")}>
-              <header className="flex flex-wrap items-center gap-x-2 gap-y-3">
-                <TitleField />
-                <div className="order-last ml-auto flex items-center gap-2 sm:order-none">
-                  <PlayToggle />
-                  <MoreMenu />
+            <PaletteProvider>
+              <Board>
+                <div className="flex w-full flex-1 justify-center gap-8 xl:gap-10">
+                  <PaletteRail />
+                  <div className={cn(COLUMN, "flex flex-col")}>
+                    <div className="flex flex-col gap-4">
+                      <header className="flex flex-wrap items-center gap-x-2 gap-y-3">
+                        <TitleField />
+                        <div className="order-last ml-auto flex items-center gap-2 sm:order-none">
+                          <PlayToggle />
+                          <MoreMenu />
+                        </div>
+                        <div className="min-w-0 flex-1 sm:basis-full">
+                          <Money />
+                        </div>
+                      </header>
+                      <Canvas />
+                    </div>
+                    <Dock prompt={prompt} />
+                  </div>
                 </div>
-                <div className="min-w-0 flex-1 sm:basis-full">
-                  <Money />
-                </div>
-              </header>
-              <Canvas />
-            </div>
-            <Dock prompt={prompt} />
+                <PaletteSheet />
+              </Board>
+            </PaletteProvider>
           </main>
         </CreateProvider>
       </SimulationProvider>
