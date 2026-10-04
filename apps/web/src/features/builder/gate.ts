@@ -4,7 +4,6 @@ import { ORACLE_WITNESS } from "@/features/builder/starters";
 import { useBuilder } from "@/features/builder/state";
 
 export const ORACLE_LABEL = ORACLE_WITNESS;
-export const ORACLE_COUNT = 3;
 
 const loadGate = () => import("@pact/sdk/gate-feed");
 
@@ -19,15 +18,6 @@ export const withOracle = (check: DraftCheck): DraftCheck => ({
   reviewers: [{ address: "", id: newId(), label: ORACLE_LABEL }],
   threshold: 1,
 });
-
-export const withoutOracle = (check: DraftCheck): DraftCheck =>
-  isOracle(check)
-    ? {
-        ...check,
-        reviewers: [{ address: "", id: newId(), label: "Node 1" }],
-        threshold: 1,
-      }
-    : check;
 
 export const gateOf = async (check: DraftCheck) => {
   const gate = await loadGate();

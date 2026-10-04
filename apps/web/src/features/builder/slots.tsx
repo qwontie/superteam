@@ -23,7 +23,9 @@ import {
   type ReactNode,
   useCallback,
   useContext,
+  useRef,
 } from "react";
+import { ToneProvider } from "@/components/pact/tone";
 import {
   BLOCKS,
   type Category,
@@ -61,7 +63,7 @@ const EditableContext = createContext(false);
 export const useEditable = () => useContext(EditableContext);
 
 const SHELL =
-  "group/block relative inline-flex min-h-8 max-w-full flex-wrap items-center gap-x-1.5 gap-y-1 rounded-chip py-1 pr-2 pl-1.5 text-left font-medium text-sm transition-colors duration-200 ease-pact";
+  "group/block relative inline-flex min-h-8 max-w-full flex-wrap [@media(pointer:coarse)]:min-h-10 items-center gap-x-1.5 gap-y-1 rounded-chip py-1 pr-2 pl-1.5 text-left font-medium text-sm transition-colors duration-200 ease-pact";
 const HOLLOW =
   "bg-[color-mix(in_oklab,var(--pact-role)_13%,transparent)] text-(--pact-role) shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--pact-role)_34%,transparent)]";
 const SOLID = "bg-(--pact-role) text-pact-ink";
@@ -128,14 +130,14 @@ export function BlockShell({
         data-state={state}
       >
         {handle ?? <BlockIcon holds={holds} kind={kind} />}
-        {children}
+        <ToneProvider tone={holds ? "ink" : "default"}>{children}</ToneProvider>
       </span>
     </EditableContext>
   );
 }
 
 export const SOCKET =
-  "h-6 min-w-6 max-w-full rounded-[6px] border border-transparent bg-cladd-bg/70 px-1.5 font-medium text-[13px] text-cladd-fg leading-[22px] outline-none transition-[border-color] duration-150 focus:border-(--pact-role) focus-visible:outline-none! group-data-[state=holds]/block:bg-pact-ink/15 group-data-[state=holds]/block:text-pact-ink";
+  "h-6 min-w-6 max-w-full rounded-[6px] border border-transparent bg-cladd-bg/70 px-1.5 font-medium text-[13px] text-cladd-fg leading-[22px] [@media(pointer:coarse)]:h-8 [@media(pointer:coarse)]:px-2 [@media(pointer:coarse)]:text-sm [@media(pointer:coarse)]:leading-[30px] caret-(--pact-role) outline-none transition-[border-color] duration-150 selection:bg-[color-mix(in_oklab,var(--pact-role)_35%,transparent)] focus:border-(--pact-role) focus-visible:outline-none! group-data-[state=holds]/block:bg-pact-ink/15 group-data-[state=holds]/block:text-pact-ink";
 const EMPTY =
   "border-(--pact-role) border-dashed bg-transparent text-(--pact-role) placeholder:text-(--pact-role) placeholder:opacity-75";
 
@@ -328,6 +330,14 @@ export function StaticSlot({
     </span>
   );
 }
+
+export const useBlockAnchor = () => {
+  const block = useRef<HTMLElement | null>(null);
+  const find = useCallback((node: HTMLElement | null) => {
+    block.current = node?.closest<HTMLElement>("[data-block]") ?? null;
+  }, []);
+  return { block, find };
+};
 
 export const SOCKET_BUTTON = cn(
   SOCKET,

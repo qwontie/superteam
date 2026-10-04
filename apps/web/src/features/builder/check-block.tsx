@@ -28,6 +28,7 @@ import {
   writeFact,
 } from "@/features/builder/facts";
 import type { DraftCheck } from "@/features/builder/model";
+import { useQuietFocus } from "@/features/builder/parts";
 import { anchors } from "@/features/builder/problems";
 import {
   PickSlot,
@@ -35,6 +36,7 @@ import {
   SOCKET_EMPTY,
   StaticSlot,
   TextSlot,
+  useBlockAnchor,
   useEditable,
 } from "@/features/builder/slots";
 import { Checker, useCheckEdit, VotersButton } from "@/features/builder/voters";
@@ -299,6 +301,7 @@ function Hit({
 
 function EntitySearch({ onPick }: { onPick: (hit: WikidataHit) => void }) {
   const [text, setText] = useState("");
+  const holder = useQuietFocus(true);
   const asked = useDelayed(text.trim());
   const ready = asked.length >= MIN_QUERY;
   const search = useQuery({
@@ -309,9 +312,8 @@ function EntitySearch({ onPick }: { onPick: (hit: WikidataHit) => void }) {
   });
   const hits = ready ? (search.data ?? []) : [];
   return (
-    <div className="flex flex-col gap-2 p-3">
+    <div className="flex flex-col gap-2 p-3" ref={holder}>
       <Input
-        autoFocus
         inputComponentProps={{ "aria-label": "Search Wikidata" }}
         onChange={setText}
         placeholder="Search Wikidata"
@@ -347,6 +349,7 @@ function EntitySlot({
   onPick: (entity: string) => void;
 }) {
   const editable = useEditable();
+  const { block, find } = useBlockAnchor();
   const label = useEntityLabel(entity);
   const empty = entity === "";
   const shown = empty ? "who or what" : (label ?? entity);
@@ -376,6 +379,7 @@ function EntitySlot({
           className={cn(SOCKET_BUTTON, empty && SOCKET_EMPTY)}
           data-anchor={empty ? anchor : undefined}
           data-slot=""
+          ref={find}
           title={empty ? undefined : entity}
           type="button"
         >
@@ -383,6 +387,7 @@ function EntitySlot({
         </button>
       </PopoverTrigger>
       <Popover
+        anchorRef={block}
         className="w-80 max-w-[calc(100vw-2rem)]"
         offset={8}
         position="bottom-start"

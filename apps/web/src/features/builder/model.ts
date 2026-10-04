@@ -667,28 +667,6 @@ export const removeParty = (draft: Draft, id: string): Draft => {
 export const canAddCheck = (draft: Draft) =>
   draft.checks.length < LIMITS.maxChecks;
 
-export const addCheck = (draft: Draft): Draft => {
-  if (!canAddCheck(draft)) {
-    return draft;
-  }
-  const id = newId();
-  return {
-    ...draft,
-    checks: [
-      ...draft.checks,
-      {
-        binds: null,
-        expect: "",
-        id,
-        kind: "manual",
-        reviewers: [{ address: "", id: newId(), label: "Reviewer 1" }],
-        target: "",
-        threshold: 1,
-      },
-    ],
-  };
-};
-
 export const updateCheck = (
   draft: Draft,
   id: string,
@@ -703,17 +681,6 @@ export const updateCheck = (
     const max = Math.max(1, next.reviewers.length);
     return { ...next, threshold: Math.min(max, Math.max(1, next.threshold)) };
   }),
-});
-
-export const removeCheck = (draft: Draft, id: string): Draft => ({
-  ...draft,
-  checks: draft.checks.filter((check) => check.id !== id),
-  rules: draft.rules.map((rule) => ({
-    ...rule,
-    when: rule.when.filter(
-      (condition) => !(condition.type === "attested" && condition.check === id)
-    ),
-  })),
 });
 
 export const canAddReviewer = (check: DraftCheck) =>
@@ -741,34 +708,6 @@ export const removeReviewer = (check: DraftCheck, id: string): DraftCheck =>
         reviewers: check.reviewers.filter((reviewer) => reviewer.id !== id),
       }
     : check;
-
-const DEFAULT_LABEL = /^(Reviewer|Node|Witness node) \d+$/;
-const PASSING = "success";
-
-const expectFor = (kind: CheckKind, current: string) => {
-  if (kind === "github_checks") {
-    return PASSING;
-  }
-  return kind === "http_contains" && current !== PASSING ? current : "";
-};
-
-export const setCheckKind = (
-  check: DraftCheck,
-  kind: CheckKind
-): DraftCheck => {
-  const word = kind === "manual" ? "Reviewer" : "Node";
-  return {
-    ...check,
-    expect: expectFor(kind, check.expect),
-    kind,
-    reviewers: check.reviewers.map((reviewer, position) =>
-      DEFAULT_LABEL.test(reviewer.label)
-        ? { ...reviewer, label: `${word} ${position + 1}` }
-        : reviewer
-    ),
-    target: kind === check.kind ? check.target : "",
-  };
-};
 
 export const hasDemoNodes = (check: DraftCheck) =>
   check.reviewers.length === DEMO_WITNESS_NODES.witnesses.length &&

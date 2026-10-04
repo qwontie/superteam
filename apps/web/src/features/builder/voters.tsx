@@ -17,7 +17,7 @@ import {
   UsersRound,
   X,
 } from "lucide-react";
-import { type ChangeEvent, useCallback, useRef, useState } from "react";
+import { type ChangeEvent, useCallback, useState } from "react";
 import { blankVoters } from "@/features/builder/blocks";
 import { partyName, slotGap } from "@/features/builder/describe";
 import { isOracle, withOracle } from "@/features/builder/gate";
@@ -37,11 +37,13 @@ import {
   POPOVER_BODY,
   ProblemLines,
   pickedClass,
+  useQuietFocus,
 } from "@/features/builder/parts";
 import { anchors } from "@/features/builder/problems";
 import {
   SOCKET_BUTTON,
   SOCKET_EMPTY,
+  useBlockAnchor,
   useEditable,
 } from "@/features/builder/slots";
 import { useBuilder, useDraft } from "@/features/builder/state";
@@ -95,6 +97,7 @@ function VoterRow({
     () => change((current) => removeReviewer(current, reviewer.id)),
     [change, reviewer.id]
   );
+  const holder = useQuietFocus(focus);
   const typed = reviewer.address.trim();
   const invalid = typed !== "" && !isAddress(typed);
   const name = reviewer.label.trim() || `Voter ${position + 1}`;
@@ -109,17 +112,17 @@ function VoterRow({
         size="lg"
         value={reviewer.label}
       />
-      <Input
-        autoFocus={focus}
-        className="min-w-0 flex-1"
-        inputClassName="font-mono text-xs"
-        inputComponentProps={{ "aria-label": `Wallet address of ${name}` }}
-        onChange={setAddress}
-        placeholder="Solana address"
-        size="lg"
-        valid={!invalid}
-        value={reviewer.address}
-      />
+      <div className="min-w-0 flex-1" ref={holder}>
+        <Input
+          inputClassName="font-mono text-xs"
+          inputComponentProps={{ "aria-label": `Wallet address of ${name}` }}
+          onChange={setAddress}
+          placeholder="Solana address"
+          size="lg"
+          valid={!invalid}
+          value={reviewer.address}
+        />
+      </div>
       {wallet && typed !== wallet ? (
         <Button
           aria-label={`${name} is me`}
@@ -269,10 +272,7 @@ export function VotersButton({ check }: { check: DraftCheck }) {
     </>
   );
   const look = cn(SOCKET_BUTTON, gap && SOCKET_EMPTY);
-  const block = useRef<HTMLElement | null>(null);
-  const findBlock = useCallback((node: HTMLButtonElement | null) => {
-    block.current = node?.closest<HTMLElement>("[data-block]") ?? null;
-  }, []);
+  const { block, find } = useBlockAnchor();
   if (!editable) {
     return gap ? <span className={look}>{content}</span> : null;
   }
@@ -284,7 +284,7 @@ export function VotersButton({ check }: { check: DraftCheck }) {
           className={look}
           data-anchor={anchored ? anchors.check(check.id) : undefined}
           data-slot=""
-          ref={findBlock}
+          ref={find}
           type="button"
         >
           {content}
@@ -328,7 +328,7 @@ const withChecker = (check: DraftCheck, key: CheckerKey): DraftCheck => {
 };
 
 const BADGE =
-  "h-6 max-w-full rounded-full border border-[color-mix(in_oklab,currentColor_45%,transparent)] bg-transparent pl-6 font-medium text-xs leading-[22px] outline-none focus:border-current focus-visible:outline-none!";
+  "h-6 max-w-full rounded-full border [@media(pointer:coarse)]:h-8 [@media(pointer:coarse)]:text-[13px] [@media(pointer:coarse)]:leading-[30px] border-[color-mix(in_oklab,currentColor_45%,transparent)] bg-transparent pl-6 font-medium text-xs leading-[22px] outline-none focus:border-current focus-visible:outline-none!";
 
 export function Checker({ check }: { check: DraftCheck }) {
   const editable = useEditable();

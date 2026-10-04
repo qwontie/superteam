@@ -182,7 +182,8 @@ const elsewhere = (problem: Problem) =>
   !(
     problem.todo ||
     LOCAL.has(problem.anchor) ||
-    problem.anchor.startsWith("rule:")
+    problem.anchor.startsWith("rule:") ||
+    problem.anchor.startsWith("check:")
   );
 
 function LooseProblems() {

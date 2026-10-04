@@ -2,7 +2,7 @@ import { Button, cn, Input } from "@cladd-ui/react";
 import { isAddress } from "@solana/kit";
 import { CircleAlert, Plus } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
-import type { ReactNode } from "react";
+import { type ReactNode, useEffect, useRef } from "react";
 import { QUICK } from "@/components/pact/motion";
 import { Party, PartyAvatar } from "@/components/pact/party";
 import { useTone } from "@/components/pact/tone";
@@ -158,28 +158,40 @@ interface AddressFieldProps {
   value: string;
 }
 
+export const useQuietFocus = (enabled: boolean) => {
+  const holder = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (enabled) {
+      holder.current?.querySelector("input")?.focus({ preventScroll: true });
+    }
+  }, [enabled]);
+  return holder;
+};
+
 export function AddressField({
   autoFocus,
   label,
   onChange,
   value,
 }: AddressFieldProps) {
+  const holder = useQuietFocus(autoFocus === true);
   const trimmed = value.trim();
   const invalid = trimmed !== "" && !isAddress(trimmed);
   return (
-    <Input
-      autoFocus={autoFocus}
-      errorMessage={
-        invalid ? "This is not a Solana address. Paste the full one." : null
-      }
-      inputClassName="font-mono text-sm"
-      inputComponentProps={{ "aria-label": label }}
-      onChange={onChange}
-      placeholder="Paste a Solana address"
-      size="xl"
-      valid={!invalid}
-      value={value}
-    />
+    <div ref={holder}>
+      <Input
+        errorMessage={
+          invalid ? "This is not a Solana address. Paste the full one." : null
+        }
+        inputClassName="font-mono text-sm"
+        inputComponentProps={{ "aria-label": label }}
+        onChange={onChange}
+        placeholder="Paste a Solana address"
+        size="xl"
+        valid={!invalid}
+        value={value}
+      />
+    </div>
   );
 }
 

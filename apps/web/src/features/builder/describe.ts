@@ -27,11 +27,6 @@ export const partyName = (draft: Draft, id: string) => {
   return draft.parties[index]?.label.trim() || `Party ${index + 1}`;
 };
 
-export const checkName = (draft: Draft, id: string) => {
-  const index = draft.checks.findIndex((check) => check.id === id);
-  return index < 0 ? "a removed check" : `Check ${index + 1}`;
-};
-
 export const slotGap = (check: DraftCheck) =>
   check.kind === "http_contains"
     ? factGap(factShape(check.target, check.expect))

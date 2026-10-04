@@ -8,7 +8,11 @@ import { factError } from "@pact/sdk/facts";
 import { isAddress } from "@solana/kit";
 import { partyName } from "@/features/builder/describe";
 import { factGap, factShape } from "@/features/builder/facts";
-import { type Draft, draftToSpec } from "@/features/builder/model";
+import {
+  type Draft,
+  type DraftCheck,
+  draftToSpec,
+} from "@/features/builder/model";
 
 export interface Problem {
   anchor: string;
@@ -270,8 +274,35 @@ const explain = (problem: string, ctx: Context): Found => {
   }
 };
 
+const HTTPS = /^https:\/\/\S+$/;
 const REPO_REF = /^[\w.-]+\/[\w.-]+@[\w./-]+$/;
 const REPO_PR = /^[\w.-]+\/[\w.-]+#\d+$/;
+
+const factProblem = (
+  check: DraftCheck,
+  anchor: string,
+  number: number
+): Found => {
+  const shape = factShape(check.target, check.expect);
+  if (factGap(shape)) {
+    return {
+      anchor,
+      text: `Fill the empty slots of check ${number}.`,
+      todo: true,
+    };
+  }
+  if (
+    (shape.type === "page" || shape.type === "json") &&
+    !HTTPS.test(shape.url.trim())
+  ) {
+    return {
+      anchor,
+      text: `Check ${number}: the address must start with https://`,
+    };
+  }
+  const error = factError(check.target.trim(), check.expect.trim());
+  return error ? { anchor, text: `Check ${number}: ${error}.` } : null;
+};
 
 const formatProblems = (draft: Draft): Found[] =>
   draft.checks.map((check, index) => {
@@ -285,15 +316,7 @@ const formatProblems = (draft: Draft): Found[] =>
       return null;
     }
     if (check.kind === "http_contains") {
-      if (factGap(factShape(check.target, check.expect))) {
-        return {
-          anchor,
-          text: `Fill the empty slots of check ${number}.`,
-          todo: true,
-        };
-      }
-      const error = factError(target, check.expect.trim());
-      return error ? { anchor, text: `Check ${number}: ${error}.` } : null;
+      return factProblem(check, anchor, number);
     }
     if (check.kind === "github_checks") {
       return REPO_REF.test(target)

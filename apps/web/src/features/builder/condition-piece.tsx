@@ -178,7 +178,7 @@ function Handle({
       <PopoverTrigger>
         <button
           aria-label={`Block ${label}: move or remove`}
-          className="cursor-grab rounded-[6px] active:cursor-grabbing"
+          className="cursor-grab rounded-[6px] active:cursor-grabbing [@media(pointer:coarse)]:-m-2 [@media(pointer:coarse)]:p-2"
           onKeyDown={onKeyDown}
           type="button"
         >

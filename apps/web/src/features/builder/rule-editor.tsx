@@ -249,6 +249,15 @@ function RuleBody({ action, gutter, index, rule }: RuleBodyProps) {
         <LandingFlash />
       </div>
       <ProblemLines anchor={anchors.rule(rule.id)} className="px-1" />
+      {rule.when.map((condition) =>
+        condition.type === "attested" ? (
+          <ProblemLines
+            anchor={anchors.check(condition.check)}
+            className="px-1"
+            key={condition.id}
+          />
+        ) : null
+      )}
     </div>
   );
 }
