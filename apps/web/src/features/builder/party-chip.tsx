@@ -1,5 +1,6 @@
 import {
   Button,
+  cn,
   Input,
   Popover,
   PopoverClose,
@@ -7,8 +8,9 @@ import {
   PopoverTrigger,
   Switch,
 } from "@cladd-ui/react";
+import { useDraggable, useDroppable } from "@dnd-kit/core";
 import { Eraser, Plus, Trash2, UserRound } from "lucide-react";
-import { type ReactNode, useCallback } from "react";
+import { type ReactNode, useCallback, useId } from "react";
 import { PartyAvatar } from "@/components/pact/party";
 import { partyName } from "@/features/builder/describe";
 import { type MenuItem, useMenu } from "@/features/builder/menu";
@@ -30,11 +32,23 @@ import {
   RemoveLine,
   SlotPill,
 } from "@/features/builder/parts";
+import { pointerDown } from "@/features/builder/pieces";
 import { anchors } from "@/features/builder/problems";
 import { useBuilder, useDraft } from "@/features/builder/state";
 import { shortAddress } from "@/lib/format";
 
 export type Place = (draft: Draft, partyId: string) => Draft;
+
+export interface PartyDrag {
+  kind: "party";
+  partyId: string;
+}
+
+export interface PartyDrop {
+  accepts: string[];
+  kind: "party-slot";
+  place: Place;
+}
 
 const LABEL_MAX = 40;
 
@@ -205,6 +219,66 @@ interface PartyChipProps {
   place?: Place;
 }
 
+export function PartyFace({ party }: { party: PartySlot }) {
+  const { wallet } = useBuilder();
+  const draft = useDraft();
+  return (
+    <SlotPill
+      address={partyAddress(party, wallet) ?? ""}
+      empty={emptyText(party)}
+      label={partyName(draft, party.id)}
+      open={party.open}
+      you={party.me && wallet !== null}
+    />
+  );
+}
+
+const useChipDrag = (
+  party: PartySlot,
+  options: PartySlot[],
+  place: Place | undefined,
+  enabled: boolean
+) => {
+  const id = useId();
+  const drag: PartyDrag = { kind: "party", partyId: party.id };
+  const slot: PartyDrop = {
+    accepts: options.map((entry) => entry.id),
+    kind: "party-slot",
+    place: place ?? ((d) => d),
+  };
+  const draggable = useDraggable({
+    data: drag,
+    disabled: !enabled,
+    id: `party:${id}`,
+  });
+  const droppable = useDroppable({
+    data: slot,
+    disabled: !(enabled && place),
+    id: `party-slot:${id}`,
+  });
+  const { setNodeRef: setDrag } = draggable;
+  const { setNodeRef: setDrop } = droppable;
+  const ref = useCallback(
+    (node: HTMLElement | null) => {
+      setDrag(node);
+      setDrop(node);
+    },
+    [setDrag, setDrop]
+  );
+  const held = droppable.active?.data.current as PartyDrag | undefined;
+  const welcome =
+    held?.kind === "party" &&
+    held.partyId !== party.id &&
+    slot.accepts.includes(held.partyId);
+  return {
+    dragging: draggable.isDragging,
+    landing: welcome && droppable.isOver,
+    onPointerDown: pointerDown(draggable.listeners),
+    ref,
+    welcome,
+  };
+};
+
 export function PartyChip({
   allowOpen = true,
   extra,
@@ -216,6 +290,12 @@ export function PartyChip({
   const { edit, locked, mode, wallet } = useBuilder();
   const draft = useDraft();
   const name = partyName(draft, party.id);
+  const chipDrag = useChipDrag(
+    party,
+    options,
+    place,
+    !(locked || mode === "play")
+  );
   const remove = useCallback(
     () => edit((d) => removeParty(d, party.id)),
     [edit, party.id]
@@ -267,9 +347,17 @@ export function PartyChip({
       <PopoverTrigger>
         <button
           aria-label={`Edit ${name}`}
-          className="max-w-full rounded-full"
+          className={cn(
+            "max-w-full cursor-grab touch-none rounded-full outline-2 outline-offset-2 transition-[opacity,outline-color] duration-150 active:cursor-grabbing",
+            chipDrag.welcome && "outline-dashed outline-cladd-fg",
+            chipDrag.landing && "outline-solid",
+            !chipDrag.welcome && "outline-transparent",
+            chipDrag.dragging && "opacity-40"
+          )}
           data-anchor={anchors.party(party.id)}
           data-slot=""
+          onPointerDown={chipDrag.onPointerDown}
+          ref={chipDrag.ref}
           type="button"
           {...menu.handlers}
         >

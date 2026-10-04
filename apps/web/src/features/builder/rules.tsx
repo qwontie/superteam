@@ -34,6 +34,7 @@ import { conditionText } from "@/features/builder/describe";
 import {
   addRule,
   canAddRule,
+  type Draft,
   moveCondition,
   removeCondition,
   reorderRules,
@@ -46,6 +47,11 @@ import {
 } from "@/features/builder/palette";
 import { POPOVER_BODY } from "@/features/builder/parts";
 import {
+  type PartyDrag,
+  type PartyDrop,
+  PartyFace,
+} from "@/features/builder/party-chip";
+import {
   ExitRule,
   type RuleDrag,
   SortableRule,
@@ -54,16 +60,27 @@ import {
 import { BlockShell } from "@/features/builder/slots";
 import { useBuilder, useDraft } from "@/features/builder/state";
 
-type Drag = ConditionDrag | RuleDrag | PaletteDrag;
-type Drop = WhenDrop | RuleDrag | { kind: "new-rule" };
+type Drag = ConditionDrag | RuleDrag | PaletteDrag | PartyDrag;
+type Drop = WhenDrop | RuleDrag | PartyDrop | { kind: "new-rule" };
 
 const DRAG_DISTANCE = 6;
 const NEW_RULE = "new-rule";
 
 const DragContext = createContext<Drag | null>(null);
 
+const takes = (drop: Drop | undefined, partyId: string) =>
+  drop?.kind === "party-slot" && drop.accepts.includes(partyId);
+
 const collision: CollisionDetection = (args) => {
   const dragged = args.active.data.current as Drag | undefined;
+  if (dragged?.kind === "party") {
+    return pointerWithin({
+      ...args,
+      droppableContainers: args.droppableContainers.filter((container) =>
+        takes(container.data.current as Drop | undefined, dragged.partyId)
+      ),
+    });
+  }
   const sorting = dragged?.kind === "rule";
   const droppableContainers = args.droppableContainers.filter((container) => {
     const kind = (container.data.current as Drop | undefined)?.kind;
@@ -72,6 +89,31 @@ const collision: CollisionDetection = (args) => {
   return sorting
     ? closestCenter({ ...args, droppableContainers })
     : pointerWithin({ ...args, droppableContainers });
+};
+
+const dropCondition = (d: Draft, from: ConditionDrag, to: Drop): Draft => {
+  if (to.kind === "when") {
+    return moveCondition(d, from.ruleId, to.ruleId, from.conditionId);
+  }
+  const condition = d.rules
+    .find((rule) => rule.id === from.ruleId)
+    ?.when.find((entry) => entry.id === from.conditionId);
+  if (!(condition && to.kind === NEW_RULE && canAddRule(d))) {
+    return d;
+  }
+  return addRule(removeCondition(d, from.ruleId, from.conditionId), condition);
+};
+
+const dropOn = (d: Draft, from: Exclude<Drag, PaletteDrag>, to: Drop) => {
+  if (from.kind === "party") {
+    return to.kind === "party-slot" && takes(to, from.partyId)
+      ? to.place(d, from.partyId)
+      : d;
+  }
+  if (from.kind === "rule") {
+    return to.kind === "rule" ? reorderRules(d, from.ruleId, to.ruleId) : d;
+  }
+  return dropCondition(d, from, to);
 };
 
 function AddRule() {
@@ -127,7 +169,19 @@ function Overlay({ drag }: { drag: Drag | null }) {
     return null;
   }
   if (drag.kind === "palette") {
-    return <BlockFace kind={drag.block} />;
+    return (
+      <span className="inline-flex cursor-grabbing rounded-chip bg-cladd-bg shadow-lg">
+        <BlockFace kind={drag.block} />
+      </span>
+    );
+  }
+  if (drag.kind === "party") {
+    const party = draft.parties.find((entry) => entry.id === drag.partyId);
+    return party ? (
+      <span className="inline-flex cursor-grabbing rounded-full bg-cladd-bg shadow-lg">
+        <PartyFace party={party} />
+      </span>
+    ) : null;
   }
   const condition = draft.rules
     .find((rule) => rule.id === drag.ruleId)
@@ -136,9 +190,11 @@ function Overlay({ drag }: { drag: Drag | null }) {
     return null;
   }
   return (
-    <BlockShell kind={blockOf(condition, draft)}>
-      <span>{conditionText(condition, draft).label}</span>
-    </BlockShell>
+    <span className="inline-flex cursor-grabbing rounded-chip bg-cladd-bg shadow-lg">
+      <BlockShell kind={blockOf(condition, draft)}>
+        <span>{conditionText(condition, draft).label}</span>
+      </BlockShell>
+    </span>
   );
 }
 
@@ -177,27 +233,7 @@ export function Board({ children }: { children: ReactNode }) {
         }
         return;
       }
-      if (from.kind === "rule") {
-        if (to.kind === "rule") {
-          edit((d) => reorderRules(d, from.ruleId, to.ruleId));
-        }
-        return;
-      }
-      edit((d) => {
-        if (to.kind === "when") {
-          return moveCondition(d, from.ruleId, to.ruleId, from.conditionId);
-        }
-        const condition = d.rules
-          .find((rule) => rule.id === from.ruleId)
-          ?.when.find((entry) => entry.id === from.conditionId);
-        if (!(condition && to.kind === NEW_RULE && canAddRule(d))) {
-          return d;
-        }
-        return addRule(
-          removeCondition(d, from.ruleId, from.conditionId),
-          condition
-        );
-      });
+      edit((d) => dropOn(d, from, to));
     },
     [add, edit]
   );

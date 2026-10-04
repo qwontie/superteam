@@ -177,6 +177,8 @@ function Handle({
       if (event.key === "Backspace" || event.key === "Delete") {
         event.preventDefault();
         onRemove();
+      } else if (event.key === "Escape") {
+        event.currentTarget.blur();
       }
     },
     [onRemove]
@@ -186,6 +188,7 @@ function Handle({
       aria-haspopup="menu"
       aria-label={`Block ${label}: move, duplicate or remove`}
       className="cursor-grab rounded-[6px] active:cursor-grabbing [@media(pointer:coarse)]:-m-2 [@media(pointer:coarse)]:p-2"
+      data-handle=""
       onClick={open}
       onKeyDown={onKeyDown}
       type="button"
@@ -262,7 +265,16 @@ function PlayPiece({
   );
 }
 
-const SLOT = "[data-slot],input,select,textarea";
+const FIELD = "input,select,textarea";
+const CONTROL = `${FIELD},button,[data-slot]`;
+
+const select = (event: MouseEvent<HTMLElement>) => {
+  if (!(event.target as HTMLElement).closest(CONTROL)) {
+    event.currentTarget
+      .querySelector<HTMLElement>("[data-handle]")
+      ?.focus({ preventScroll: true });
+  }
+};
 
 export function ConditionPiece({
   condition,
@@ -291,10 +303,18 @@ export function ConditionPiece({
       edit((d) => removeCondition(d, rule.id, condition.id));
     }
   }, [condition.id, edit, rule]);
+  const held = menu.handlers.onClickCapture;
+  const pick = useCallback(
+    (event: MouseEvent<HTMLElement>) => {
+      held(event);
+      select(event);
+    },
+    [held]
+  );
   const start = pointerDown(listeners);
   const onPointerDown = useCallback(
     (event: PointerEvent<HTMLElement>) => {
-      if (!(event.target as HTMLElement).closest(SLOT)) {
+      if (!(event.target as HTMLElement).closest(FIELD)) {
         start?.(event);
       }
     },
@@ -322,12 +342,13 @@ export function ConditionPiece({
   return (
     <span
       className={cn(
-        "inline-flex max-w-full touch-none transition-opacity duration-150",
+        "inline-flex max-w-full cursor-grab touch-none rounded-chip outline-2 outline-transparent outline-offset-2 transition-[opacity,outline-color] duration-150 active:cursor-grabbing has-[[data-handle]:focus]:outline-cladd-fg",
         isDragging && "opacity-40"
       )}
       onPointerDown={onPointerDown}
       ref={setNodeRef}
       {...menu.handlers}
+      onClickCapture={pick}
     >
       <BlockShell
         broken={broken}
