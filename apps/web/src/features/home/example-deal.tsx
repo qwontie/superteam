@@ -7,7 +7,7 @@ import {
   solToLamports,
   votesFromBitmaps,
 } from "@pact/sdk";
-import { Check, RotateCcw } from "lucide-react";
+import { RotateCcw } from "lucide-react";
 import { AnimatePresence, LayoutGroup, motion } from "motion/react";
 import { useCallback, useMemo, useState } from "react";
 import { DealRule } from "@/components/pact/deal-rule";
@@ -22,7 +22,6 @@ const JUMP_DAYS = 6;
 const AMOUNT = solToLamports("2.5");
 const LABELS = ["Client", "Freelancer"] as const;
 const REVIEWERS = ["Reviewer 1", "Reviewer 2", "Reviewer 3"] as const;
-const APPROVED = 0b011;
 const MONEY = "example-money";
 
 interface Play {
@@ -49,12 +48,35 @@ function Toggle({ label, pressed, disabled, onToggle }: ToggleProps) {
       onClick={onToggle}
       pressed={pressed}
       size="xl"
+      variant={pressed ? "solid-fill" : "solid"}
     >
-      {pressed ? (
-        <Check aria-hidden="true" size={15} strokeWidth={2.5} />
-      ) : null}
       {label}
     </Button>
+  );
+}
+
+function ReviewerToggle({
+  bit,
+  disabled,
+  label,
+  onFlip,
+  yes,
+}: {
+  bit: number;
+  disabled: boolean;
+  label: string;
+  onFlip: (bit: number) => void;
+  yes: number;
+}) {
+  const flip = useCallback(() => onFlip(bit), [bit, onFlip]);
+  return (
+    <Toggle
+      disabled={disabled}
+      label={`${label} says yes`}
+      onToggle={flip}
+      // biome-ignore lint/suspicious/noBitwiseOperators: votes are an on-chain bitmap
+      pressed={(yes & bit) !== 0}
+    />
   );
 }
 
@@ -78,7 +100,7 @@ export function ExampleDeal() {
         client: LABELS[0],
         deadline,
         freelancer: LABELS[1],
-        title: "landing page for Acme",
+        title: "Landing page for Acme",
       }),
     [deadline]
   );
@@ -100,8 +122,9 @@ export function ExampleDeal() {
 
   const evaluation = useMemo(() => evaluateDeal(deal, now), [deal, now]);
 
-  const flipVotes = useCallback(() => {
-    setPlay((state) => ({ ...state, yes: state.yes === 0 ? APPROVED : 0 }));
+  const flipVote = useCallback((bit: number) => {
+    // biome-ignore lint/suspicious/noBitwiseOperators: votes are an on-chain bitmap
+    setPlay((state) => ({ ...state, yes: state.yes ^ bit }));
   }, []);
   const flipSigned = useCallback(() => {
     setPlay((state) => ({ ...state, signed: !state.signed }));
@@ -122,9 +145,7 @@ export function ExampleDeal() {
       >
         <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
           <div className="flex min-h-[4.5rem] flex-col justify-end gap-1.5">
-            <span className="text-cladd-fg-soft text-sm">
-              Example: {spec.title}
-            </span>
+            <span className="text-cladd-fg-soft text-sm">{spec.title}</span>
             <VaultAmount
               flightId={MONEY}
               lamports={AMOUNT}
@@ -180,25 +201,35 @@ export function ExampleDeal() {
           })}
         </div>
 
-        <div className="flex flex-wrap gap-2">
-          <Toggle
-            disabled={settled}
-            label="Witnesses say yes"
-            onToggle={flipVotes}
-            pressed={play.yes !== 0}
-          />
-          <Toggle
-            disabled={settled}
-            label="Client signs"
-            onToggle={flipSigned}
-            pressed={play.signed}
-          />
-          <Toggle
-            disabled={settled}
-            label="Deadline passes"
-            onToggle={flipJump}
-            pressed={play.jumped}
-          />
+        <div className="flex flex-col gap-3">
+          <p className="text-cladd-fg-soft text-sm">
+            Try it: make a condition come true. This example runs in your
+            browser, nothing here touches the chain.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {REVIEWERS.map((label, position) => (
+              <ReviewerToggle
+                bit={2 ** position}
+                disabled={settled}
+                key={label}
+                label={label}
+                onFlip={flipVote}
+                yes={play.yes}
+              />
+            ))}
+            <Toggle
+              disabled={settled}
+              label="Client signs"
+              onToggle={flipSigned}
+              pressed={play.signed}
+            />
+            <Toggle
+              disabled={settled}
+              label="Skip past the deadline"
+              onToggle={flipJump}
+              pressed={play.jumped}
+            />
+          </div>
         </div>
       </section>
     </LayoutGroup>
@@ -214,7 +245,7 @@ function FireButton({
 }) {
   const fire = useCallback(() => onFire(rule), [onFire, rule]);
   return (
-    <Button onClick={fire} size="xl">
+    <Button onClick={fire} size="xl" variant="solid-fill">
       Execute
     </Button>
   );
