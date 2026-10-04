@@ -8,8 +8,8 @@ import {
 import { type ReactNode, useMemo } from "react";
 import { ConditionChip } from "@/components/pact/condition-chip";
 import { Payout } from "@/components/pact/deal-rule";
+import { STARTER_FACT_LABELS } from "@/features/builder/starters";
 import { useFactLabels } from "@/features/deal/queries";
-import { KNOWN_PLACES } from "@/features/home/starters";
 import { describeCondition } from "@/lib/pact";
 
 const DAY = 86_400;
@@ -122,7 +122,7 @@ export function Vocabulary() {
     () => groups(Math.ceil(now / HOUR) * HOUR + DEADLINE_DAYS * DAY),
     [now]
   );
-  const factLabels = useFactLabels(SPEC, KNOWN_PLACES);
+  const factLabels = useFactLabels(SPEC, STARTER_FACT_LABELS);
   return (
     <section aria-labelledby="home-blocks">
       <h2 className="sr-only" id="home-blocks">

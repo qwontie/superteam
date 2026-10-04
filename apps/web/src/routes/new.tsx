@@ -1,7 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { BuilderEntry } from "@/features/builder/entry";
+import { STARTER_KEYS } from "@/features/builder/starters";
 
-const TEMPLATES = ["gig", "bounty", "silence", "ai"] as const;
+const TEMPLATES = [...STARTER_KEYS, "ai"] as const;
 
 type Template = (typeof TEMPLATES)[number];
 
