@@ -72,9 +72,11 @@ export const WIKIDATA_PROPERTIES: Record<string, string> = {
   P569: "date of birth",
   P570: "date of death",
   P576: "dissolution date",
+  P577: "publication date",
   P582: "end time",
   P1082: "population",
   P1128: "employee count",
+  P1346: "winner",
 };
 
 export const WIKIDATA_USER_AGENT = "pact-gate/1.0 (https://pact.qwontie.dev)";

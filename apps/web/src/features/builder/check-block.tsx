@@ -9,11 +9,7 @@ import {
 import { fetchWikidataLabel, WIKIDATA_PROPERTIES } from "@pact/sdk/facts";
 import { useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useState } from "react";
-import {
-  blankVoters,
-  type CheckBlock,
-  checkBlockOf,
-} from "@/features/builder/blocks";
+import { type CheckBlock, checkBlockOf } from "@/features/builder/blocks";
 import {
   type FactOp,
   type FactShape,
@@ -39,9 +35,8 @@ import {
   useBlockAnchor,
   useEditable,
 } from "@/features/builder/slots";
-import { Checker, useCheckEdit, VotersButton } from "@/features/builder/voters";
+import { useCheckEdit, Verifier, Voters } from "@/features/builder/voters";
 
-const MAX_VOTERS = 5;
 const TARGET_MAX = 128;
 const EXPECT_MAX = 64;
 const VALUE_MAX = 63;
@@ -49,18 +44,8 @@ const SEARCH_DELAY_MS = 250;
 const SEARCH_STALE_MS = 300_000;
 const MIN_QUERY = 2;
 
-const range = (count: number) =>
-  Array.from({ length: count }, (_, index) => ({
-    label: String(index + 1),
-    value: String(index + 1),
-  }));
+const JSON_OPS = OPS.json.map((op) => ({ label: OP_WORD[op], value: op }));
 
-const opOptions = (type: keyof typeof OPS) =>
-  OPS[type].map((op) => ({ label: OP_WORD[op], value: op }));
-
-const PROPERTY_OPTIONS = Object.entries(WIKIDATA_PROPERTIES).map(
-  ([value, label]) => ({ label, value })
-);
 const PAIR_OPTIONS = PAIRS.map((pair) => ({
   label: pair.split("-")[0] ?? pair,
   value: pair,
@@ -69,40 +54,6 @@ const PRICE_OPS = OPS.price.map((op) => ({ label: op, value: op }));
 
 interface BodyProps {
   check: DraftCheck;
-}
-
-function Quorum({ check, word }: BodyProps & { word: string }) {
-  const change = useCheckEdit(check.id);
-  const setThreshold = useCallback(
-    (value: string) => change((c) => ({ ...c, threshold: Number(value) })),
-    [change]
-  );
-  const setTotal = useCallback(
-    (value: string) =>
-      change((c) => {
-        const total = Number(value);
-        const fresh = blankVoters(word, total).slice(c.reviewers.length);
-        return { ...c, reviewers: [...c.reviewers, ...fresh].slice(0, total) };
-      }),
-    [change, word]
-  );
-  return (
-    <>
-      <PickSlot
-        label="Yes votes needed"
-        onChange={setThreshold}
-        options={range(check.reviewers.length)}
-        value={String(check.threshold)}
-      />
-      <span>of</span>
-      <PickSlot
-        label="Number of voters"
-        onChange={setTotal}
-        options={range(MAX_VOTERS)}
-        value={String(check.reviewers.length)}
-      />
-    </>
-  );
 }
 
 const useField = (id: string, field: "target" | "expect") => {
@@ -117,8 +68,8 @@ function VoteBody({ check }: BodyProps) {
   const setTarget = useField(check.id, "target");
   return (
     <>
-      <Quorum check={check} word="Reviewer" />
-      <span>people confirm</span>
+      <Voters check={check} word="Reviewer" />
+      <span>confirm</span>
       <TextSlot
         anchor={anchors.check(check.id)}
         label="What the people confirm"
@@ -127,7 +78,6 @@ function VoteBody({ check }: BodyProps) {
         placeholder="statement"
         value={check.target}
       />
-      <VotersButton check={check} />
     </>
   );
 }
@@ -135,9 +85,8 @@ function VoteBody({ check }: BodyProps) {
 function JudgesBody({ check }: BodyProps) {
   return (
     <>
-      <Quorum check={check} word="Judge" />
-      <span>judges name the winner</span>
-      <VotersButton check={check} />
+      <Voters check={check} word="Judge" />
+      <span>name the winner</span>
     </>
   );
 }
@@ -157,7 +106,7 @@ function MergedBody({ check }: BodyProps) {
         value={check.target}
       />
       <span>is merged</span>
-      <Checker check={check} />
+      <Verifier check={check} />
     </>
   );
 }
@@ -176,7 +125,7 @@ function GreenBody({ check }: BodyProps) {
         placeholder="owner/repo@ref"
         value={check.target}
       />
-      <Checker check={check} />
+      <Verifier check={check} />
     </>
   );
 }
@@ -343,16 +292,18 @@ function EntitySlot({
   anchor,
   entity,
   onPick,
+  placeholder,
 }: {
   anchor: string;
   entity: string;
   onPick: (entity: string) => void;
+  placeholder: string;
 }) {
   const editable = useEditable();
   const { block, find } = useBlockAnchor();
   const label = useEntityLabel(entity);
   const empty = entity === "";
-  const shown = empty ? "who or what" : (label ?? entity);
+  const shown = empty ? placeholder : (label ?? entity);
   const pick = useCallback(
     (hit: WikidataHit) => {
       rememberLabel(hit.id, hit.label);
@@ -374,7 +325,7 @@ function EntitySlot({
       <PopoverTrigger>
         <button
           aria-label={
-            empty ? "Wikidata: who or what" : `Wikidata: ${shown}, ${entity}`
+            empty ? `Wikidata: ${placeholder}` : `Wikidata: ${shown}, ${entity}`
           }
           className={cn(SOCKET_BUTTON, empty && SOCKET_EMPTY)}
           data-anchor={empty ? anchor : undefined}
@@ -404,16 +355,11 @@ function Outcome({
   set,
 }: {
   anchor: string;
-  fact: Shape<"json"> | Shape<"wikidata">;
+  fact: Shape<"json">;
   set: (next: FactShape) => void;
 }) {
   const setOp = useCallback(
-    (op: string) =>
-      set({
-        ...fact,
-        op: op as FactOp,
-        value: op === "exists" ? "" : fact.value,
-      }),
+    (op: string) => set({ ...fact, op: op as FactOp }),
     [fact, set]
   );
   const setValue = useCallback(
@@ -421,29 +367,50 @@ function Outcome({
     [fact, set]
   );
   const numeric = fact.op === "above" || fact.op === "below";
-  const item = fact.type === "wikidata" && fact.op === "equals";
   return (
     <>
       <PickSlot
         label="Comparison"
         onChange={setOp}
-        options={opOptions(fact.type)}
+        options={JSON_OPS}
         value={fact.op}
       />
-      {fact.op === "exists" ? null : (
-        <TextSlot
-          anchor={anchor}
-          label="Value"
-          max={VALUE_MAX}
-          mode={numeric ? "decimal" : "text"}
-          onChange={setValue}
-          placeholder={item ? "Q30" : "value"}
-          value={fact.value}
-        />
-      )}
+      <TextSlot
+        anchor={anchor}
+        label="Value"
+        max={VALUE_MAX}
+        mode={numeric ? "decimal" : "text"}
+        onChange={setValue}
+        placeholder="value"
+        value={fact.value}
+      />
     </>
   );
 }
+
+const ITEMS = new Set(["P26", "P27", "P39", "P166", "P1346"]);
+const QUANTITIES = new Set(["P1082", "P1128"]);
+const FIRST = ["P1346", "P577", "P1082", "P1128"];
+const VOWEL = /^[aeiou]/;
+
+const phrasesOf = (id: string, label: string) => {
+  const article = VOWEL.test(label) ? "an" : "a";
+  const has = { label: `has ${article} ${label}`, value: `${id}:exists` };
+  if (QUANTITIES.has(id)) {
+    return [
+      { label: `${label} is above`, value: `${id}:above` },
+      { label: `${label} is below`, value: `${id}:below` },
+    ];
+  }
+  return ITEMS.has(id)
+    ? [has, { label: `${label} is`, value: `${id}:equals` }]
+    : [has];
+};
+
+const PHRASES = [
+  ...FIRST,
+  ...Object.keys(WIKIDATA_PROPERTIES).filter((id) => !FIRST.includes(id)),
+].flatMap((id) => phrasesOf(id, WIKIDATA_PROPERTIES[id] ?? id));
 
 function WikidataBody({ check, fact }: FactProps<"wikidata">) {
   const set = useFact(check);
@@ -452,21 +419,59 @@ function WikidataBody({ check, fact }: FactProps<"wikidata">) {
     (entity: string) => set({ ...fact, entity }),
     [fact, set]
   );
-  const setProperty = useCallback(
-    (property: string) => set({ ...fact, property }),
+  const setPhrase = useCallback(
+    (phrase: string) => {
+      const [property = fact.property, op = "exists"] = phrase.split(":");
+      const kept =
+        (op === "above" || op === "below") &&
+        (fact.op === "above" || fact.op === "below");
+      set({
+        ...fact,
+        op: op as FactOp,
+        property,
+        value: kept ? fact.value : "",
+      });
+    },
+    [fact, set]
+  );
+  const setValue = useCallback(
+    (value: string) => set({ ...fact, value }),
     [fact, set]
   );
   return (
     <>
       <span>Wikidata:</span>
-      <EntitySlot anchor={anchor} entity={fact.entity} onPick={setEntity} />
-      <PickSlot
-        label="Property"
-        onChange={setProperty}
-        options={PROPERTY_OPTIONS}
-        value={fact.property}
+      <EntitySlot
+        anchor={anchor}
+        entity={fact.entity}
+        onPick={setEntity}
+        placeholder="who or what"
       />
-      <Outcome anchor={anchor} fact={fact} set={set} />
+      <PickSlot
+        label="What must be true"
+        onChange={setPhrase}
+        options={PHRASES}
+        value={`${fact.property}:${fact.op}`}
+      />
+      {fact.op === "equals" ? (
+        <EntitySlot
+          anchor={anchor}
+          entity={fact.value}
+          onPick={setValue}
+          placeholder="who"
+        />
+      ) : null}
+      {fact.op === "above" || fact.op === "below" ? (
+        <TextSlot
+          anchor={anchor}
+          label="Value"
+          max={VALUE_MAX}
+          mode="decimal"
+          onChange={setValue}
+          placeholder="number"
+          value={fact.value}
+        />
+      ) : null}
     </>
   );
 }
@@ -562,7 +567,7 @@ export function CheckBody({ check }: BodyProps) {
     return (
       <>
         <FactBody check={check} />
-        <Checker check={check} />
+        <Verifier check={check} />
       </>
     );
   }

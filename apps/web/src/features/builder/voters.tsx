@@ -2,25 +2,16 @@ import {
   Button,
   cn,
   Input,
-  NumberField,
   Popover,
+  PopoverClose,
   PopoverRoot,
   PopoverTrigger,
 } from "@cladd-ui/react";
-import { isAddress } from "@solana/kit";
-import {
-  ChevronDown,
-  Plus,
-  Radio,
-  Server,
-  UserRound,
-  UsersRound,
-  X,
-} from "lucide-react";
-import { type ChangeEvent, useCallback, useState } from "react";
-import { blankVoters } from "@/features/builder/blocks";
+import { Eraser, Plus, Radio, Server, Trash2, UserRound } from "lucide-react";
+import { useCallback } from "react";
 import { partyName, slotGap } from "@/features/builder/describe";
-import { isOracle, withOracle } from "@/features/builder/gate";
+import { isOracle } from "@/features/builder/gate";
+import { type MenuItem, useMenu } from "@/features/builder/menu";
 import {
   addReviewer,
   canAddReviewer,
@@ -30,27 +21,24 @@ import {
   type Reviewer,
   removeReviewer,
   updateCheck,
-  withDemoNodes,
 } from "@/features/builder/model";
 import {
+  AddressField,
   Field,
   POPOVER_BODY,
-  ProblemLines,
   pickedClass,
-  useQuietFocus,
+  RemoveLine,
+  SlotPill,
 } from "@/features/builder/parts";
 import { anchors } from "@/features/builder/problems";
 import {
-  SOCKET_BUTTON,
-  SOCKET_EMPTY,
+  PickSlot,
   useBlockAnchor,
   useEditable,
 } from "@/features/builder/slots";
 import { useBuilder, useDraft } from "@/features/builder/state";
 
 const LABEL_MAX = 40;
-const TARGET_MAX = 128;
-const MAJORITY = 2;
 
 export const useCheckEdit = (id: string) => {
   const { edit } = useBuilder();
@@ -61,19 +49,27 @@ export const useCheckEdit = (id: string) => {
   );
 };
 
-function VoterRow({
+const range = (count: number) =>
+  Array.from({ length: count }, (_, index) => ({
+    label: String(index + 1),
+    value: String(index + 1),
+  }));
+
+function VoterSlot({
+  anchored,
   check,
-  focus,
   position,
   reviewer,
 }: {
+  anchored: boolean;
   check: DraftCheck;
-  focus: boolean;
   position: number;
   reviewer: Reviewer;
 }) {
   const { wallet } = useBuilder();
+  const editable = useEditable();
   const change = useCheckEdit(check.id);
+  const { block, find } = useBlockAnchor();
   const patch = useCallback(
     (next: Partial<Reviewer>) =>
       change((current) => ({
@@ -93,61 +89,172 @@ function VoterRow({
     () => patch({ address: wallet ?? "" }),
     [patch, wallet]
   );
+  const clear = useCallback(() => patch({ address: "" }), [patch]);
   const remove = useCallback(
     () => change((current) => removeReviewer(current, reviewer.id)),
     [change, reviewer.id]
   );
-  const holder = useQuietFocus(focus);
   const typed = reviewer.address.trim();
-  const invalid = typed !== "" && !isAddress(typed);
+  const mine = wallet !== null && typed === wallet;
+  const only = check.reviewers.length <= 1;
   const name = reviewer.label.trim() || `Voter ${position + 1}`;
+  const items = useCallback(
+    (): MenuItem[] => [
+      {
+        disabled: wallet === null || mine,
+        icon: <UserRound aria-hidden="true" size={16} />,
+        key: "me",
+        label: "This is me",
+        run: useMine,
+      },
+      {
+        disabled: typed === "",
+        icon: <Eraser aria-hidden="true" size={16} />,
+        key: "clear",
+        label: "Clear the address",
+        run: clear,
+      },
+      {
+        danger: true,
+        disabled: only,
+        icon: <Trash2 aria-hidden="true" size={16} />,
+        key: "remove",
+        label: "Remove this voter",
+        run: remove,
+      },
+    ],
+    [clear, mine, only, remove, typed, useMine, wallet]
+  );
+  const menu = useMenu(items, editable);
+  const pill = (
+    <SlotPill address={typed} empty="add address" label={name} you={mine} />
+  );
+  if (!editable) {
+    return pill;
+  }
   return (
-    <li className="flex items-center gap-1.5">
-      <Input
-        className="w-24 shrink-0 sm:w-28"
-        inputComponentProps={{ "aria-label": `Name of voter ${position + 1}` }}
-        maxLength={LABEL_MAX}
-        onChange={rename}
-        placeholder="Name"
-        size="lg"
-        value={reviewer.label}
-      />
-      <div className="min-w-0 flex-1" ref={holder}>
-        <Input
-          inputClassName="font-mono text-xs"
-          inputComponentProps={{ "aria-label": `Wallet address of ${name}` }}
-          onChange={setAddress}
-          placeholder="Solana address"
-          size="lg"
-          valid={!invalid}
-          value={reviewer.address}
-        />
-      </div>
-      {wallet && typed !== wallet ? (
-        <Button
-          aria-label={`${name} is me`}
-          onClick={useMine}
-          size="lg"
-          square
-          title="This is me"
-          variant="transparent"
+    <PopoverRoot>
+      <PopoverTrigger>
+        <button
+          aria-label={`Edit voter ${name}`}
+          className="max-w-full rounded-full"
+          data-anchor={
+            anchored && typed === "" ? anchors.check(check.id) : undefined
+          }
+          data-slot=""
+          ref={find}
+          type="button"
+          {...menu.handlers}
         >
-          <UserRound aria-hidden="true" size={15} />
-        </Button>
-      ) : null}
-      <Button
-        aria-label={`Remove ${name}`}
-        disabled={check.reviewers.length <= 1}
-        onClick={remove}
-        size="lg"
-        square
-        variant="transparent"
+          {pill}
+        </button>
+      </PopoverTrigger>
+      <Popover
+        anchorRef={block}
+        className="w-80 max-w-[calc(100vw-2rem)]"
+        offset={8}
+        position="bottom-start"
       >
-        <X aria-hidden="true" size={15} />
-      </Button>
-    </li>
+        <div className={POPOVER_BODY}>
+          <Field label="Name">
+            <Input
+              inputComponentProps={{ "aria-label": `Name of voter ${name}` }}
+              maxLength={LABEL_MAX}
+              onChange={rename}
+              placeholder="Anna, Reviewer 1"
+              size="xl"
+              value={reviewer.label}
+            />
+          </Field>
+          <Field label="Wallet">
+            <AddressField
+              autoFocus={typed === ""}
+              label={`Wallet address of ${name}`}
+              onChange={setAddress}
+              value={reviewer.address}
+            />
+          </Field>
+          {wallet === null ? null : (
+            <Button
+              aria-pressed={mine}
+              className={cn("self-start", pickedClass(mine))}
+              onClick={useMine}
+              size="lg"
+            >
+              This is me
+            </Button>
+          )}
+          {only ? null : (
+            <PopoverClose>
+              <RemoveLine label="Remove this voter" onClick={remove} />
+            </PopoverClose>
+          )}
+        </div>
+      </Popover>
+    </PopoverRoot>
   );
 }
+
+export function Voters({ check, word }: { check: DraftCheck; word: string }) {
+  const editable = useEditable();
+  const change = useCheckEdit(check.id);
+  const setThreshold = useCallback(
+    (value: string) => change((c) => ({ ...c, threshold: Number(value) })),
+    [change]
+  );
+  const add = useCallback(
+    () =>
+      change((current) => {
+        const next = addReviewer(current);
+        const last = next.reviewers.at(-1);
+        return last && next !== current
+          ? {
+              ...next,
+              reviewers: [
+                ...current.reviewers,
+                { ...last, label: `${word} ${next.reviewers.length}` },
+              ],
+            }
+          : current;
+      }),
+    [change, word]
+  );
+  const anchored = !slotGap(check);
+  return (
+    <>
+      <PickSlot
+        label="Yes votes needed"
+        onChange={setThreshold}
+        options={range(check.reviewers.length)}
+        value={String(check.threshold)}
+      />
+      <span>of</span>
+      {check.reviewers.map((reviewer, position) => (
+        <VoterSlot
+          anchored={anchored}
+          check={check}
+          key={reviewer.id}
+          position={position}
+          reviewer={reviewer}
+        />
+      ))}
+      {editable && canAddReviewer(check) ? (
+        <button
+          aria-label="Add a voter"
+          className="grid size-8 shrink-0 place-items-center rounded-full border border-current border-dashed opacity-70 transition-opacity duration-150 hover:opacity-100"
+          data-slot=""
+          onClick={add}
+          type="button"
+        >
+          <Plus aria-hidden="true" size={14} />
+        </button>
+      ) : null}
+    </>
+  );
+}
+
+const BADGE =
+  "inline-flex h-6 max-w-full items-center gap-1 rounded-full border border-[color-mix(in_oklab,currentColor_45%,transparent)] px-2 font-medium text-xs [@media(pointer:coarse)]:h-8 [@media(pointer:coarse)]:text-[13px]";
 
 function BindToggle({ check, party }: { check: DraftCheck; party: PartySlot }) {
   const draft = useDraft();
@@ -158,237 +265,68 @@ function BindToggle({ check, party }: { check: DraftCheck; party: PartySlot }) {
     [bound, change, party.id]
   );
   return (
-    <Button
+    <button
       aria-pressed={bound}
-      className={pickedClass(bound)}
+      className={cn(
+        BADGE,
+        "cursor-pointer",
+        bound ? "border-current" : "opacity-70"
+      )}
+      data-slot=""
       onClick={toggle}
-      size="lg"
-      title='The nodes take the wallet from the line "pact: <address>" in the pull request'
+      title='The servers take the wallet from the line "pact: <address>" in the pull request'
+      type="button"
     >
-      The pull request names {partyName(draft, party.id)}
-    </Button>
+      names {partyName(draft, party.id)}
+    </button>
   );
 }
 
-function VoterList({ check }: { check: DraftCheck }) {
-  const draft = useDraft();
-  const change = useCheckEdit(check.id);
-  const [firstEmpty] = useState(
-    () =>
-      check.reviewers.find((reviewer) => reviewer.address.trim() === "")?.id ??
-      null
-  );
-  const setThreshold = useCallback(
-    (threshold: number) => change((c) => ({ ...c, threshold })),
-    [change]
-  );
-  const setTarget = useCallback(
-    (target: string) => change((c) => ({ ...c, target })),
-    [change]
-  );
-  const add = useCallback(() => change(addReviewer), [change]);
-  const judging = check.kind === "manual" && check.binds !== null;
-  const openParties =
-    check.kind === "github_pr_merged"
-      ? draft.parties.filter((party) => party.open)
-      : [];
-  return (
-    <div className={POPOVER_BODY}>
-      {judging ? (
-        <Field label="What the judges confirm">
-          <Input
-            inputComponentProps={{ "aria-label": "What the judges confirm" }}
-            maxLength={TARGET_MAX}
-            onChange={setTarget}
-            size="lg"
-            value={check.target}
-          />
-        </Field>
-      ) : null}
-      <ul className="flex flex-col gap-1.5">
-        {check.reviewers.map((reviewer, position) => (
-          <VoterRow
-            check={check}
-            focus={reviewer.id === firstEmpty}
-            key={reviewer.id}
-            position={position}
-            reviewer={reviewer}
-          />
-        ))}
-      </ul>
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-sm">
-        <span className="flex items-center gap-2">
-          <NumberField
-            aria-label="Yes votes needed"
-            className="w-24"
-            max={Math.max(1, check.reviewers.length)}
-            min={1}
-            onChange={setThreshold}
-            size="lg"
-            value={check.threshold}
-          />
-          <span className="text-cladd-fg-soft">
-            of {check.reviewers.length}
-          </span>
-        </span>
-        {canAddReviewer(check) ? (
-          <Button
-            aria-label="Add a voter"
-            className="ml-auto"
-            onClick={add}
-            size="lg"
-            square
-          >
-            <Plus aria-hidden="true" size={15} />
-          </Button>
-        ) : null}
-      </div>
-      {openParties.map((party) => (
-        <BindToggle check={check} key={party.id} party={party} />
-      ))}
-      <ProblemLines anchor={anchors.check(check.id)} />
-    </div>
-  );
-}
+const VERIFIERS = {
+  nodes: {
+    hint: "Three servers run by Pact read GitHub and vote. Anyone can run one.",
+    icon: Server,
+    label: "3 Pact servers",
+  },
+  oracle: {
+    hint: "Three independent Switchboard oracles read the source and sign the answer.",
+    icon: Radio,
+    label: "Switchboard, 3 oracles",
+  },
+} as const;
 
-const addressGap = (check: DraftCheck) => {
-  const empty = check.reviewers.filter(
-    (reviewer) => reviewer.address.trim() === ""
-  ).length;
-  if (empty === 0) {
-    return null;
-  }
-  return empty === 1 ? "1 address missing" : `${empty} addresses missing`;
-};
-
-export function VotersButton({ check }: { check: DraftCheck }) {
-  const editable = useEditable();
-  const gap = addressGap(check);
-  const anchored = gap !== null && !slotGap(check);
-  const content = (
-    <>
-      <UsersRound aria-hidden="true" className="shrink-0" size={13} />
-      {gap ? <span className="truncate">{gap}</span> : null}
-    </>
-  );
-  const look = cn(SOCKET_BUTTON, gap && SOCKET_EMPTY);
-  const { block, find } = useBlockAnchor();
-  if (!editable) {
-    return gap ? <span className={look}>{content}</span> : null;
-  }
-  return (
-    <PopoverRoot>
-      <PopoverTrigger>
-        <button
-          aria-label={gap ? `Voter addresses: ${gap}` : "Voter addresses"}
-          className={look}
-          data-anchor={anchored ? anchors.check(check.id) : undefined}
-          data-slot=""
-          ref={find}
-          type="button"
-        >
-          {content}
-        </button>
-      </PopoverTrigger>
-      <Popover
-        anchorRef={block}
-        className="w-[27rem] max-w-[calc(100vw-2rem)]"
-        offset={8}
-        position="bottom-start"
-      >
-        <VoterList check={check} />
-      </Popover>
-    </PopoverRoot>
-  );
-}
-
-type CheckerKey = "people" | "nodes" | "oracle";
-
-const CHECKERS: Record<CheckerKey, { icon: typeof Radio; label: string }> = {
-  nodes: { icon: Server, label: "Pact nodes" },
-  oracle: { icon: Radio, label: "Switchboard, 3 oracles" },
-  people: { icon: UsersRound, label: "people" },
-};
-
-const checkerOf = (check: DraftCheck): CheckerKey => {
+const verifierOf = (check: DraftCheck) => {
   if (isOracle(check)) {
     return "oracle";
   }
-  return hasDemoNodes(check) ? "nodes" : "people";
+  return hasDemoNodes(check) ? "nodes" : null;
 };
 
-const withChecker = (check: DraftCheck, key: CheckerKey): DraftCheck => {
-  if (key === "oracle") {
-    return withOracle(check);
-  }
-  if (key === "nodes") {
-    return withDemoNodes(check);
-  }
-  return { ...check, reviewers: blankVoters("Reviewer"), threshold: MAJORITY };
-};
-
-const BADGE =
-  "h-6 max-w-full rounded-full border [@media(pointer:coarse)]:h-8 [@media(pointer:coarse)]:text-[13px] [@media(pointer:coarse)]:leading-[30px] border-[color-mix(in_oklab,currentColor_45%,transparent)] bg-transparent pl-6 font-medium text-xs leading-[22px] outline-none focus:border-current focus-visible:outline-none!";
-
-export function Checker({ check }: { check: DraftCheck }) {
+export function Verifier({ check }: { check: DraftCheck }) {
+  const draft = useDraft();
   const editable = useEditable();
-  const change = useCheckEdit(check.id);
-  const current = checkerOf(check);
-  const pick = useCallback(
-    (event: ChangeEvent<HTMLSelectElement>) => {
-      const key = event.target.value as CheckerKey;
-      change((c) => withChecker(c, key));
-    },
-    [change]
-  );
-  const keys: CheckerKey[] =
-    check.kind === "http_contains" && check.binds === null
-      ? ["oracle", "nodes", "people"]
-      : ["nodes", "people"];
-  const Icon = CHECKERS[current].icon;
+  const key = verifierOf(check);
+  const openParties =
+    editable && check.kind === "github_pr_merged"
+      ? draft.parties.filter((party) => party.open)
+      : [];
+  if (key === null) {
+    return <Voters check={check} word="Reviewer" />;
+  }
+  const { hint, icon: Icon, label } = VERIFIERS[key];
   const gate = check.reviewers[0]?.address.trim() ?? "";
   return (
     <>
       <span
-        className="relative inline-flex max-w-full items-center"
-        title={current === "oracle" && gate !== "" ? `Gate ${gate}` : undefined}
+        className={BADGE}
+        title={key === "oracle" && gate !== "" ? `${hint} Gate ${gate}` : hint}
       >
-        <Icon
-          aria-hidden="true"
-          className="pointer-events-none absolute left-1.5"
-          size={12}
-        />
-        {editable ? (
-          <>
-            <select
-              aria-label="Who checks"
-              className={cn(
-                BADGE,
-                "field-sizing-content cursor-pointer appearance-none pr-5"
-              )}
-              data-slot=""
-              onChange={pick}
-              value={current}
-            >
-              {keys.map((key) => (
-                <option key={key} value={key}>
-                  {CHECKERS[key].label}
-                </option>
-              ))}
-            </select>
-            <ChevronDown
-              aria-hidden="true"
-              className="pointer-events-none absolute right-1.5 opacity-70"
-              size={12}
-            />
-          </>
-        ) : (
-          <span className={cn(BADGE, "inline-block truncate pr-2")}>
-            {CHECKERS[current].label}
-          </span>
-        )}
+        <Icon aria-hidden="true" className="shrink-0" size={12} />
+        <span className="truncate">{label}</span>
       </span>
-      {current === "people" ? <VotersButton check={check} /> : null}
+      {openParties.map((party) => (
+        <BindToggle check={check} key={party.id} party={party} />
+      ))}
     </>
   );
 }

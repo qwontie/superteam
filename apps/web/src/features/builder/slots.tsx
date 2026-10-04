@@ -241,7 +241,7 @@ export function PickSlot({ label, onChange, options, value }: PickSlotProps) {
         aria-label={label}
         className={cn(
           SOCKET,
-          "field-sizing-content cursor-pointer appearance-none pr-5"
+          "field-sizing-content cursor-pointer appearance-none pr-5!"
         )}
         data-slot=""
         onChange={change}

@@ -33,6 +33,7 @@ import {
   useCreate,
 } from "@/features/builder/create";
 import { useGateSync } from "@/features/builder/gate";
+import { MenuProvider } from "@/features/builder/menu";
 import { MoneyLine } from "@/features/builder/money-line";
 import {
   PaletteProvider,
@@ -271,30 +272,32 @@ export function Workspace({
       <SimulationProvider draft={draft}>
         <CreateProvider>
           <main className={cn(PAGE, "flex flex-1 flex-col pt-6 sm:pt-10")}>
-            <PaletteProvider>
-              <Board>
-                <div className="flex w-full flex-1 justify-center gap-8 xl:gap-10">
-                  <PaletteRail />
-                  <div className={cn(COLUMN, "flex flex-col")}>
-                    <div className="flex flex-col gap-4">
-                      <header className="flex flex-wrap items-center gap-x-2 gap-y-3">
-                        <TitleField />
-                        <div className="order-last ml-auto flex items-center gap-2 sm:order-none">
-                          <PlayToggle />
-                          <MoreMenu />
-                        </div>
-                        <div className="min-w-0 flex-1 sm:basis-full">
-                          <Money />
-                        </div>
-                      </header>
-                      <Canvas />
+            <MenuProvider>
+              <PaletteProvider>
+                <Board>
+                  <div className="flex w-full flex-1 justify-center gap-8 xl:gap-10">
+                    <PaletteRail />
+                    <div className={cn(COLUMN, "flex flex-col")}>
+                      <div className="flex flex-col gap-4">
+                        <header className="flex flex-wrap items-center gap-x-2 gap-y-3">
+                          <TitleField />
+                          <div className="order-last ml-auto flex items-center gap-2 sm:order-none">
+                            <PlayToggle />
+                            <MoreMenu />
+                          </div>
+                          <div className="min-w-0 flex-1 sm:basis-full">
+                            <Money />
+                          </div>
+                        </header>
+                        <Canvas />
+                      </div>
+                      <Dock prompt={prompt} />
                     </div>
-                    <Dock prompt={prompt} />
                   </div>
-                </div>
-                <PaletteSheet />
-              </Board>
-            </PaletteProvider>
+                  <PaletteSheet />
+                </Board>
+              </PaletteProvider>
+            </MenuProvider>
           </main>
         </CreateProvider>
       </SimulationProvider>

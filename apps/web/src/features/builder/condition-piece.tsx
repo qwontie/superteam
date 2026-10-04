@@ -1,17 +1,21 @@
-import {
-  Button,
-  cn,
-  Popover,
-  PopoverClose,
-  PopoverRoot,
-  PopoverTrigger,
-} from "@cladd-ui/react";
+import { cn } from "@cladd-ui/react";
 import { useDraggable } from "@dnd-kit/core";
-import { Trash2 } from "lucide-react";
-import { type KeyboardEvent, type PointerEvent, useCallback } from "react";
-import { type BlockKind, blockOf } from "@/features/builder/blocks";
+import { ArrowRightLeft, Copy, Trash2 } from "lucide-react";
+import {
+  type KeyboardEvent,
+  type MouseEvent,
+  type PointerEvent,
+  useCallback,
+} from "react";
+import {
+  type BlockKind,
+  blockOf,
+  canDuplicate,
+  duplicateCondition,
+} from "@/features/builder/blocks";
 import { CheckBody } from "@/features/builder/check-block";
 import { conditionText } from "@/features/builder/describe";
+import { type MenuItem, useMenu } from "@/features/builder/menu";
 import {
   canRemoveCondition,
   canTake,
@@ -108,112 +112,86 @@ function Body({ condition, ruleId }: BodyProps<DraftCondition>) {
   return <SignBody condition={condition} ruleId={ruleId} />;
 }
 
-function MoveOption({
-  condition,
-  from,
-  index,
-  to,
-}: {
-  condition: DraftCondition;
-  from: string;
-  index: number;
-  to: string;
-}) {
-  const { edit } = useBuilder();
-  const move = useCallback(
-    () => edit((d) => moveCondition(d, from, to, condition.id)),
-    [condition.id, edit, from, to]
-  );
-  return (
-    <PopoverClose>
-      <Button
-        aria-label={`Move to rule ${index + 1}`}
-        className="font-mono tabular-nums"
-        onClick={move}
-        size="lg"
-        square
-      >
-        {index + 1}
-      </Button>
-    </PopoverClose>
-  );
-}
-
-function Handle({
-  condition,
-  kind,
-  label,
-  rule,
-}: {
-  condition: DraftCondition;
-  kind: BlockKind;
-  label: string;
-  rule: DraftRule;
-}) {
+const useBlockMenu = (condition: DraftCondition, rule: DraftRule) => {
   const { edit } = useBuilder();
   const draft = useDraft();
-  const remove = useCallback(
-    () => edit((d) => removeCondition(d, rule.id, condition.id)),
-    [condition.id, edit, rule.id]
+  return useCallback((): MenuItem[] => {
+    const removable = canRemoveCondition(rule);
+    const moves = removable
+      ? draft.rules
+          .map((entry, index) => ({ entry, index }))
+          .filter(
+            ({ entry }) =>
+              entry.id !== rule.id && canTake(entry, condition.type)
+          )
+          .map(({ entry, index }) => ({
+            icon: <ArrowRightLeft aria-hidden="true" size={16} />,
+            key: `move:${entry.id}`,
+            label: `Move to rule ${index + 1}`,
+            run: () =>
+              edit((d) => moveCondition(d, rule.id, entry.id, condition.id)),
+          }))
+      : [];
+    return [
+      ...moves,
+      {
+        disabled: !canDuplicate(draft, condition),
+        icon: <Copy aria-hidden="true" size={16} />,
+        key: "duplicate",
+        label: "Duplicate",
+        run: () => edit((d) => duplicateCondition(d, rule.id, condition.id)),
+      },
+      {
+        danger: true,
+        disabled: !removable,
+        icon: <Trash2 aria-hidden="true" size={16} />,
+        key: "remove",
+        label: "Remove this block",
+        run: () => edit((d) => removeCondition(d, rule.id, condition.id)),
+      },
+    ];
+  }, [condition, draft, edit, rule]);
+};
+
+function Handle({
+  kind,
+  label,
+  onOpen,
+  onRemove,
+}: {
+  kind: BlockKind;
+  label: string;
+  onOpen: (element: HTMLElement) => void;
+  onRemove: () => void;
+}) {
+  const open = useCallback(
+    (event: MouseEvent<HTMLButtonElement>) =>
+      onOpen(
+        event.currentTarget.closest<HTMLElement>("[data-block]") ??
+          event.currentTarget
+      ),
+    [onOpen]
   );
   const onKeyDown = useCallback(
     (event: KeyboardEvent<HTMLButtonElement>) => {
       if (event.key === "Backspace" || event.key === "Delete") {
         event.preventDefault();
-        remove();
+        onRemove();
       }
     },
-    [remove]
+    [onRemove]
   );
-  if (!canRemoveCondition(rule)) {
-    return <BlockIcon kind={kind} />;
-  }
-  const targets = draft.rules
-    .map((entry, index) => ({ entry, index }))
-    .filter(
-      ({ entry }) => entry.id !== rule.id && canTake(entry, condition.type)
-    );
   return (
-    <PopoverRoot>
-      <PopoverTrigger>
-        <button
-          aria-label={`Block ${label}: move or remove`}
-          className="cursor-grab rounded-[6px] active:cursor-grabbing [@media(pointer:coarse)]:-m-2 [@media(pointer:coarse)]:p-2"
-          onKeyDown={onKeyDown}
-          type="button"
-        >
-          <BlockIcon kind={kind} />
-        </button>
-      </PopoverTrigger>
-      <Popover offset={8} position="bottom-start">
-        <div className="flex items-center gap-1.5 p-2">
-          {targets.length > 0 ? (
-            <span className="px-1 text-cladd-fg-soft text-xs">Move to</span>
-          ) : null}
-          {targets.map(({ entry, index }) => (
-            <MoveOption
-              condition={condition}
-              from={rule.id}
-              index={index}
-              key={entry.id}
-              to={entry.id}
-            />
-          ))}
-          <PopoverClose>
-            <Button
-              aria-label="Remove this block"
-              className="text-pact-stop"
-              onClick={remove}
-              size="lg"
-              square
-              variant="transparent"
-            >
-              <Trash2 aria-hidden="true" size={15} />
-            </Button>
-          </PopoverClose>
-        </div>
-      </Popover>
-    </PopoverRoot>
+    <button
+      aria-haspopup="menu"
+      aria-label={`Block ${label}: move, duplicate or remove`}
+      className="cursor-grab rounded-[6px] active:cursor-grabbing [@media(pointer:coarse)]:-m-2 [@media(pointer:coarse)]:p-2"
+      onClick={open}
+      onKeyDown={onKeyDown}
+      type="button"
+    >
+      <BlockIcon kind={kind} />
+    </button>
   );
 }
 
@@ -292,7 +270,7 @@ export function ConditionPiece({
   rule,
   state = "static",
 }: ConditionPieceProps) {
-  const { locked, mode } = useBuilder();
+  const { edit, locked, mode } = useBuilder();
   const draft = useDraft();
   const broken = useBroken(condition);
   const editable = !locked && mode === "build";
@@ -307,6 +285,12 @@ export function ConditionPiece({
     disabled: !(editable && canRemoveCondition(rule)),
     id: `condition:${condition.id}`,
   });
+  const menu = useMenu(useBlockMenu(condition, rule), editable);
+  const remove = useCallback(() => {
+    if (canRemoveCondition(rule)) {
+      edit((d) => removeCondition(d, rule.id, condition.id));
+    }
+  }, [condition.id, edit, rule]);
   const start = pointerDown(listeners);
   const onPointerDown = useCallback(
     (event: PointerEvent<HTMLElement>) => {
@@ -343,16 +327,17 @@ export function ConditionPiece({
       )}
       onPointerDown={onPointerDown}
       ref={setNodeRef}
+      {...menu.handlers}
     >
       <BlockShell
         broken={broken}
         editable
         handle={
           <Handle
-            condition={condition}
             kind={kind}
             label={conditionText(condition, draft).label}
-            rule={rule}
+            onOpen={menu.openAt}
+            onRemove={remove}
           />
         }
         kind={kind}

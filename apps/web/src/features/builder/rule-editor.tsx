@@ -1,10 +1,7 @@
 import {
   Button,
   cn,
-  List,
-  ListButton,
   Popover,
-  PopoverClose,
   PopoverRoot,
   PopoverTrigger,
 } from "@cladd-ui/react";
@@ -14,20 +11,29 @@ import { CSS } from "@dnd-kit/utilities";
 import {
   ArrowDown,
   ArrowUp,
+  Copy,
   Ellipsis,
   GripVertical,
   Lock,
   Plus,
   Trash2,
 } from "lucide-react";
-import { Fragment, type ReactNode, useCallback, useState } from "react";
+import {
+  Fragment,
+  type MouseEvent,
+  type ReactNode,
+  useCallback,
+  useState,
+} from "react";
 import { RuleBlock } from "@/components/pact/rule-block";
 import { FiredNote } from "@/components/pact/vault";
 import { ArrivePiece, LandingFlash } from "@/features/builder/arrive";
-import type { PaletteKind } from "@/features/builder/blocks";
+import { duplicateRule, type PaletteKind } from "@/features/builder/blocks";
 import { ConditionPiece } from "@/features/builder/condition-piece";
+import { type MenuItem, useMenu } from "@/features/builder/menu";
 import {
   amountLamports,
+  canAddRule,
   type DraftCondition,
   type DraftRule,
   isTimeOnly,
@@ -128,6 +134,7 @@ interface RuleBodyProps {
   action?: ReactNode;
   gutter: ReactNode;
   index: number;
+  menu: ReturnType<typeof useMenu>["handlers"];
   rule: DraftRule;
 }
 
@@ -167,7 +174,7 @@ const usePlayDetail = () => {
   };
 };
 
-function RuleBody({ action, gutter, index, rule }: RuleBodyProps) {
+function RuleBody({ action, gutter, index, menu, rule }: RuleBodyProps) {
   const { locked, mode } = useBuilder();
   const { focus, setFocus } = usePalette();
   const sim = useSim();
@@ -200,6 +207,7 @@ function RuleBody({ action, gutter, index, rule }: RuleBodyProps) {
       onFocusCapture={mark}
       onPointerDownCapture={mark}
       tabIndex={-1}
+      {...menu}
     >
       {gutter}
       <div
@@ -262,74 +270,74 @@ function RuleBody({ action, gutter, index, rule }: RuleBodyProps) {
   );
 }
 
-function MoveItem({
-  down,
-  rule,
-  target,
-}: {
-  down: boolean;
-  rule: DraftRule;
-  target: DraftRule | undefined;
-}) {
-  const { edit } = useBuilder();
-  const move = useCallback(() => {
-    if (target) {
-      edit((d) => reorderRules(d, rule.id, target.id));
-    }
-  }, [edit, rule.id, target]);
-  const Icon = down ? ArrowDown : ArrowUp;
-  return (
-    <PopoverClose>
-      <ListButton
-        disabled={!target}
-        icon={<Icon aria-hidden="true" size={16} />}
-        onClick={move}
-        size="xl"
-      >
-        {down ? "Move down" : "Move up"}
-      </ListButton>
-    </PopoverClose>
-  );
-}
-
-function RuleMenu({ index, rule }: { index: number; rule: DraftRule }) {
+const useRuleMenu = (rule: DraftRule) => {
   const { edit } = useBuilder();
   const draft = useDraft();
-  const free = draft.rules.filter((entry) => !entry.exit);
-  const remove = useCallback(
-    () => edit((d) => removeRule(d, rule.id)),
-    [edit, rule.id]
+  return useCallback((): MenuItem[] => {
+    const free = draft.rules.filter((entry) => !entry.exit);
+    const index = free.findIndex((entry) => entry.id === rule.id);
+    const up = free[index - 1];
+    const down = free[index + 1];
+    const duplicate = {
+      disabled: !canAddRule(draft),
+      icon: <Copy aria-hidden="true" size={16} />,
+      key: "duplicate",
+      label: "Duplicate rule",
+      run: () => edit((d) => duplicateRule(d, rule.id)),
+    };
+    if (rule.exit) {
+      return [duplicate];
+    }
+    return [
+      {
+        disabled: !up,
+        icon: <ArrowUp aria-hidden="true" size={16} />,
+        key: "up",
+        label: "Move up",
+        run: () => edit((d) => (up ? reorderRules(d, rule.id, up.id) : d)),
+      },
+      {
+        disabled: !down,
+        icon: <ArrowDown aria-hidden="true" size={16} />,
+        key: "down",
+        label: "Move down",
+        run: () => edit((d) => (down ? reorderRules(d, rule.id, down.id) : d)),
+      },
+      duplicate,
+      {
+        danger: true,
+        icon: <Trash2 aria-hidden="true" size={16} />,
+        key: "remove",
+        label: "Remove rule",
+        run: () => edit((d) => removeRule(d, rule.id)),
+      },
+    ];
+  }, [draft, edit, rule]);
+};
+
+function RuleMenu({
+  index,
+  onOpen,
+}: {
+  index: number;
+  onOpen: (element: HTMLElement) => void;
+}) {
+  const open = useCallback(
+    (event: MouseEvent<HTMLButtonElement>) => onOpen(event.currentTarget),
+    [onOpen]
   );
   return (
-    <PopoverRoot>
-      <PopoverTrigger>
-        <Button
-          aria-label={`Rule ${index + 1}: move or remove`}
-          className={REVEAL}
-          size="lg"
-          square
-          variant="transparent"
-        >
-          <Ellipsis aria-hidden="true" size={16} />
-        </Button>
-      </PopoverTrigger>
-      <Popover className="w-52" offset={8} position="bottom-end">
-        <List className="p-1.5">
-          <MoveItem down={false} rule={rule} target={free[index - 1]} />
-          <MoveItem down rule={rule} target={free[index + 1]} />
-          <PopoverClose>
-            <ListButton
-              className="text-pact-stop"
-              icon={<Trash2 aria-hidden="true" size={16} />}
-              onClick={remove}
-              size="xl"
-            >
-              Remove rule
-            </ListButton>
-          </PopoverClose>
-        </List>
-      </Popover>
-    </PopoverRoot>
+    <Button
+      aria-haspopup="menu"
+      aria-label={`Rule ${index + 1}: move, duplicate or remove`}
+      className={REVEAL}
+      onClick={open}
+      size="lg"
+      square
+      variant="transparent"
+    >
+      <Ellipsis aria-hidden="true" size={16} />
+    </Button>
   );
 }
 
@@ -352,6 +360,7 @@ export function SortableRule({
     transform,
     transition,
   } = useSortable({ data: drag, disabled: !editable, id: rule.id });
+  const menu = useMenu(useRuleMenu(rule), editable);
   return (
     <div
       className={cn("relative", isDragging && "z-10 opacity-80")}
@@ -359,7 +368,9 @@ export function SortableRule({
       style={{ transform: CSS.Translate.toString(transform), transition }}
     >
       <RuleBody
-        action={editable ? <RuleMenu index={index} rule={rule} /> : null}
+        action={
+          editable ? <RuleMenu index={index} onOpen={menu.openAt} /> : null
+        }
         gutter={
           editable ? (
             <button
@@ -378,6 +389,7 @@ export function SortableRule({
           ) : null
         }
         index={index}
+        menu={menu.handlers}
         rule={rule}
       />
     </div>
@@ -385,6 +397,8 @@ export function SortableRule({
 }
 
 export function ExitRule({ index, rule }: { index: number; rule: DraftRule }) {
+  const { locked, mode } = useBuilder();
+  const menu = useMenu(useRuleMenu(rule), !locked && mode === "build");
   return (
     <RuleBody
       action={
@@ -397,6 +411,7 @@ export function ExitRule({ index, rule }: { index: number; rule: DraftRule }) {
       }
       gutter={null}
       index={index}
+      menu={menu.handlers}
       rule={rule}
     />
   );

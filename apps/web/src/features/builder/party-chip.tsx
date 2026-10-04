@@ -7,10 +7,11 @@ import {
   PopoverTrigger,
   Switch,
 } from "@cladd-ui/react";
-import { Plus } from "lucide-react";
+import { Eraser, Plus, Trash2, UserRound } from "lucide-react";
 import { type ReactNode, useCallback } from "react";
 import { PartyAvatar } from "@/components/pact/party";
 import { partyName } from "@/features/builder/describe";
+import { type MenuItem, useMenu } from "@/features/builder/menu";
 import {
   addParty,
   canAddParty,
@@ -219,6 +220,36 @@ export function PartyChip({
     () => edit((d) => removeParty(d, party.id)),
     [edit, party.id]
   );
+  const removable = canRemoveParty(draft) && draft.funder !== party.id;
+  const items = useCallback(
+    (): MenuItem[] => [
+      {
+        disabled: party.open || party.me,
+        icon: <UserRound aria-hidden="true" size={16} />,
+        key: "me",
+        label: "This is me",
+        run: () => edit((d) => updateParty(d, party.id, { me: true })),
+      },
+      {
+        disabled: party.open || !(party.me || party.address.trim() !== ""),
+        icon: <Eraser aria-hidden="true" size={16} />,
+        key: "clear",
+        label: "Clear the address",
+        run: () =>
+          edit((d) => updateParty(d, party.id, { address: "", me: false })),
+      },
+      {
+        danger: true,
+        disabled: !removable,
+        icon: <Trash2 aria-hidden="true" size={16} />,
+        key: "remove",
+        label: "Remove from the deal",
+        run: remove,
+      },
+    ],
+    [edit, party, removable, remove]
+  );
+  const menu = useMenu(items, !(locked || mode === "play"));
   const pill = (
     <SlotPill
       address={partyAddress(party, wallet) ?? ""}
@@ -238,7 +269,9 @@ export function PartyChip({
           aria-label={`Edit ${name}`}
           className="max-w-full rounded-full"
           data-anchor={anchors.party(party.id)}
+          data-slot=""
           type="button"
+          {...menu.handlers}
         >
           {pill}
         </button>
@@ -254,7 +287,7 @@ export function PartyChip({
             <PartyPicker label={pickLabel} options={options} place={place} />
           ) : null}
           {extra}
-          {canRemoveParty(draft) && draft.funder !== party.id ? (
+          {removable ? (
             <PopoverClose>
               <RemoveLine label="Remove from the deal" onClick={remove} />
             </PopoverClose>

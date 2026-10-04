@@ -1,5 +1,6 @@
 import { cn } from "@cladd-ui/react";
 import { useDraggable } from "@dnd-kit/core";
+import { CornerDownRight, Plus } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import {
   createContext,
@@ -17,8 +18,11 @@ import {
   canPlace,
   isMoney,
   type PaletteKind,
+  pieceOf,
   placeBlock,
 } from "@/features/builder/blocks";
+import { type MenuItem, useMenu } from "@/features/builder/menu";
+import { canAddRule, canTake } from "@/features/builder/model";
 import { pointerDown } from "@/features/builder/pieces";
 import {
   BlockShell,
@@ -93,7 +97,7 @@ export function BlockFace({
         typeof part === "string" ? (
           <span key={part}>{part}</span>
         ) : (
-          <StaticSlot key={part.slot}>{part.slot}</StaticSlot>
+          <StaticSlot key={part.id ?? part.slot}>{part.slot}</StaticSlot>
         )
       )}
     </BlockShell>
@@ -121,6 +125,37 @@ function PaletteBlock({ drag, kind, onPicked, ruleId }: ItemProps) {
     add(kind, ruleId);
     onPicked?.();
   }, [add, kind, onPicked, ruleId]);
+  const items = useCallback((): MenuItem[] => {
+    const money = isMoney(kind);
+    const targets = draft.rules
+      .map((rule, index) => ({ index, rule }))
+      .filter(({ rule }) => money || canTake(rule, pieceOf(kind)))
+      .map(({ index, rule }) => ({
+        icon: <CornerDownRight aria-hidden="true" size={16} />,
+        key: `rule:${rule.id}`,
+        label: rule.exit ? "Add to the exit rule" : `Add to rule ${index + 1}`,
+        run: () => {
+          add(kind, rule.id);
+          onPicked?.();
+        },
+      }));
+    return money
+      ? targets
+      : [
+          ...targets,
+          {
+            disabled: !canAddRule(draft),
+            icon: <Plus aria-hidden="true" size={16} />,
+            key: "new",
+            label: "New rule with it",
+            run: () => {
+              add(kind, null);
+              onPicked?.();
+            },
+          },
+        ];
+  }, [add, draft, kind, onPicked]);
+  const menu = useMenu(items, allowed);
   return (
     <button
       aria-label={`Add block: ${BLOCKS[kind].name}`}
@@ -137,6 +172,7 @@ function PaletteBlock({ drag, kind, onPicked, ruleId }: ItemProps) {
         allowed ? undefined : "A deal holds three checks. Remove one first."
       }
       type="button"
+      {...menu.handlers}
     >
       <BlockFace
         className={drag ? "min-h-7 py-0.5 text-[13px]" : undefined}

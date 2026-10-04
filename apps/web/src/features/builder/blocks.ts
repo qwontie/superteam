@@ -13,6 +13,7 @@ import {
   type DraftCheck,
   type DraftCondition,
   type DraftPayout,
+  exitLast,
   FULL,
   newCondition,
   newId,
@@ -39,7 +40,7 @@ export type BlockKind = "after" | "signed" | "unsigned" | CheckBlock;
 export type MoneyKind = "pay" | "split" | "refund";
 export type PaletteKind = BlockKind | MoneyKind;
 
-export type Part = string | { slot: string };
+export type Part = string | { id?: string; slot: string };
 
 interface BlockInfo {
   category: Category;
@@ -68,7 +69,14 @@ export const BLOCKS: Record<PaletteKind, BlockInfo> = {
   judges: {
     category: "people",
     name: "judges name the winner",
-    parts: [slot("2"), "of", slot("3"), "judges name the winner"],
+    parts: [
+      slot("2"),
+      "of",
+      { id: "a", slot: "wallet" },
+      { id: "b", slot: "wallet" },
+      { id: "c", slot: "wallet" },
+      "name the winner",
+    ],
   },
   merged: {
     category: "github",
@@ -113,17 +121,20 @@ export const BLOCKS: Record<PaletteKind, BlockInfo> = {
   vote: {
     category: "people",
     name: "people confirm a statement",
-    parts: [slot("2"), "of", slot("3"), "people confirm", slot("statement")],
+    parts: [
+      slot("2"),
+      "of",
+      { id: "a", slot: "wallet" },
+      { id: "b", slot: "wallet" },
+      { id: "c", slot: "wallet" },
+      "confirm",
+      slot("statement"),
+    ],
   },
   wikidata: {
     category: "facts",
     name: "a Wikidata fact",
-    parts: [
-      "Wikidata:",
-      slot("who or what"),
-      slot("date of death"),
-      slot("exists"),
-    ],
+    parts: ["Wikidata:", slot("who or what"), slot("has a winner")],
   },
 };
 
@@ -256,7 +267,7 @@ const checkFor = (
     case "price":
       return { check: fact("price:SOL-USD", ">"), draft };
     case "wikidata":
-      return { check: fact("wikidata:/P570", "exists"), draft };
+      return { check: fact("wikidata:/P1346", "exists"), draft };
     case "api":
       return { check: fact("#", "="), draft };
     default:
@@ -426,4 +437,57 @@ export const setShare = (
       ? { ...payout, bps: FULL - kept - next }
       : payout;
   });
+};
+
+const copyCheck = (check: DraftCheck): DraftCheck => ({
+  ...check,
+  id: newId(),
+  reviewers: check.reviewers.map((reviewer) => ({ ...reviewer, id: newId() })),
+});
+
+export const duplicateCondition = (
+  draft: Draft,
+  ruleId: string,
+  conditionId: string
+): Draft => {
+  const rule = draft.rules.find((entry) => entry.id === ruleId);
+  const source = rule?.when.find((entry) => entry.id === conditionId);
+  if (!(rule && source)) {
+    return draft;
+  }
+  let next = draft;
+  let copy: DraftCondition = { ...source, id: newId() };
+  if (source.type === "attested") {
+    const check = draft.checks.find((entry) => entry.id === source.check);
+    if (!(check && canAddCheck(draft))) {
+      return draft;
+    }
+    const twin = copyCheck(check);
+    next = { ...draft, checks: [...draft.checks, twin] };
+    copy = { check: twin.id, id: copy.id, type: "attested" };
+  }
+  if (canTake(rule, copy.type)) {
+    return addCondition(next, ruleId, copy);
+  }
+  return canAddRule(next) ? addRule(next, copy) : draft;
+};
+
+export const canDuplicate = (draft: Draft, condition: DraftCondition) =>
+  condition.type !== "attested" || canAddCheck(draft);
+
+export const duplicateRule = (draft: Draft, ruleId: string): Draft => {
+  const index = draft.rules.findIndex((entry) => entry.id === ruleId);
+  const rule = draft.rules[index];
+  if (!(rule && canAddRule(draft))) {
+    return draft;
+  }
+  const twin = {
+    exit: false,
+    id: newId(),
+    pay: rule.pay.map((payout) => ({ ...payout })),
+    when: rule.when.map((condition) => ({ ...condition, id: newId() })),
+  };
+  const rules = [...draft.rules];
+  rules.splice(index + 1, 0, twin);
+  return { ...draft, rules: exitLast(rules) };
 };
