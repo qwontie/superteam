@@ -2,10 +2,7 @@ import { cn } from "@cladd-ui/react";
 import { Clock3, Lock, Zap } from "lucide-react";
 import { PAGE } from "@/components/shell/app-shell";
 import { ButtonLink } from "@/components/shell/button-link";
-import { WalletButton } from "@/components/shell/wallet-button";
-import { DealList } from "@/features/deal/deal-list";
 import { ExampleDeal } from "@/features/home/example-deal";
-import { useWallet } from "@/lib/use-wallet";
 
 const FACTS = [
   {
@@ -21,27 +18,6 @@ const FACTS = [
     text: "Anyone can fire a rule that is true. No one can fire one that is not.",
   },
 ] as const;
-
-function YourDeals() {
-  const { address, ready } = useWallet();
-  return (
-    <section className="flex flex-col gap-4">
-      <h2 className="font-display font-semibold text-2xl tracking-tight">
-        Your deals
-      </h2>
-      {ready && address ? <DealList own wallet={address} /> : null}
-      {ready && !address ? (
-        <div className="flex flex-col items-start gap-4">
-          <p className="text-cladd-fg-soft">
-            Connect a wallet to see the deals you created, fund, take part in or
-            witness.
-          </p>
-          <WalletButton />
-        </div>
-      ) : null}
-    </section>
-  );
-}
 
 export function Home() {
   return (
@@ -98,7 +74,6 @@ export function Home() {
         </div>
         <ExampleDeal />
       </section>
-      <YourDeals />
     </main>
   );
 }
