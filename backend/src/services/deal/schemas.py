@@ -8,6 +8,7 @@ from services.access.proof import WalletProof
 from services.access.quota import Quota
 
 from .addresses import is_address
+from .facts import DEMO_NODES, fact_problem
 
 TITLE_MAX_BYTES = 48
 TARGET_MAX_BYTES = 128
@@ -20,7 +21,6 @@ BPS_TOTAL = 10_000
 U64_MAX = 2**64 - 1
 CHECKS_BASE = 2
 CHECK_KINDS = ("manual", "http_contains", "github_checks", "github_pr_merged")
-URL = re.compile(r"^https?://\S+$")
 REPO_REF = re.compile(r"^[\w.-]+/[\w.-]+@\S+$")
 REPO_PR = re.compile(r"^[\w.-]+/[\w.-]+#\d+$")
 
@@ -113,8 +113,8 @@ def _kind_problems(check: Check) -> list[str]:
     match check.kind:
         case "manual" if check.expect:
             return ["expect must be empty for a manual check"]
-        case "http_contains" if not URL.match(check.target) or not check.expect:
-            return ["http_contains needs a URL target and a non-empty expect"]
+        case "http_contains" if problem := fact_problem(check.target, check.expect):
+            return [problem]
         case "github_checks" if not REPO_REF.match(check.target):
             return ["github_checks target must be owner/repo@ref"]
         case "github_checks" if check.expect != "success":
@@ -228,7 +228,7 @@ class DealDraft(BaseModel):
         if check.threshold > len(check.witnesses):
             problems.append(f"checks[{c}].threshold is above the number of witnesses")
         problems += _slot_problems(
-            check.witnesses, f"checks[{c}].witnesses", strict.allowed
+            check.witnesses, f"checks[{c}].witnesses", strict.allowed.union(DEMO_NODES)
         )
         return problems
 

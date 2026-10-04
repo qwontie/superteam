@@ -17,6 +17,7 @@ from utils.logging import logger
 
 from .agent import DealContext, deal_agent
 from .errors import DealError, ai_failed, ai_unavailable, timed_out
+from .facts import DEMO_NODES
 from .model_io import (
     ConversionError,
     ModelCheck,
@@ -100,8 +101,15 @@ class Emitter:
 
     def _check(self, raw: object) -> Payload:
         check = check_data(ModelCheck.model_validate(raw))
-        check["witnesses"] = [self._slot(w) for w in check["witnesses"]]  # ty: ignore[not-iterable]
+        allowed = self.ctx.allowed.union(DEMO_NODES)
+        for witness in check["witnesses"]:  # ty: ignore[not-iterable]
+            if witness["address"] not in allowed:
+                witness["address"] = None
         return check
+
+    @property
+    def emitted(self) -> bool:
+        return bool(self.parties or self.meta or self.checks or self.rules)
 
     def _meta(self, data: Payload) -> Payload:
         amount = data.get("amount_sol")
@@ -132,7 +140,7 @@ class Billing:
 async def _attempts(
     prompt: str, ctx: DealContext, llm: Llm, billing: Billing
 ) -> AsyncIterator[str]:
-    attempt = 0
+    emitter: Emitter | None = None
     async with deal_agent.iter(
         prompt,
         deps=ctx,
@@ -143,8 +151,7 @@ async def _attempts(
         async for node in run:
             if not Agent.is_model_request_node(node):
                 continue
-            attempt += 1
-            if attempt > 1:
+            if emitter is not None and emitter.emitted:
                 yield sse("reset", {})
             emitter = Emitter(ctx)
             async with node.stream(run.ctx) as stream:

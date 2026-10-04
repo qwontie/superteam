@@ -5,6 +5,7 @@ from zoneinfo import ZoneInfo
 
 from pydantic import BaseModel, Field
 
+from .facts import SlotData, checked_by
 from .schemas import After, Attested, CheckKind, DealDraft, Signed, Slot, Unsigned
 
 LAMPORTS_PER_SOL = 1_000_000_000
@@ -65,17 +66,22 @@ class ModelCheck(BaseModel):
     target: str = Field(
         description=(
             "manual: what the witnesses confirm, plain English, at most 120"
-            " characters; http_contains: the URL; github_checks: owner/repo@ref;"
-            " github_pr_merged: owner/repo#number"
+            " characters; http_contains: a page URL, URL#json.path, price:PAIR or"
+            " wikidata:Qid/Pid; github_checks: owner/repo@ref; github_pr_merged:"
+            " owner/repo#number"
         )
     )
     expect: str = Field(
         default="",
-        description="http_contains: text the page must contain; github_checks:"
-        " success; manual and github_pr_merged: empty",
+        description="http_contains: page text, or exists, =text, ~text, >N, <N;"
+        " github_checks: success; manual and github_pr_merged: empty",
     )
-    witnesses: list[ModelSlot] = Field(description="1 to 5 people who vote yes or no")
-    threshold: int = Field(description="How many yes votes are needed")
+    witnesses: list[ModelSlot] = Field(
+        description="manual: 1 to 5 people who vote yes or no; other kinds: []"
+    )
+    threshold: int = Field(
+        description="manual: how many yes votes are needed; other kinds: 1"
+    )
     binds: int | None = Field(
         default=None, description="Index of the open party this check picks, else null"
     )
@@ -99,7 +105,7 @@ class ModelDraft(BaseModel):
             " gives no amount in SOL"
         )
     )
-    checks: list[ModelCheck] = Field(description="0 to 2 manual checks")
+    checks: list[ModelCheck] = Field(description="0 to 2 checks")
     rules: list[ModelRule] = Field(
         description="1 to 6 rules in priority order, the exit rule last"
     )
@@ -151,7 +157,7 @@ def lamports_to_sol(value: str) -> str:
     return format(sol.normalize(), "f")
 
 
-def slot_data(slot: ModelSlot) -> dict[str, str | bool | None]:
+def slot_data(slot: ModelSlot) -> SlotData:
     return {
         "label": slot.label.strip(),
         "address": (slot.address or "").strip() or None,
@@ -172,12 +178,16 @@ def _condition(cond: ModelCondition, zone: ZoneInfo) -> dict[str, str | int]:
 
 
 def check_data(check: ModelCheck) -> dict[str, object]:
+    witnesses = [slot_data(w) for w in check.witnesses]
+    threshold = check.threshold
+    if check.kind != "manual":
+        witnesses, threshold = checked_by(check.kind, check.binds)
     return {
         "kind": check.kind,
         "target": check.target.strip(),
         "expect": check.expect.strip(),
-        "witnesses": [slot_data(w) for w in check.witnesses],
-        "threshold": check.threshold,
+        "witnesses": witnesses,
+        "threshold": threshold,
         "binds": check.binds,
     }
 

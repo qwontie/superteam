@@ -1,4 +1,5 @@
 import asyncio
+import re
 import time
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -15,6 +16,13 @@ from .model_io import ModelDraft, NotADeal
 from .schemas import QUESTION_MAX, QUESTIONS_MAX, DealDraftRequest, DealDraftResponse
 
 MAX_CLOCK_SKEW = 24 * 3600
+ADDRESS = re.compile(r"\baddress(es)?\b", re.IGNORECASE)
+WALLET = re.compile(r"\b(wallet|solana)\b", re.IGNORECASE)
+
+
+def asks_for_address(question: str) -> bool:
+    first = question.split("?", 1)[0]
+    return bool(ADDRESS.search(first) and WALLET.search(first))
 
 
 def prepare(request: DealDraftRequest) -> tuple[DealContext, str]:
@@ -33,7 +41,11 @@ def prepare(request: DealDraftRequest) -> tuple[DealContext, str]:
 def respond(output: ModelDraft | NotADeal, ctx: DealContext) -> DealDraftResponse:
     if isinstance(output, NotADeal):
         raise not_a_deal(output.reason)
-    questions = [q.strip()[:QUESTION_MAX] for q in output.questions if q.strip()]
+    questions = [
+        q.strip()[:QUESTION_MAX]
+        for q in output.questions
+        if q.strip() and not asks_for_address(q)
+    ]
     return DealDraftResponse(
         draft=build_draft(output, ctx), questions=questions[:QUESTIONS_MAX]
     )
