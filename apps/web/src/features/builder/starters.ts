@@ -209,6 +209,31 @@ export const starterDraft = (key: StarterKey, now: number): Draft =>
     wallet: null,
   });
 
+export const blankDraft = (now: number): Draft => {
+  const deadline = Math.ceil(now / HOUR) * HOUR + WEEK * DAY;
+  const spec: DealSpec = {
+    amount: SOL.toString(),
+    checks: [],
+    funder: 0,
+    parties: ["", ""],
+    rules: [
+      { pay: [{ bps: ALL, party: 1 }], when: [] },
+      {
+        pay: [{ bps: ALL, party: 0 }],
+        when: [{ ts: deadline, type: "after" }],
+      },
+    ],
+    title: "",
+  };
+  return draftFromWire(wireFromSpec(spec, ["Payer", "Receiver"]), {
+    ids: emptyIds(),
+    origin: "scratch",
+    wallet: null,
+  });
+};
+
+export const FEATURED: readonly StarterKey[] = ["gig", "bounty", "merged"];
+
 export const STARTERS: readonly Starter[] = STARTER_KEYS.map((key) => ({
   key,
   ...INFO[key],

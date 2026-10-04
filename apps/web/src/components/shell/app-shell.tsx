@@ -71,8 +71,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           <ProgramStatus />
           <Link
             className="underline decoration-cladd-fg-softest transition-colors duration-200 hover:text-cladd-fg hover:decoration-current"
-            hash="privacy"
-            to="/"
+            to="/privacy"
           >
             Privacy and cookies
           </Link>

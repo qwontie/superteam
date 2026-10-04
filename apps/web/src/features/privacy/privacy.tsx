@@ -1,4 +1,6 @@
-import type { ReactNode } from "react";
+import { cn } from "@cladd-ui/react";
+import { type ReactNode, useEffect } from "react";
+import { PAGE } from "@/components/shell/app-shell";
 
 const REPO = "https://github.com/qwontie/superteam";
 
@@ -56,25 +58,30 @@ const ITEMS: { term: string; detail: ReactNode }[] = [
 ];
 
 export function Privacy() {
+  useEffect(() => {
+    const previous = document.title;
+    document.title = "Privacy and cookies - Pact";
+    return () => {
+      document.title = previous;
+    };
+  }, []);
   return (
-    <section
-      aria-labelledby="privacy-heading"
-      className="grid scroll-mt-24 items-start gap-8 lg:grid-cols-[minmax(0,11fr)_minmax(0,14fr)] lg:gap-14"
-      id="privacy"
+    <main
+      className={cn(
+        PAGE,
+        "grid items-start gap-8 pt-10 sm:pt-16 lg:grid-cols-[minmax(0,11fr)_minmax(0,14fr)] lg:gap-14"
+      )}
     >
-      <div className="flex flex-col gap-4">
-        <h2
-          className="font-display font-semibold text-2xl tracking-tight"
-          id="privacy-heading"
-        >
+      <div className="flex flex-col gap-4 lg:sticky lg:top-28">
+        <h1 className="font-display font-semibold text-4xl tracking-[-0.02em] sm:text-5xl">
           Privacy and cookies
-        </h2>
-        <p className="max-w-[30rem] text-pretty text-cladd-fg-soft leading-relaxed">
+        </h1>
+        <p className="max-w-[30rem] text-pretty text-cladd-fg-soft text-lg leading-relaxed">
           Pact sets no cookies and runs no analytics or tracking, so there is
           nothing to consent to. Here is what it keeps and where your data goes.
         </p>
       </div>
-      <dl className="flex flex-col">
+      <dl className="flex flex-col lg:pt-2">
         {ITEMS.map(({ term, detail }) => (
           <div
             className="grid gap-1.5 py-4 shadow-[0_-1px_0_var(--color-cladd-bg-outline)] first:pt-0 first:shadow-none sm:grid-cols-[9.5rem_minmax(0,1fr)] sm:gap-6"
@@ -87,6 +94,6 @@ export function Privacy() {
           </div>
         ))}
       </dl>
-    </section>
+    </main>
   );
 }

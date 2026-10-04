@@ -15,6 +15,7 @@ export type Origin =
   | "merged"
   | "price"
   | "fact"
+  | "scratch"
   | "ai";
 export type PieceType = "after" | "signed" | "unsigned" | "attested";
 

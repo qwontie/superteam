@@ -1,6 +1,6 @@
-import { cn } from "@cladd-ui/react";
+import { Button, cn } from "@cladd-ui/react";
 import { nowSeconds } from "@pact/sdk";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Blocks } from "lucide-react";
 import { Fragment, type ReactNode, useCallback, useMemo } from "react";
 import { PAGE } from "@/components/shell/app-shell";
 import { useAi } from "@/features/builder/ai";
@@ -9,6 +9,8 @@ import { conditionText, partyName } from "@/features/builder/describe";
 import type { Draft, DraftRule } from "@/features/builder/model";
 import { BlockShell } from "@/features/builder/slots";
 import {
+  blankDraft,
+  FEATURED,
   STARTERS,
   type StarterKey,
   starterDraft,
@@ -122,6 +124,29 @@ function Example({ name, text }: { name: string; text: string }) {
   );
 }
 
+function Scratch() {
+  const { replace } = useBuilder();
+  const start = useCallback(() => replace(blankDraft(nowSeconds())), [replace]);
+  return (
+    <div className="flex w-full max-w-[44rem] flex-col items-center gap-3">
+      <div
+        aria-hidden="true"
+        className="hidden w-full items-center gap-4 text-cladd-fg-softer text-sm sm:flex"
+      >
+        <span className="h-px flex-1 bg-cladd-bg-outline" />
+        or
+        <span className="h-px flex-1 bg-cladd-bg-outline" />
+      </div>
+      <Button className="px-4 font-semibold" onClick={start} size="2xl">
+        <Blocks aria-hidden="true" size={18} />
+        Start from scratch
+      </Button>
+    </div>
+  );
+}
+
+const SHOWN = STARTERS.filter((info) => FEATURED.includes(info.key));
+
 export function Start({ prompt }: { prompt: ReactNode }) {
   return (
     <main
@@ -145,16 +170,28 @@ export function Start({ prompt }: { prompt: ReactNode }) {
           ))}
         </div>
       </div>
-      <div className="grid w-full max-w-[66rem] gap-3 md:grid-cols-3">
-        {STARTERS.map((info) => (
-          <TemplateCard
-            key={info.key}
-            label={info.label}
-            name={info.name}
-            templateKey={info.key}
-          />
-        ))}
-      </div>
+      <Scratch />
+      <section
+        aria-labelledby="templates-heading"
+        className="flex w-full max-w-[66rem] flex-col gap-4 pt-4 sm:pt-12"
+      >
+        <h2
+          className="text-center text-cladd-fg-soft text-sm"
+          id="templates-heading"
+        >
+          Or begin with a ready deal
+        </h2>
+        <div className="grid gap-3 md:grid-cols-3">
+          {SHOWN.map((info) => (
+            <TemplateCard
+              key={info.key}
+              label={info.label}
+              name={info.name}
+              templateKey={info.key}
+            />
+          ))}
+        </div>
+      </section>
     </main>
   );
 }
