@@ -1,0 +1,848 @@
+{
+  "claims": {
+    "P570": [
+      {
+        "mainsnak": {
+          "snaktype": "value",
+          "property": "P570",
+          "hash": "0a54222cb2ba69872becda2311d0f1fe0c255120",
+          "datavalue": {
+            "value": {
+              "time": "+1963-11-22T00:00:00Z",
+              "timezone": 0,
+              "before": 0,
+              "after": 0,
+              "precision": 11,
+              "calendarmodel": "http://www.wikidata.org/entity/Q1985727"
+            },
+            "type": "time"
+          },
+          "datatype": "time"
+        },
+        "type": "statement",
+        "id": "q9696$1917f1e3-4544-6850-7bf8-c7ea1a13f2e0",
+        "rank": "normal",
+        "references": [
+          {
+            "hash": "abc9457dcf728dd069b8ed5b2e1a86035cf2b679",
+            "snaks": {
+              "P248": [
+                {
+                  "snaktype": "value",
+                  "property": "P248",
+                  "hash": "019a50b7de741e0068bde41c9d9955b22a5de47b",
+                  "datavalue": {
+                    "value": {
+                      "entity-type": "item",
+                      "numeric-id": 36578,
+                      "id": "Q36578"
+                    },
+                    "type": "wikibase-entityid"
+                  },
+                  "datatype": "wikibase-item"
+                }
+              ],
+              "P813": [
+                {
+                  "snaktype": "value",
+                  "property": "P813",
+                  "hash": "7805df7373a5e95763e019b855686d24acee918e",
+                  "datavalue": {
+                    "value": {
+                      "time": "+2014-04-09T00:00:00Z",
+                      "timezone": 0,
+                      "before": 0,
+                      "after": 0,
+                      "precision": 11,
+                      "calendarmodel": "http://www.wikidata.org/entity/Q1985727"
+                    },
+                    "type": "time"
+                  },
+                  "datatype": "time"
+                }
+              ]
+            },
+            "snaks-order": ["P248", "P813"]
+          },
+          {
+            "hash": "4508d6574787426a710b374c36ac0da0ae8c1751",
+            "snaks": {
+              "P248": [
+                {
+                  "snaktype": "value",
+                  "property": "P248",
+                  "hash": "def9f19d84b65167a2a17ce38364d264c16127fc",
+                  "datavalue": {
+                    "value": {
+                      "entity-type": "item",
+                      "numeric-id": 19938912,
+                      "id": "Q19938912"
+                    },
+                    "type": "wikibase-entityid"
+                  },
+                  "datatype": "wikibase-item"
+                }
+              ],
+              "P268": [
+                {
+                  "snaktype": "value",
+                  "property": "P268",
+                  "hash": "a7dc2a67b68f52c0993d39fbdd6dbce22f39178f",
+                  "datavalue": { "value": "121853903", "type": "string" },
+                  "datatype": "external-id"
+                }
+              ],
+              "P813": [
+                {
+                  "snaktype": "value",
+                  "property": "P813",
+                  "hash": "d6162a1716489623c6e595e448b17f8dca4fb2e8",
+                  "datavalue": {
+                    "value": {
+                      "time": "+2015-10-10T00:00:00Z",
+                      "timezone": 0,
+                      "before": 0,
+                      "after": 0,
+                      "precision": 11,
+                      "calendarmodel": "http://www.wikidata.org/entity/Q1985727"
+                    },
+                    "type": "time"
+                  },
+                  "datatype": "time"
+                }
+              ]
+            },
+            "snaks-order": ["P248", "P268", "P813"]
+          },
+          {
+            "hash": "ab06aeacf6c7e24b0d16468e3012619503d36b61",
+            "snaks": {
+              "P248": [
+                {
+                  "snaktype": "value",
+                  "property": "P248",
+                  "hash": "6ff2cf2f32fe6bf566da4c3c6e2d0ae639ecef93",
+                  "datavalue": {
+                    "value": {
+                      "entity-type": "item",
+                      "numeric-id": 17378135,
+                      "id": "Q17378135"
+                    },
+                    "type": "wikibase-entityid"
+                  },
+                  "datatype": "wikibase-item"
+                }
+              ],
+              "P958": [
+                {
+                  "snaktype": "value",
+                  "property": "P958",
+                  "hash": "dee2b13cd5de2edd3eee4b36c4f4b15e6849d62b",
+                  "datavalue": {
+                    "value": "\u041a\u0435\u043d\u043d\u0435\u0434\u0438 \u0414\u0436\u043e\u043d \u0424\u0438\u0446\u0434\u0436\u0435\u0440\u0430\u043b\u0434",
+                    "type": "string"
+                  },
+                  "datatype": "string"
+                }
+              ],
+              "P813": [
+                {
+                  "snaktype": "value",
+                  "property": "P813",
+                  "hash": "5fc9601f8c9df3b7f0c53710f199e12478121a16",
+                  "datavalue": {
+                    "value": {
+                      "time": "+2017-02-25T00:00:00Z",
+                      "timezone": 0,
+                      "before": 0,
+                      "after": 0,
+                      "precision": 11,
+                      "calendarmodel": "http://www.wikidata.org/entity/Q1985727"
+                    },
+                    "type": "time"
+                  },
+                  "datatype": "time"
+                }
+              ]
+            },
+            "snaks-order": ["P248", "P958", "P813"]
+          },
+          {
+            "hash": "b6b745142e1da87447463e31b1a5dd6df5c2f57c",
+            "snaks": {
+              "P248": [
+                {
+                  "snaktype": "value",
+                  "property": "P248",
+                  "hash": "f98ec89708e8eab9511c049702ef59df0721d652",
+                  "datavalue": {
+                    "value": {
+                      "entity-type": "item",
+                      "numeric-id": 29861311,
+                      "id": "Q29861311"
+                    },
+                    "type": "wikibase-entityid"
+                  },
+                  "datatype": "wikibase-item"
+                }
+              ],
+              "P3430": [
+                {
+                  "snaktype": "value",
+                  "property": "P3430",
+                  "hash": "b80bb05e627bf9789af6578846c1fff89a114d0c",
+                  "datavalue": { "value": "w6862fst", "type": "string" },
+                  "datatype": "external-id"
+                }
+              ],
+              "P1810": [
+                {
+                  "snaktype": "value",
+                  "property": "P1810",
+                  "hash": "8c0bcab655ce08fc844c94ccdcceb9d6fe8d77d6",
+                  "datavalue": { "value": "John F. Kennedy", "type": "string" },
+                  "datatype": "string"
+                }
+              ],
+              "P813": [
+                {
+                  "snaktype": "value",
+                  "property": "P813",
+                  "hash": "e5f60ab0b03700bb883efce38f8022d023bc49fb",
+                  "datavalue": {
+                    "value": {
+                      "time": "+2017-10-09T00:00:00Z",
+                      "timezone": 0,
+                      "before": 0,
+                      "after": 0,
+                      "precision": 11,
+                      "calendarmodel": "http://www.wikidata.org/entity/Q1985727"
+                    },
+                    "type": "time"
+                  },
+                  "datatype": "time"
+                }
+              ]
+            },
+            "snaks-order": ["P248", "P3430", "P1810", "P813"]
+          },
+          {
+            "hash": "467d5aec648877cf216eac85da55a0da51ae8eaf",
+            "snaks": {
+              "P248": [
+                {
+                  "snaktype": "value",
+                  "property": "P248",
+                  "hash": "b62f3fa8bab7eb5e1bfe16d03cda082d25315c85",
+                  "datavalue": {
+                    "value": {
+                      "entity-type": "item",
+                      "numeric-id": 63056,
+                      "id": "Q63056"
+                    },
+                    "type": "wikibase-entityid"
+                  },
+                  "datatype": "wikibase-item"
+                }
+              ],
+              "P535": [
+                {
+                  "snaktype": "value",
+                  "property": "P535",
+                  "hash": "1646f2e9b075a5278caab2d03872c784a361cbac",
+                  "datavalue": { "value": "574", "type": "string" },
+                  "datatype": "external-id"
+                }
+              ],
+              "P1810": [
+                {
+                  "snaktype": "value",
+                  "property": "P1810",
+                  "hash": "d3191b7ba86305823aa9c93e4746466ef0185ca3",
+                  "datavalue": {
+                    "value": "John Fitzgerald Kennedy",
+                    "type": "string"
+                  },
+                  "datatype": "string"
+                }
+              ],
+              "P813": [
+                {
+                  "snaktype": "value",
+                  "property": "P813",
+                  "hash": "e5f60ab0b03700bb883efce38f8022d023bc49fb",
+                  "datavalue": {
+                    "value": {
+                      "time": "+2017-10-09T00:00:00Z",
+                      "timezone": 0,
+                      "before": 0,
+                      "after": 0,
+                      "precision": 11,
+                      "calendarmodel": "http://www.wikidata.org/entity/Q1985727"
+                    },
+                    "type": "time"
+                  },
+                  "datatype": "time"
+                }
+              ]
+            },
+            "snaks-order": ["P248", "P535", "P1810", "P813"]
+          },
+          {
+            "hash": "d3182e329c224bba6183f6509d0e021b31b8e67d",
+            "snaks": {
+              "P248": [
+                {
+                  "snaktype": "value",
+                  "property": "P248",
+                  "hash": "2cb827dc711b8ec4594187170c0bce6d67f54fbe",
+                  "datavalue": {
+                    "value": {
+                      "entity-type": "item",
+                      "numeric-id": 21401824,
+                      "id": "Q21401824"
+                    },
+                    "type": "wikibase-entityid"
+                  },
+                  "datatype": "wikibase-item"
+                }
+              ],
+              "P4638": [
+                {
+                  "snaktype": "value",
+                  "property": "P4638",
+                  "hash": "9000e63706744dbbf897e54a426f529044c60e11",
+                  "datavalue": {
+                    "value": "p6520.htm#i65197",
+                    "type": "string"
+                  },
+                  "datatype": "external-id"
+                }
+              ],
+              "P1810": [
+                {
+                  "snaktype": "value",
+                  "property": "P1810",
+                  "hash": "91a2e82502fff82d4ec4eced91975a9e402dee0b",
+                  "datavalue": {
+                    "value": "John FitzGerald Kennedy",
+                    "type": "string"
+                  },
+                  "datatype": "string"
+                }
+              ],
+              "P813": [
+                {
+                  "snaktype": "value",
+                  "property": "P813",
+                  "hash": "e5f60ab0b03700bb883efce38f8022d023bc49fb",
+                  "datavalue": {
+                    "value": {
+                      "time": "+2017-10-09T00:00:00Z",
+                      "timezone": 0,
+                      "before": 0,
+                      "after": 0,
+                      "precision": 11,
+                      "calendarmodel": "http://www.wikidata.org/entity/Q1985727"
+                    },
+                    "type": "time"
+                  },
+                  "datatype": "time"
+                }
+              ]
+            },
+            "snaks-order": ["P248", "P4638", "P1810", "P813"]
+          },
+          {
+            "hash": "37f62a4536371d4c37aae6575307ca4c2c6eda28",
+            "snaks": {
+              "P248": [
+                {
+                  "snaktype": "value",
+                  "property": "P248",
+                  "hash": "8d47e4ff1432a81ed9918a0b2603e6b1d1af79ce",
+                  "datavalue": {
+                    "value": {
+                      "entity-type": "item",
+                      "numeric-id": 15706812,
+                      "id": "Q15706812"
+                    },
+                    "type": "wikibase-entityid"
+                  },
+                  "datatype": "wikibase-item"
+                }
+              ],
+              "P2639": [
+                {
+                  "snaktype": "value",
+                  "property": "P2639",
+                  "hash": "582aa0dc76d0f09e4aba4447734d1f30da0da0b5",
+                  "datavalue": {
+                    "value": "7ea24aebf9bf49c99922d34fce660430",
+                    "type": "string"
+                  },
+                  "datatype": "external-id"
+                }
+              ],
+              "P1810": [
+                {
+                  "snaktype": "value",
+                  "property": "P1810",
+                  "hash": "8c0bcab655ce08fc844c94ccdcceb9d6fe8d77d6",
+                  "datavalue": { "value": "John F. Kennedy", "type": "string" },
+                  "datatype": "string"
+                }
+              ],
+              "P813": [
+                {
+                  "snaktype": "value",
+                  "property": "P813",
+                  "hash": "e5f60ab0b03700bb883efce38f8022d023bc49fb",
+                  "datavalue": {
+                    "value": {
+                      "time": "+2017-10-09T00:00:00Z",
+                      "timezone": 0,
+                      "before": 0,
+                      "after": 0,
+                      "precision": 11,
+                      "calendarmodel": "http://www.wikidata.org/entity/Q1985727"
+                    },
+                    "type": "time"
+                  },
+                  "datatype": "time"
+                }
+              ]
+            },
+            "snaks-order": ["P248", "P2639", "P1810", "P813"]
+          },
+          {
+            "hash": "672009cb09635db7865e102fdcc94a520e71ae65",
+            "snaks": {
+              "P248": [
+                {
+                  "snaktype": "value",
+                  "property": "P248",
+                  "hash": "60d66191b01ddabc31a61cdfc09b69c1e32bffdd",
+                  "datavalue": {
+                    "value": {
+                      "entity-type": "item",
+                      "numeric-id": 39845173,
+                      "id": "Q39845173"
+                    },
+                    "type": "wikibase-entityid"
+                  },
+                  "datatype": "wikibase-item"
+                }
+              ],
+              "P8044": [
+                {
+                  "snaktype": "value",
+                  "property": "P8044",
+                  "hash": "e31da15b65d774dff5bf5524344206297552186d",
+                  "datavalue": { "value": "2888", "type": "string" },
+                  "datatype": "external-id"
+                }
+              ],
+              "P1810": [
+                {
+                  "snaktype": "value",
+                  "property": "P1810",
+                  "hash": "8c0bcab655ce08fc844c94ccdcceb9d6fe8d77d6",
+                  "datavalue": { "value": "John F. Kennedy", "type": "string" },
+                  "datatype": "string"
+                }
+              ],
+              "P813": [
+                {
+                  "snaktype": "value",
+                  "property": "P813",
+                  "hash": "e5f60ab0b03700bb883efce38f8022d023bc49fb",
+                  "datavalue": {
+                    "value": {
+                      "time": "+2017-10-09T00:00:00Z",
+                      "timezone": 0,
+                      "before": 0,
+                      "after": 0,
+                      "precision": 11,
+                      "calendarmodel": "http://www.wikidata.org/entity/Q1985727"
+                    },
+                    "type": "time"
+                  },
+                  "datatype": "time"
+                }
+              ]
+            },
+            "snaks-order": ["P248", "P8044", "P1810", "P813"]
+          },
+          {
+            "hash": "d0d1851423c4f24492eb64f8d62f13c436b03ab7",
+            "snaks": {
+              "P248": [
+                {
+                  "snaktype": "value",
+                  "property": "P248",
+                  "hash": "e2a81dbf2f7dd02b332d6358ef65f622f82e8cc3",
+                  "datavalue": {
+                    "value": {
+                      "entity-type": "item",
+                      "numeric-id": 237227,
+                      "id": "Q237227"
+                    },
+                    "type": "wikibase-entityid"
+                  },
+                  "datatype": "wikibase-item"
+                }
+              ],
+              "P5019": [
+                {
+                  "snaktype": "value",
+                  "property": "P5019",
+                  "hash": "e731948972989d3f327adf8a81ebd4c7bc96e4de",
+                  "datavalue": {
+                    "value": "kennedy-john-f-fitzgerald",
+                    "type": "string"
+                  },
+                  "datatype": "external-id"
+                }
+              ],
+              "P1810": [
+                {
+                  "snaktype": "value",
+                  "property": "P1810",
+                  "hash": "25c2b4545842be1ae8fcc984af553790eb5f6a0b",
+                  "datavalue": {
+                    "value": "John F. (Fitzgerald) Kennedy",
+                    "type": "string"
+                  },
+                  "datatype": "string"
+                }
+              ]
+            },
+            "snaks-order": ["P248", "P5019", "P1810"]
+          },
+          {
+            "hash": "e43fdbcfcac6762d6c90513e471f63cdfdf82e15",
+            "snaks": {
+              "P248": [
+                {
+                  "snaktype": "value",
+                  "property": "P248",
+                  "hash": "cebaa81b4a3b7b811eeadfe69bafda4e5305c9ae",
+                  "datavalue": {
+                    "value": {
+                      "entity-type": "item",
+                      "numeric-id": 98839586,
+                      "id": "Q98839586"
+                    },
+                    "type": "wikibase-entityid"
+                  },
+                  "datatype": "wikibase-item"
+                }
+              ],
+              "P8578": [
+                {
+                  "snaktype": "value",
+                  "property": "P8578",
+                  "hash": "c984e74e966eb063e75bc719f903d8de011b5663",
+                  "datavalue": { "value": "34053", "type": "string" },
+                  "datatype": "external-id"
+                }
+              ],
+              "P1810": [
+                {
+                  "snaktype": "value",
+                  "property": "P1810",
+                  "hash": "d3191b7ba86305823aa9c93e4746466ef0185ca3",
+                  "datavalue": {
+                    "value": "John Fitzgerald Kennedy",
+                    "type": "string"
+                  },
+                  "datatype": "string"
+                }
+              ]
+            },
+            "snaks-order": ["P248", "P8578", "P1810"]
+          },
+          {
+            "hash": "31796a164904398513c42149f4b70606ecda5b94",
+            "snaks": {
+              "P248": [
+                {
+                  "snaktype": "value",
+                  "property": "P248",
+                  "hash": "0a32608aa08f3426db7556421893b00049eafc86",
+                  "datavalue": {
+                    "value": {
+                      "entity-type": "item",
+                      "numeric-id": 98769076,
+                      "id": "Q98769076"
+                    },
+                    "type": "wikibase-entityid"
+                  },
+                  "datatype": "wikibase-item"
+                }
+              ],
+              "P8094": [
+                {
+                  "snaktype": "value",
+                  "property": "P8094",
+                  "hash": "b7ac3c97ab8c9470f2662280d31ca4c839165649",
+                  "datavalue": { "value": "jfk", "type": "string" },
+                  "datatype": "external-id"
+                }
+              ],
+              "P1810": [
+                {
+                  "snaktype": "value",
+                  "property": "P1810",
+                  "hash": "8c0bcab655ce08fc844c94ccdcceb9d6fe8d77d6",
+                  "datavalue": { "value": "John F. Kennedy", "type": "string" },
+                  "datatype": "string"
+                }
+              ]
+            },
+            "snaks-order": ["P248", "P8094", "P1810"]
+          },
+          {
+            "hash": "01a391dbc383e8b44121dc31b4528e2e8de4cadc",
+            "snaks": {
+              "P248": [
+                {
+                  "snaktype": "value",
+                  "property": "P248",
+                  "hash": "91d47590779e83f1ecd244d6d11f1a1eb1d49d35",
+                  "datavalue": {
+                    "value": {
+                      "entity-type": "item",
+                      "numeric-id": 101207543,
+                      "id": "Q101207543"
+                    },
+                    "type": "wikibase-entityid"
+                  },
+                  "datatype": "wikibase-item"
+                }
+              ],
+              "P8795": [
+                {
+                  "snaktype": "value",
+                  "property": "P8795",
+                  "hash": "d17151c6d96e9644ed3d9883402d8ceb2d7b20d0",
+                  "datavalue": { "value": "108398", "type": "string" },
+                  "datatype": "external-id"
+                }
+              ],
+              "P1810": [
+                {
+                  "snaktype": "value",
+                  "property": "P1810",
+                  "hash": "d3191b7ba86305823aa9c93e4746466ef0185ca3",
+                  "datavalue": {
+                    "value": "John Fitzgerald Kennedy",
+                    "type": "string"
+                  },
+                  "datatype": "string"
+                }
+              ]
+            },
+            "snaks-order": ["P248", "P8795", "P1810"]
+          },
+          {
+            "hash": "b193d384bebc7d277d165b3854eeec297a7fc567",
+            "snaks": {
+              "P248": [
+                {
+                  "snaktype": "value",
+                  "property": "P248",
+                  "hash": "3955d0a7521fe2bf1f954efaaa995dc5c1aab2a1",
+                  "datavalue": {
+                    "value": {
+                      "entity-type": "item",
+                      "numeric-id": 1789619,
+                      "id": "Q1789619"
+                    },
+                    "type": "wikibase-entityid"
+                  },
+                  "datatype": "wikibase-item"
+                }
+              ],
+              "P7982": [
+                {
+                  "snaktype": "value",
+                  "property": "P7982",
+                  "hash": "91974b31b56e537925bd6e0ac48a3eb399d4754f",
+                  "datavalue": { "value": "31199", "type": "string" },
+                  "datatype": "external-id"
+                }
+              ],
+              "P1810": [
+                {
+                  "snaktype": "value",
+                  "property": "P1810",
+                  "hash": "d3191b7ba86305823aa9c93e4746466ef0185ca3",
+                  "datavalue": {
+                    "value": "John Fitzgerald Kennedy",
+                    "type": "string"
+                  },
+                  "datatype": "string"
+                }
+              ]
+            },
+            "snaks-order": ["P248", "P7982", "P1810"]
+          },
+          {
+            "hash": "4d57a59c82891800f60ec89f3993183e594bf659",
+            "snaks": {
+              "P248": [
+                {
+                  "snaktype": "value",
+                  "property": "P248",
+                  "hash": "46c57705d3d830a83aa228de72dc7c148cd30551",
+                  "datavalue": {
+                    "value": {
+                      "entity-type": "item",
+                      "numeric-id": 3407324,
+                      "id": "Q3407324"
+                    },
+                    "type": "wikibase-entityid"
+                  },
+                  "datatype": "wikibase-item"
+                }
+              ],
+              "P8349": [
+                {
+                  "snaktype": "value",
+                  "property": "P8349",
+                  "hash": "92901ab834051b2921f8f346facb7e0f27dc1922",
+                  "datavalue": { "value": "30707", "type": "string" },
+                  "datatype": "external-id"
+                }
+              ],
+              "P1810": [
+                {
+                  "snaktype": "value",
+                  "property": "P1810",
+                  "hash": "d3191b7ba86305823aa9c93e4746466ef0185ca3",
+                  "datavalue": {
+                    "value": "John Fitzgerald Kennedy",
+                    "type": "string"
+                  },
+                  "datatype": "string"
+                }
+              ]
+            },
+            "snaks-order": ["P248", "P8349", "P1810"]
+          },
+          {
+            "hash": "dd43849a7755b713ce122a3607df3491f38d6ce5",
+            "snaks": {
+              "P248": [
+                {
+                  "snaktype": "value",
+                  "property": "P248",
+                  "hash": "d090d15da7d9e694e4007fa21232edb621e67ba3",
+                  "datavalue": {
+                    "value": {
+                      "entity-type": "item",
+                      "numeric-id": 107456632,
+                      "id": "Q107456632"
+                    },
+                    "type": "wikibase-entityid"
+                  },
+                  "datatype": "wikibase-item"
+                }
+              ],
+              "P6844": [
+                {
+                  "snaktype": "value",
+                  "property": "P6844",
+                  "hash": "a1aa1e5f16e7c74b2da004c264358181d887fe33",
+                  "datavalue": { "value": "133177", "type": "string" },
+                  "datatype": "external-id"
+                }
+              ],
+              "P813": [
+                {
+                  "snaktype": "value",
+                  "property": "P813",
+                  "hash": "6f8f333cebfac92bb111b2fdd9fcbf7697285918",
+                  "datavalue": {
+                    "value": {
+                      "time": "+2021-04-01T00:00:00Z",
+                      "timezone": 0,
+                      "before": 0,
+                      "after": 0,
+                      "precision": 11,
+                      "calendarmodel": "http://www.wikidata.org/entity/Q1985727"
+                    },
+                    "type": "time"
+                  },
+                  "datatype": "time"
+                }
+              ]
+            },
+            "snaks-order": ["P248", "P6844", "P813"]
+          },
+          {
+            "hash": "4efa85329cf613923f8e6fd3a982b74759dc3ca7",
+            "snaks": {
+              "P248": [
+                {
+                  "snaktype": "value",
+                  "property": "P248",
+                  "hash": "055f82ef73ce123450780d681359ac6e9077e315",
+                  "datavalue": {
+                    "value": {
+                      "entity-type": "item",
+                      "numeric-id": 107343683,
+                      "id": "Q107343683"
+                    },
+                    "type": "wikibase-entityid"
+                  },
+                  "datatype": "wikibase-item"
+                }
+              ],
+              "P1284": [
+                {
+                  "snaktype": "value",
+                  "property": "P1284",
+                  "hash": "2185e83cdecf9119c6ac2e57f36e8385e88d0f1d",
+                  "datavalue": { "value": "00000007415", "type": "string" },
+                  "datatype": "external-id"
+                }
+              ],
+              "P813": [
+                {
+                  "snaktype": "value",
+                  "property": "P813",
+                  "hash": "e5f60ab0b03700bb883efce38f8022d023bc49fb",
+                  "datavalue": {
+                    "value": {
+                      "time": "+2017-10-09T00:00:00Z",
+                      "timezone": 0,
+                      "before": 0,
+                      "after": 0,
+                      "precision": 11,
+                      "calendarmodel": "http://www.wikidata.org/entity/Q1985727"
+                    },
+                    "type": "time"
+                  },
+                  "datatype": "time"
+                }
+              ],
+              "P1810": [
+                {
+                  "snaktype": "value",
+                  "property": "P1810",
+                  "hash": "8c0bcab655ce08fc844c94ccdcceb9d6fe8d77d6",
+                  "datavalue": { "value": "John F. Kennedy", "type": "string" },
+                  "datatype": "string"
+                }
+              ]
+            },
+            "snaks-order": ["P248", "P1284", "P813", "P1810"]
+          }
+        ]
+      }
+    ]
+  }
+}

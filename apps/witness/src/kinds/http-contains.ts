@@ -5,6 +5,7 @@ import {
   urlProblem,
 } from "../guarded-fetch";
 import { no, reason, type Verdict, wait, yes } from "../verdict";
+import { isFactTarget, verifyFact } from "./fact";
 
 const parseTarget = (target: string) => {
   try {
@@ -20,6 +21,9 @@ export const verifyHttpContains = async (
   fetchPage: PageFetcher,
   policy: FetchPolicy = DEFAULT_POLICY
 ): Promise<Verdict> => {
+  if (isFactTarget(target)) {
+    return verifyFact(target, expect, fetchPage, policy);
+  }
   if (expect.length === 0) {
     return no("expect is empty, nothing to look for");
   }

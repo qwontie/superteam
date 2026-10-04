@@ -14,15 +14,17 @@ const DEADLINE = 1_790_000_000;
 const deal = async (
   witness: "gate" | "node",
   yes = 0,
-  status: DealState["status"] = "funded"
+  status: DealState["status"] = "funded",
+  fact: [string, string] = [URL, MARKER]
 ): Promise<DealState> => {
-  const { gateAddress } = await gateFeedFor(URL, MARKER);
+  const [target, wanted] = fact;
+  const { gateAddress } = await gateFeedFor(target, wanted);
   const spec = gig({
     amount: 10_000_000n,
     check: {
-      expect: MARKER,
+      expect: wanted,
       kind: "http_contains",
-      target: URL,
+      target,
       threshold: 1,
       witnesses: [witness === "gate" ? gateAddress : NODE],
     },
@@ -52,6 +54,19 @@ describe("gate crank plan", () => {
   test("finds the gate check by its own target and expect", async () => {
     expect(await gateChecksOf(await deal("gate"))).toEqual([0]);
     expect(await gateChecksOf(await deal("node"))).toEqual([]);
+  });
+
+  test("finds gate checks of any fact", async () => {
+    for (const fact of [
+      ["price:SOL-USD", ">200"],
+      ["wikidata:Q22686/P570", "exists"],
+      ["https://api.example.com/job#status", "=done"],
+    ] as [string, string][]) {
+      // biome-ignore lint/performance/noAwaitInLoops: a handful of hashes
+      expect(await gateChecksOf(await deal("gate", 0, "funded", fact))).toEqual(
+        [0]
+      );
+    }
   });
 
   test("confirms an open gate check, nothing to execute yet", async () => {

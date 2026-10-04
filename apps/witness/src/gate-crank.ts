@@ -11,6 +11,7 @@ import {
   SWITCHBOARD_DEVNET_QUEUE,
   sendInstructions,
 } from "@pact/sdk";
+import { describeCheckFact } from "@pact/sdk/facts";
 import { gateFeedFor, isGateCheck, storeGateFeed } from "@pact/sdk/gate-feed";
 import {
   address,
@@ -25,7 +26,7 @@ import {
 import { reason } from "./verdict";
 
 export type FetchQuote = (feedHash: string) => Promise<Instruction>;
-export type StoreFeed = (url: string, text: string) => Promise<unknown>;
+export type StoreFeed = (target: string, expect: string) => Promise<unknown>;
 
 export interface GatePlan {
   confirm: number[];
@@ -193,7 +194,7 @@ export const createGateCrank = (ctx: GateCrankContext) => {
       lastWait.delete(key);
       const link = explorerTx(signature, ctx.cluster);
       ctx.log(
-        `${stamp()} yes  ${key} gate: ${GATE_MIN_SIGNATURES} oracles signed that ${check.target} contains ${JSON.stringify(check.expect)} confirm: ${link}`
+        `${stamp()} yes  ${key} gate: ${GATE_MIN_SIGNATURES} oracles signed "${describeCheckFact(check.target, check.expect)}" confirm: ${link}`
       );
       return link;
     } catch (error) {
