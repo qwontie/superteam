@@ -13,6 +13,7 @@ from utils.env import env
 from . import wikidata
 from .addresses import addresses_in
 from .facts import (
+    ITEMS,
     PRICE_PAIRS,
     QUANTITIES,
     WIKIDATA_PROPERTIES,
@@ -162,7 +163,9 @@ def open_recipient(ctx: RunContext[DealContext]) -> str:
 
 
 PROPERTY_LINES = "\n".join(
-    f"     {p}: {name}" + (", expect >N or <N" if p in QUANTITIES else "")
+    f"     {p}: {name}"
+    + (", expect >N or <N" if p in QUANTITIES else "")
+    + (", or =<item id>" if p in ITEMS else "")
     for p, name in WIKIDATA_PROPERTIES.items()
 )
 
@@ -172,14 +175,17 @@ available, in this order, and stop at the first that fits:
 1. A structured public fact, kind http_contains, verified by the oracle network:
    - crypto price: target price:PAIR with PAIR one of {", ".join(PRICE_PAIRS)},
      expect >N or <N in USD ("SOL above 300" is price:SOL-USD and >300).
-   - a dated event or a count of a named person, organisation, place or thing
-     that Wikidata records: first call find_wikidata_entity with the name exactly as
-     the request writes it and the property, then target
-     wikidata:<id>/<property>, expect exists for dates. Call the tool
-     only for such a fact, never for work, reviews or other deals. Properties:
+   - a dated event, a winner or a count of a named person, organisation, event,
+     place or thing that Wikidata records: first call find_wikidata_entity with
+     the name exactly as the request writes it and the property, then target
+     wikidata:<id>/<property>, expect exists. Call the tool only for such a fact,
+     never for work, reviews or other deals. Properties:
 {PROPERTY_LINES}
-     "X has died" is P570. A request that points at Wikipedia for such a fact uses
-     this Wikidata fact, not the Wikipedia page.
+     "X has a winner" or "when the winner is announced" is P1346 of the event
+     (contest, award of a given year, match) with exists; "if Y wins X" is P1346
+     with =<id of Y>, both ids from the tool. "X is released" is P577. "X has died"
+     is P570. A request that points at Wikipedia for such a fact uses this
+     Wikidata fact, not the Wikipedia page.
    - a JSON API whose https URL the user wrote: target URL#json.path (dotted
      keys, [n] indexes), expect =value, ~text (contains), >N or <N.
    - GitHub: pull request merged is github_pr_merged with owner/repo#number; CI
@@ -330,7 +336,8 @@ def _repo_problem(target: str, ctx: DealContext) -> str | None:
 
 
 def _entity_problem(entity: str, ctx: DealContext) -> str | None:
-    if entity in ctx.entities or entity in {entity_of(t) for t, _ in ctx.known}:
+    known = {entity_of(t) for t, _ in ctx.known} | {e[1:] for _, e in ctx.known}
+    if entity in ctx.entities or entity in known:
         return None
     return (
         f"{entity} did not come from find_wikidata_entity: call the tool and use an"
@@ -362,7 +369,12 @@ def _source_problem(check: ModelCheck, ctx: DealContext) -> str | None:
         return _repo_problem(target, ctx)
     entity = entity_of(target)
     if entity is not None:
-        return _entity_problem(entity, ctx) or wikidata_policy(target, expect)
+        item = expect[1:] if expect.startswith("=") else None
+        return (
+            _entity_problem(entity, ctx)
+            or (item and _entity_problem(item, ctx))
+            or wikidata_policy(target, expect)
+        )
     return _page_problem(target, expect, ctx)
 
 

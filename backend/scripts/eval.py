@@ -374,6 +374,17 @@ def expect_already_true(r: DealDraftResponse, now: int) -> list[str]:
     ]
 
 
+def expect_release(r: DealDraftResponse, now: int) -> list[str]:
+    warned = any(
+        any(w in q.lower() for w in ("already", "at once", "immediately"))
+        for q in r.questions
+    )
+    return [
+        *expect_fact("wikidata:Q23648408/P577", "exists")(r, now),
+        *need(warned, f"no warning that a date is already set: {r.questions}"),
+    ]
+
+
 def fact_draft(target: str, expect: str) -> Callable[[int], DealDraft]:
     def build(now: int) -> DealDraft:
         return DealDraft.model_validate(
@@ -564,6 +575,17 @@ CASES = [
         "already_true",
         "Pay Tom 1 SOL when Queen Elizabeth II has died. Refund in a month.",
         facts_on(expect_already_true),
+    ),
+    Case(
+        "nobel_winner",
+        "Pay Ola 1 SOL as soon as the 2026 Nobel Prize in Literature has a winner."
+        " Refund to me at the end of the year.",
+        facts_on(expect_fact("wikidata:Q137760462/P1346", "exists")),
+    ),
+    Case(
+        "release",
+        "Pay Bob 1 SOL when GTA VI is released. Refund to me at the end of 2027.",
+        facts_on(expect_release),
     ),
     Case(
         "followup_fact",

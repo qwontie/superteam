@@ -11,6 +11,8 @@ DEMO_NODES = (
 DEMO_THRESHOLD = 2
 PRICE_PAIRS = ("SOL-USD", "BTC-USD", "ETH-USD")
 WIKIDATA_PROPERTIES = {
+    "P1346": "winner",
+    "P577": "publication date",
     "P570": "date of death",
     "P569": "date of birth",
     "P576": "dissolution date",
@@ -18,6 +20,7 @@ WIKIDATA_PROPERTIES = {
     "P1128": "employee count",
 }
 QUANTITIES = frozenset({"P1082", "P1128"})
+ITEMS = frozenset({"P1346"})
 ENTITY = re.compile(r"^Q[1-9]\d*$")
 WIKIDATA = re.compile(r"^wikidata:(Q[1-9]\d*)/(P[1-9]\d*)$")
 PRICE = re.compile(r"^price:([A-Z]+-[A-Z]+)$")
@@ -79,7 +82,9 @@ def wikidata_policy(target: str, expect: str) -> str | None:
         return f"wikidata property {prop} is not allowed, use one of {allowed}"
     if prop in QUANTITIES:
         return _compare(expect, "><")
-    return None if expect == "exists" else "expect must be exists for a date"
+    if prop in ITEMS and expect.startswith("="):
+        return None if ENTITY.match(expect[1:]) else "expect must be exists or =Q.."
+    return None if expect == "exists" else f"expect must be exists for {prop}"
 
 
 def _price(match: re.Match[str], expect: str) -> str | None:
