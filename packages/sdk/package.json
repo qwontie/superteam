@@ -5,6 +5,7 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
+    "./facts": "./src/facts.ts",
     "./gate-feed": "./src/gate-feed.ts"
   },
   "scripts": {

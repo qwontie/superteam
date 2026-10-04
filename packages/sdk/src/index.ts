@@ -35,6 +35,21 @@ export {
 } from "./evaluate";
 export { type Cluster, explorerAddress, explorerTx } from "./explorer";
 export {
+  describeCheckFact,
+  describeFact,
+  type Fact,
+  FactError,
+  type FactPredicate,
+  type FactSource,
+  factError,
+  fetchWikidataLabel,
+  formatFact,
+  PRICE_PAIRS,
+  type PricePair,
+  parseFact,
+  WIKIDATA_PROPERTIES,
+} from "./facts";
+export {
   feedHashBytes,
   findGateAddress,
   GATE_MAX_AGE_SLOTS,
