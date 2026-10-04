@@ -8,6 +8,8 @@ Built for HackYeah 2026, challenge "Finance Without Intermediaries" by Superteam
 
 **How it works, who can do what, what was checked and the honest limits: [HOW-IT-WORKS.md](HOW-IT-WORKS.md).**
 
+**Going to production with real money on mainnet, or deploying your own copy from scratch: [DEPLOYMENT.md](DEPLOYMENT.md).**
+
 ## Demo
 
 https://pact.qwontie.dev runs against Solana devnet. You need a Solana wallet extension switched to devnet and test SOL from https://faucet.solana.com. No real money moves anywhere.
